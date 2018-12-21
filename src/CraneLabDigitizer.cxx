@@ -10,7 +10,7 @@
 // FIXME find out how to set dynamic range
 
 #include "TFile.h"
-#include "TChain.h"
+#include "TH1I.h"
 
 // actual number of connected boards
 #define MAXNB   1
@@ -20,6 +20,10 @@
 
 // The following define MUST specify the number of bits used for the energy calculation
 #define MAXNBITS 15
+
+// digitizer channels - we have 14 bit, so that 16834 channels
+static const int NBINS(16834);
+
 
 
 /***************************************************************/
@@ -63,6 +67,10 @@ typedef struct
     CAEN_DGTZ_IOLevel_t IOlev;
     CAEN_DGTZ_DPP_PHA_Params_t* DPPParams;
 } DigitizerParams_t;
+
+/***************************************************************/
+
+typedef std::vector<TH1I*> HistogramSeries;
 
 /***************************************************************/
 
@@ -240,18 +248,71 @@ DigitizerParams_t InitializeDigitizerForPulseGenerator()
 
 /***************************************************************/
 
-void Run(int handle, int nsec)
+/*! \fn      static long get_time()
+*   \brief   Get time in milliseconds
+*   \return  time in msec */
+// stolen from CAEN examples
+long get_time()
 {
-    uint b(0);
-    CAEN_DGTZ_SWStartAcquisition(handle);
-    printf("Acquisition Started for Board %d\n", b);
-    sleep(nsec);
-    CAEN_DGTZ_SendSWtrigger(handle); 
-    CAEN_DGTZ_SWStopAcquisition(handle); 
-    printf("Acquisition Stopped for Board %d\n", b);
-    
-
+    long time_ms;
+#ifdef WIN32
+    struct _timeb timebuffer;
+    _ftime( &timebuffer );
+    time_ms = (long)timebuffer.time * 1000 + (long)timebuffer.millitm;
+#else
+    struct timeval t1;
+    struct timezone tz;
+    gettimeofday(&t1, &tz);
+    time_ms = (t1.tv_sec) * 1000 + t1.tv_usec / 1000;
+#endif
+    return time_ms;
 }
+
+/***************************************************************/
+
+//void Run(int handle, int nsec,
+//         HistogramSeries &histos
+//         )
+//{
+//    uint b(0);
+//    CAEN_DGTZ_SWStartAcquisition(handle);
+//
+//    long currentTime = get_time(); // time in millisec
+//    long timeDelta = 0; 
+//    while (timeDelta < 1000*nsec){
+//        errCode = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
+//        std::cout << "Error : " << errCode << std::endl;
+//        std::cout << "BufferSize : " << BufferSize << std::endl;
+//        errCode =  CAEN_DGTZ_GetDPPEvents(handle, buffer, BufferSize, (void**)(Events), NumEvents);
+//        std::cout << "Error : " << errCode << std::endl;
+//   
+//        for (unsigned int ch=0; ch<MaxNChannels; ch++)
+//            {
+//                std::cout << "Saw " << NumEvents[ch] << " events " << " for channel " << ch << std::endl;
+//                for (unsigned int ev=0; ev<NumEvents[ch]; ev++)
+//                    {
+//                        histos.at(ch)->Fill(Events[ch]->Energy);
+//                        //std::cout<< Events[ch]->Energy << std::endl;
+//                        //CAEN_DGTZ_DecodeDPPWaveforms(handle, &Events[ch][ev], Waveform);
+//                        //size = (int)(Waveform->Ns); // Number of samples
+//                        //WaveLine = Waveform->Trace1; // First trace (ANALOG_TRACE_1)
+//   
+//                        //for (unsigned int k=0; k<size; k++)
+//                        //    {
+//                        //        //*(bin) = k;
+//                        //        //*(wdata) = WaveLine[k];
+//                        //        //tree->Fill();
+//                        //    }
+//                    //break;
+//                    }
+//            }
+//    timeDelta += get_time();
+//    }
+//    printf("Acquisition Started for Board %d\n", b);
+//    //CAEN_DGTZ_SendSWtrigger(handle); 
+//    CAEN_DGTZ_SWStopAcquisition(handle); 
+//    printf("Acquisition Stopped for Board %d\n", b);  
+//}
 
 
 /***************************************************************/
@@ -355,44 +416,78 @@ int main()
     int16_t *WaveLine;
     uint8_t *DigitalWaveLine;
 
+    // initialize histograms
+    HistogramSeries histos;
+    histos.reserve(8);
+    std::string histname;
+    std::string histtitle;
+    for (unsigned int ch=0; ch<MaxNChannels; ch++)
+        {
+            histname = "ehistch" + std::to_string(ch);
+            histtitle = "DigitizerChannel Ch" + std::to_string(ch);
+            histos.push_back(new TH1I(histname.c_str(), histtitle.c_str(), NBINS, 0, NBINS-1));
+        }
+
     TFile* output = new TFile("testfile.root","RECREATE");
-    TChain * tree = new TChain("Waveform");
-    tree->Branch("bin", &bin);
-    tree->Branch("wdata", &wdata);
-    tree->Add("testfile.root");
 
+    // runtime
+    int nsec = 5;
 
- 
     for (unsigned int r=0; r<runs; r++)
         {
-            Run(handle,DATATRANSFER_INTERVAL);
-            errCode = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
-            std::cout << "Error : " << errCode << std::endl;
-            std::cout << "BufferSize : " << BufferSize << std::endl;
-            errCode =  CAEN_DGTZ_GetDPPEvents(handle, buffer, BufferSize, (void**)(Events), NumEvents);
-            std::cout << "Error : " << errCode << std::endl;
+          uint b(0);
+          CAEN_DGTZ_SWStartAcquisition(handle);
+          long currentTime = get_time(); // time in millisec
+          printf("Acquisition Started for Board %d\n", b);
+    
 
-            for (unsigned int ch=0; ch<MaxNChannels; ch++)
-                {
-                    std::cout << "Saw " << NumEvents[ch] << " events " << " for channel " << ch << std::endl;
-                    for (unsigned int ev=0; NumEvents[ch]; ev++)
-                        {
-                            CAEN_DGTZ_DecodeDPPWaveforms(handle, &Events[ch][ev], Waveform);
-                            size = (int)(Waveform->Ns); // Number of samples
-                            WaveLine = Waveform->Trace1; // First trace (ANALOG_TRACE_1)
-
-                            for (unsigned int k=0; k<size; k++)
-                                {
-                                    //*(bin) = k;
-                                    //*(wdata) = WaveLine[k];
-                                    //tree->Fill();
-                                }
-                        break;
-                        }
-                }
-            tree->Write();
-            errCode = CAEN_DGTZ_ClearData(handle);
-            std::cout << "Error : " << errCode << std::endl;
+          std::vector<int> nAcquired({0,0,0,0,0,0,0,0});
+          std::cout << currentTime << std::endl;
+          long timeDelta = 0; 
+          while (timeDelta < 1000*nsec){
+              errCode = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
+              //std::cout << "Error : " << errCode << std::endl;
+              //std::cout << "BufferSize : " << BufferSize << std::endl;
+              if (BufferSize == 0) continue;
+              errCode =  CAEN_DGTZ_GetDPPEvents(handle, buffer, BufferSize, (void**)(Events), NumEvents);
+              //std::cout << "Error : " << errCode << std::endl;
+   
+              for (unsigned int ch=0; ch<MaxNChannels; ch++)
+                  {
+                      nAcquired[ch] += NumEvents[ch];
+                      for (unsigned int ev=0; ev<NumEvents[ch]; ev++)
+                          {
+                              histos.at(ch)->Fill(Events[ch]->Energy);
+                              //std::cout<< Events[ch]->Energy << std::endl;
+                              //CAEN_DGTZ_DecodeDPPWaveforms(handle, &Events[ch][ev], Waveform);
+                              //size = (int)(Waveform->Ns); // Number of samples
+                              //WaveLine = Waveform->Trace1; // First trace (ANALOG_TRACE_1)
+   
+                              //for (unsigned int k=0; k<size; k++)
+                              //    {
+                              //        //*(bin) = k;
+                              //        //*(wdata) = WaveLine[k];
+                              //        //tree->Fill();
+                              //    }
+                          //break;
+                          }
+                  }
+          long newTime = get_time();
+          timeDelta += newTime - currentTime;
+          currentTime = newTime;
+          }
+          //CAEN_DGTZ_SendSWtrigger(handle); 
+          CAEN_DGTZ_SWStopAcquisition(handle); 
+          for (unsigned int ch=0; ch<MaxNChannels; ch++)
+            {std::cout << "Saw " << nAcquired[ch] << " events " << " for channel " << ch << std::endl;}
+          printf("Acquisition Stopped for Board %d\n", b);  
+          //Run(handle,DATATRANSFER_INTERVAL, histos);
+          output->cd();
+          for (auto h : histos)
+              {h->Write();}
+          output->Write();
+          errCode = CAEN_DGTZ_ClearData(handle);
+          std::cout << "Error : " << errCode << std::endl;
         }
     return EXIT_SUCCESS;
 }
