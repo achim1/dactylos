@@ -1,0 +1,75 @@
+#! /usr/bin/env python3
+
+import argparse 
+import tkinter
+
+import pylab as p
+
+#import chamber.SunChamber as SunChamber
+#import risingsun.gui.SunChamberMonitoringGraphical as SunChamberMonitoringGraphical
+import chamber
+import risingsun
+import risingsun.gui
+
+SunChamber = chamber.chamber.SunChamber 
+SunChamberMonitoringGraphical = risingsun.gui.SunChamberMonitoringGraphical
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(usage="magnetometer.py OPTIONS \n\nUse a MilliGaussMeter GU-3001D. The script might require root privileges to access /dev/ttyUSB0 (can be avoided by setting a udev rule" )
+    parser.add_argument("--npoints", help="measure n points each interval seconds",
+                        default=100000, type=int)
+    parser.add_argument("--device", help="Device string",
+                        default="/dev/ttyUSB0", type=str)
+    parser.add_argument("--interval", help="average over this measurement time",
+                        default=2, type=int)
+    parser.add_argument("--silent", help="suppress output",
+                        default=False, action="store_true")
+    parser.add_argument("--gui", help="show a graphical interface",
+                        default=False, action="store_true")
+    parser.add_argument("--maxpoints", help="Maximum amount of data points in the plot. Earlier values get removed",
+                        default=200, type=int)
+    parser.add_argument("--debug", help="Set loglevel to 10 (DEBUG)",
+                        default=False, action="store_true")
+    parser.add_argument("--port", help="Use port for publishing data",
+                        default=9876, type=int)
+    parser.add_argument("--publish", help="Open port and stream data",
+                        default=False, action="store_true")
+    parser.add_argument("--channel", help="Select channel if multichannel instrument",
+                        default=1, type=int)
+
+    args = parser.parse_args()
+
+    loglevel = 20 # log_info
+    if args.debug:
+        loglevel = 10
+
+    if args.gui:
+
+        #try:
+        #    p.style.use("goldschmidt")
+        #except:
+        #    print("Can not use style file!")
+
+        window = tkinter.Tk()
+        # setup an instrument and find out what it is
+        #meter = SunChamber(device=args.device, loglevel=loglevel, publish=args.publish, port=args.port)
+        meter = SunChamber(publish=args.publish, port=args.port)
+        #if not identify_instrument(meter) == "Magnetometer":
+        #    meter = ThermometerTM947SD(device=args.device, loglevel=loglevel, publish=args.publish, port=args.port)
+        #    meter.select_channel(args.channel)
+        #    window.title("Thermometer TM947SD")
+        #else:
+        #    window.title("Milli-Gauss Meter GU3001D")
+
+        app = SunChamberMonitoringGraphical(window, meter, interval=args.interval,\
+                                  maxpoints=args.maxpoints, loglevel=loglevel)
+        window.mainloop()
+
+    else:
+        meter = SunChamber(publish=args.publish, port=args.port)
+        #meter = GaussMeterGU3001D(device=args.device, loglevel=loglevel, port=args.port, publish=args.publish)
+        #for seconds, fields in meter.measure_continously(args.npoints, args.interval):
+        #    if not args.silent:
+        #        print(seconds, fields)
+
+
