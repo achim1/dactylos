@@ -9,6 +9,11 @@
 #include <CAENDigitizer.h>
 // FIXME find out how to set dynamic range
 
+
+// from gaps software
+#include "gaps/GOptionParser.hh"
+#include "gaps/GLogging.hh"
+#include "gaps/GProgressBar.hh"
 #include "TFile.h"
 #include "TH1I.h"
 
@@ -24,7 +29,9 @@
 // digitizer channels - we have 14 bit, so that 16834 channels
 static const int NBINS(16834);
 
+/**************************************************************/
 
+///class 
 
 /***************************************************************/
 
@@ -155,7 +162,7 @@ int ProgramDigitizer(int handle, DigitizerParams_t Params)
         the first can be specified with the DIGITAL_TRACE_1 parameter
         the second  is always the trigger
 
-    CAEN_DGTZ_DPP_VIRTUALPROBE_SINGLE	 -> Save only the ANALOG_TRACE_1 waveform
+    CAEN_DGTZ_DPP_VIRTUALPROBE_SINGLE    -> Save only the ANALOG_TRACE_1 waveform
     CAEN_DGTZ_DPP_VIRTUALPROBE_DUAL      -> Save also the waveform specified in  ANALOG_TRACE_2
 
     Virtual Probes 1 types:
@@ -180,12 +187,12 @@ int ProgramDigitizer(int handle, DigitizerParams_t Params)
     CAEN_DGTZ_DPP_DIGITALPROBE_CoincWin
     CAEN_DGTZ_DPP_DIGITALPROBE_BLFreeze
     CAEN_DGTZ_DPP_DIGITALPROBE_TRGHoldoff
-	CAEN_DGTZ_DPP_DIGITALPROBE_TRGVal
-	CAEN_DGTZ_DPP_DIGITALPROBE_ACQVeto
-	CAEN_DGTZ_DPP_DIGITALPROBE_BFMVeto
-	CAEN_DGTZ_DPP_DIGITALPROBE_ExtTRG
-	CAEN_DGTZ_DPP_DIGITALPROBE_Busy
-	CAEN_DGTZ_DPP_DIGITALPROBE_PrgVeto*/
+    CAEN_DGTZ_DPP_DIGITALPROBE_TRGVal
+    CAEN_DGTZ_DPP_DIGITALPROBE_ACQVeto
+    CAEN_DGTZ_DPP_DIGITALPROBE_BFMVeto
+    CAEN_DGTZ_DPP_DIGITALPROBE_ExtTRG
+    CAEN_DGTZ_DPP_DIGITALPROBE_Busy
+    CAEN_DGTZ_DPP_DIGITALPROBE_PrgVeto*/
 
     ret |= CAEN_DGTZ_SetDPP_VirtualProbe(handle, ANALOG_TRACE_1, CAEN_DGTZ_DPP_VIRTUALPROBE_Delta2);
     ret |= CAEN_DGTZ_SetDPP_VirtualProbe(handle, ANALOG_TRACE_2, CAEN_DGTZ_DPP_VIRTUALPROBE_Input);
@@ -201,7 +208,7 @@ int ProgramDigitizer(int handle, DigitizerParams_t Params)
 
 /***************************************************************/
 
-DigitizerParams_t InitializeDigitizerForPulseGenerator()
+DigitizerParams_t InitializeDigitizerForPulseGenerator(GOptionParser parser)
 {
     DigitizerParams_t digiParams;
     digiParams.LinkType = CAEN_DGTZ_USB;  // Link Type
@@ -222,25 +229,24 @@ DigitizerParams_t InitializeDigitizerForPulseGenerator()
     CAEN_DGTZ_DPP_PHA_Params_t* DPPParams = new CAEN_DGTZ_DPP_PHA_Params_t();
     for (unsigned int ch=0; ch<MaxNChannels; ch++)
         {
-			DPPParams->thr[ch] = 10 ;     // Trigger Threshold (in LSB)
-			DPPParams->k[ch] = 4000;       // Trapezoid Rise Time (ns) 
-			DPPParams->m[ch] = 992;       // Trapezoid Flat Top  (ns) 
-			DPPParams->M[ch] = 10000;      // Decay Time Constant (ns) 
-			DPPParams->ftd[ch] = 800;      // Flat top delay (peaking time) (ns) 
-			DPPParams->a[ch] = 16;         // Trigger Filter smoothing factor (number of samples to average for RC-CR2 filter) Options: 1; 2; 4; 8; 16; 32
-
-			DPPParams->b[ch] = 48   ;     // Input Signal Rise time (ns) 
-			DPPParams->trgho[ch] = 4992;   // Trigger Hold Off
-			DPPParams->nsbl[ch] = 5;       //number of samples for baseline average calculation. Options: 1->16 samples; 2->64 samples; 3->256 samples; 4->1024 samples; 5->4096 samples; 6->16384 samples
-			DPPParams->nspk[ch] = 2;       //Peak mean (number of samples to average for trapezoid height calculation). Options: 0-> 1 sample; 1->4 samples; 2->16 samples; 3->64 samples
-			DPPParams->pkho[ch] = 4992;    //peak holdoff (ns)
-			DPPParams->blho[ch] = 500;     //Baseline holdoff (ns)
-			DPPParams->enf[ch] = 1.0;      // Energy Normalization Factor
-			DPPParams->decimation[ch] = 0; //decimation (the input signal samples are averaged within this number of samples): 0 ->disabled; 1->2 samples; 2->4 samples; 3->8 samples
-			DPPParams->dgain[ch] = 0;      //decimation gain. Options: 0->DigitalGain=1; 1->DigitalGain=2 (only with decimation >= 2samples); 2->DigitalGain=4 (only with decimation >= 4samples); 3->DigitalGain=8( only with decimation = 8samples).
-			DPPParams->otrej[ch] = 0;
-			DPPParams->trgwin[ch] = 0;     //Enable Rise time Discrimination. Options: 0->disabled; 1->enabled
-			DPPParams->twwdt[ch] = 100;    //Rise Time Validation Window (ns)
+            DPPParams->thr[ch] = parser.GetOption<int>("trigger-threshold");
+            DPPParams->k[ch] = parser.GetOption<int>("trapezoid-rise-time");
+            DPPParams->m[ch] = parser.GetOption<int>("trapezoid-flat-top");
+            DPPParams->M[ch] = parser.GetOption<int>("decay-time-constant"); 
+            DPPParams->ftd[ch] = parser.GetOption<int>("flat-top-delay");
+            DPPParams->a[ch]= parser.GetOption<int>("trigger-filter-smoothing-factor");
+            DPPParams->b[ch] = parser.GetOption<int>("input-signal-rise-time");
+            DPPParams->trgho[ch] = parser.GetOption<int>("trigger-hold-off");
+            DPPParams->nsbl[ch] = parser.GetOption<int>("n-samples");
+            DPPParams->nspk[ch] = parser.GetOption<int>("peak-mean");
+            DPPParams->pkho[ch] = parser.GetOption<int>("peak-holdoff");
+            DPPParams->blho[ch] = parser.GetOption<int>("baseline-holdoff");
+            DPPParams->enf[ch] = parser.GetOption<float>("energy-normalization-factor"); 
+            DPPParams->decimation[ch] = parser.GetOption<int>("decimation");
+            DPPParams->dgain[ch] = parser.GetOption<int>("decimation-gain");
+            DPPParams->otrej[ch] = parser.GetOption<int>("otrej");
+            DPPParams->trgwin[ch] = parser.GetOption<int>("trigger-window");
+            DPPParams->twwdt[ch] = parser.GetOption<int>("rise-time-validation-window"); 
         } //r
     digiParams.DPPParams = DPPParams;
     return digiParams;
@@ -314,11 +320,48 @@ long get_time()
 //    printf("Acquisition Stopped for Board %d\n", b);  
 //}
 
+/***************************************************************/
+
+//int get_minimum_n_acquired(std::vector<int> n_acq)
+//{
+//    int minimum(0);
+//    for (auto n_events : n_acq)
+//        { 
+//
+//}
 
 /***************************************************************/
 
-int main()
+int main(int argc, char* argv[])
 {
+
+    std::string description("Take data with the CAEN digitizer");
+    GOptionParser parser = GOptionParser(argc, argv, description);
+
+    // general options
+    parser.AddOption<std::string>("output-file","write output to file","","o");
+
+    // DPP related options
+    parser.AddOption<int>("trigger-threshold", "in LSB", 10);
+    parser.AddOption<int>("trapezoid-rise-time", "in ns", 4000);
+    parser.AddOption<int>("trapezoid-flat-top", "in ns", 990);
+    parser.AddOption<int>("decay-time-constant", "in ns", 10000); 
+    parser.AddOption<int>("flat-top-delay", "(peaking time) in ns", 800);
+    parser.AddOption<int>("trigger-filter-smoothing-factor", "number of samples to average for RC-CR2 filter. Options: 1,2,4,8,16,32", 16);
+    parser.AddOption<int>("input-signal-rise-time", "in ns", 48);
+    parser.AddOption<int>("trigger-hold-off", "?", 4992);
+    parser.AddOption<int>("n-samples", "number of samples for baseline averagae claculation. Options: 1->16 samples, 2->64 samples, 3->256 samples, 4->1024 samples, 5->4096 samples, 6->16384 samples", 5);
+    parser.AddOption<int>("peak-mean", "number of amples to average for trapezoid height calculation. Options 0->1 sample, 1->4 sampel, 2->16 sampels, 3->64 samples", 2 );
+    parser.AddOption<int>("peak-holdoff", "in ns", 4992);
+    parser.AddOption<int>("baseline-holdoff", "in ns", 500);
+    parser.AddOption<float>("energy-normalization-factor","?", 1.0); 
+    parser.AddOption<int>("decimation", "the input singal samples are averaged within this number of samples. 0->disabled, 1->2 samples, 2->4 samples, 3->8 samples", 0);
+    parser.AddOption<int>("decimation-gain", "options: 0->DigitalGain=1, 1->DigitalGain=2 (only with decimation >= 2 samples), 2->DigitialGain=4 (only with decimation >= 4 samples, 3->DigitialGain=8 (only with decimation = 8 samples)", 0);
+    parser.AddOption<int>("otrej", "FIXME ?", 0);
+    // FIXME: this should be a flag then, no?
+    parser.AddOption<int>("trigger-window", "enable rise time discrimatinon. Options 0->disabled, 1->enabled", 0);
+    parser.AddOption<int>("rise-time-validation-window", "in ns", 100); 
+    parser.Parse();
     
     /* The following variable is the type returned from most of CAENDigitizer
     library functions and is used to check if there was an error in function
@@ -343,7 +386,7 @@ int main()
     //int ret, handle;
     int handle;
 
-    DigitizerParams_t thisParams = InitializeDigitizerForPulseGenerator();
+    DigitizerParams_t thisParams = InitializeDigitizerForPulseGenerator(parser);
     ret = CAEN_DGTZ_OpenDigitizer(thisParams.LinkType, 0, 0, thisParams.VMEBaseAddress, &handle);
     std::cout << "Handler : " << handle << std::endl;
     /* The following is for b boards connected via 1 opticalLink in dasy chain
@@ -428,66 +471,86 @@ int main()
             histos.push_back(new TH1I(histname.c_str(), histtitle.c_str(), NBINS, 0, NBINS-1));
         }
 
-    TFile* output = new TFile("testfile.root","RECREATE");
+    std::string outfile = parser.GetOption<std::string>("output-file");
+    INFO("Writing to root file " << outfile);
+    TFile* output = new TFile(outfile.c_str(),"RECREATE");
 
     // runtime
-    int nsec = 5;
+    //int nsec = 5;
 
-    for (unsigned int r=0; r<runs; r++)
-        {
-          uint b(0);
-          CAEN_DGTZ_SWStartAcquisition(handle);
-          long currentTime = get_time(); // time in millisec
-          printf("Acquisition Started for Board %d\n", b);
+    //for (unsigned int r=0; r<runs; r++)
+    //    {
+    uint b(0);
+    CAEN_DGTZ_SWStartAcquisition(handle);
+    //      long currentTime = get_time(); // time in millisec
+    INFO("Acquisition Started for Board " <<  b);
     
+    std::vector<int> nAcquired({0,0,0,0,0,0,0,0});
+    //std::cout << currentTime << std::endl;
+    //long timeDelta = 0;
+    // FIXME configurable 
+    int n_events = 1000;
+    GProgressBar bar = GProgressBar(n_events);
+    int n_acquired = *std::min_element(nAcquired.begin(), nAcquired.end());
+    while (n_acquired < n_events)
+    //while (timeDelta < 1000*nsec){
+    {
+        errCode = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
+        std::cout << "Error : " << errCode << std::endl;
+        std::cout << "BufferSize : " << BufferSize << std::endl;
+        if (BufferSize == 0) continue;
+        errCode =  CAEN_DGTZ_GetDPPEvents(handle, buffer, BufferSize, (void**)(Events), NumEvents);
+        //std::cout << "Error : " << errCode << std::endl;
+   
+        for (unsigned int ch=0; ch<MaxNChannels; ch++)
+            {
+                nAcquired[ch] += NumEvents[ch];
+                INFO("Ch. " << ch << " saw " << NumEvents[ch] << " events");
+                for (unsigned int ev=0; ev<NumEvents[ch]; ev++)
+                    {
+                        //Events[ch]->Energy;
+                        histos.at(ch)->Fill(Events[ch]->Energy);
 
-          std::vector<int> nAcquired({0,0,0,0,0,0,0,0});
-          std::cout << currentTime << std::endl;
-          long timeDelta = 0; 
-          while (timeDelta < 1000*nsec){
-              errCode = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
-              //std::cout << "Error : " << errCode << std::endl;
-              //std::cout << "BufferSize : " << BufferSize << std::endl;
-              if (BufferSize == 0) continue;
-              errCode =  CAEN_DGTZ_GetDPPEvents(handle, buffer, BufferSize, (void**)(Events), NumEvents);
-              //std::cout << "Error : " << errCode << std::endl;
+                        //std::cout<< Events[ch]->Energy << std::endl;
+                        //CAEN_DGTZ_DecodeDPPWaveforms(handle, &Events[ch][ev], Waveform);
+                        //size = (int)(Waveform->Ns); // Number of samples
+                        //WaveLine = Waveform->Trace1; // First trace (ANALOG_TRACE_1)
    
-              for (unsigned int ch=0; ch<MaxNChannels; ch++)
-                  {
-                      nAcquired[ch] += NumEvents[ch];
-                      for (unsigned int ev=0; ev<NumEvents[ch]; ev++)
-                          {
-                              histos.at(ch)->Fill(Events[ch]->Energy);
-                              //std::cout<< Events[ch]->Energy << std::endl;
-                              //CAEN_DGTZ_DecodeDPPWaveforms(handle, &Events[ch][ev], Waveform);
-                              //size = (int)(Waveform->Ns); // Number of samples
-                              //WaveLine = Waveform->Trace1; // First trace (ANALOG_TRACE_1)
-   
-                              //for (unsigned int k=0; k<size; k++)
-                              //    {
-                              //        //*(bin) = k;
-                              //        //*(wdata) = WaveLine[k];
-                              //        //tree->Fill();
-                              //    }
-                          //break;
-                          }
-                  }
-          long newTime = get_time();
-          timeDelta += newTime - currentTime;
-          currentTime = newTime;
-          }
-          //CAEN_DGTZ_SendSWtrigger(handle); 
-          CAEN_DGTZ_SWStopAcquisition(handle); 
-          for (unsigned int ch=0; ch<MaxNChannels; ch++)
-            {std::cout << "Saw " << nAcquired[ch] << " events " << " for channel " << ch << std::endl;}
-          printf("Acquisition Stopped for Board %d\n", b);  
-          //Run(handle,DATATRANSFER_INTERVAL, histos);
-          output->cd();
-          for (auto h : histos)
-              {h->Write();}
-          output->Write();
-          errCode = CAEN_DGTZ_ClearData(handle);
-          std::cout << "Error : " << errCode << std::endl;
+                        //for (unsigned int k=0; k<size; k++)
+                        //    {
+                        //        //*(bin) = k;
+                        //        //*(wdata) = WaveLine[k];
+                        //        //tree->Fill();
+                        //    }
+                    //break;
+                    } // end fill histos
+            } // end loop over channels
+
+
+          //long newTime = get_time();
+          //timeDelta += newTime - currentTime;
+          //currentTime = newTime;
+
+       // update counter and bar
+       n_acquired = *std::min_element(nAcquired.begin(), nAcquired.end());
+       INFO("Acquired " << n_acquired);
+       for (int i=0; i<n_acquired; i++)
+        {
+            ++bar;
         }
+       } // end acquisition
+      //CAEN_DGTZ_SendSWtrigger(handle); 
+      CAEN_DGTZ_SWStopAcquisition(handle); 
+      for (unsigned int ch=0; ch<MaxNChannels; ch++)
+        {std::cout << "Saw " << nAcquired[ch] << " events " << " for channel " << ch << std::endl;}
+      printf("Acquisition Stopped for Board %d\n", b);  
+      //Run(handle,DATATRANSFER_INTERVAL, histos);
+      output->cd();
+      for (auto h : histos)
+          {h->Write();}
+      output->Write();
+      errCode = CAEN_DGTZ_ClearData(handle);
+      std::cout << "Error : " << errCode << std::endl;
+      //  }
     return EXIT_SUCCESS;
 }
