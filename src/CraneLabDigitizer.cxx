@@ -339,7 +339,7 @@ int main(int argc, char* argv[])
     GOptionParser parser = GOptionParser(argc, argv, description);
 
     // general options
-    parser.AddOption<std::string>("output-file","write output to file","","o");
+    parser.AddOption<std::string>("output-file","write output to file","digitizer-test.root","o");
 
     // DPP related options
     parser.AddOption<int>("trigger-threshold", "in LSB", 10);
@@ -491,13 +491,17 @@ int main(int argc, char* argv[])
     // FIXME configurable 
     int n_events = 1000;
     GProgressBar bar = GProgressBar(n_events);
-    int n_acquired = *std::min_element(nAcquired.begin(), nAcquired.end());
+    //FIXME: How to decide when we have enough statistics"
+    //Single channel > n, sum(all channels) > n or something else?
+    //int n_acquired = *std::min_element(nAcquired.begin(), nAcquired.end());
+    int n_acquired(0);
+    int n_acquired_previous(0); // just used for propper counter display 
     while (n_acquired < n_events)
     //while (timeDelta < 1000*nsec){
     {
         errCode = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
-        std::cout << "Error : " << errCode << std::endl;
-        std::cout << "BufferSize : " << BufferSize << std::endl;
+        DEBUG("Error : " << errCode);
+        DEBUG("BufferSize : " << BufferSize);
         if (BufferSize == 0) continue;
         errCode =  CAEN_DGTZ_GetDPPEvents(handle, buffer, BufferSize, (void**)(Events), NumEvents);
         //std::cout << "Error : " << errCode << std::endl;
@@ -505,7 +509,9 @@ int main(int argc, char* argv[])
         for (unsigned int ch=0; ch<MaxNChannels; ch++)
             {
                 nAcquired[ch] += NumEvents[ch];
-                INFO("Ch. " << ch << " saw " << NumEvents[ch] << " events");
+                n_acquired += NumEvents[ch]; // total number of acquired events
+                DEBUG("Ch. " << ch << " saw " << NumEvents[ch] << " events");
+                DEBUG("N acq " << nAcquired[ch]);
                 for (unsigned int ev=0; ev<NumEvents[ch]; ev++)
                     {
                         //Events[ch]->Energy;
@@ -531,26 +537,29 @@ int main(int argc, char* argv[])
           //timeDelta += newTime - currentTime;
           //currentTime = newTime;
 
-       // update counter and bar
-       n_acquired = *std::min_element(nAcquired.begin(), nAcquired.end());
-       INFO("Acquired " << n_acquired);
-       for (int i=0; i<n_acquired; i++)
+        // update counter and bar
+        //n_acquired = *std::min_element(nAcquired.begin(), nAcquired.end());
+        DEBUG("Acquired " << n_acquired);
+        for (int i=0; i<(n_acquired - n_acquired_previous); i++)
         {
             ++bar;
         }
-       } // end acquisition
-      //CAEN_DGTZ_SendSWtrigger(handle); 
-      CAEN_DGTZ_SWStopAcquisition(handle); 
-      for (unsigned int ch=0; ch<MaxNChannels; ch++)
-        {std::cout << "Saw " << nAcquired[ch] << " events " << " for channel " << ch << std::endl;}
-      printf("Acquisition Stopped for Board %d\n", b);  
-      //Run(handle,DATATRANSFER_INTERVAL, histos);
-      output->cd();
-      for (auto h : histos)
-          {h->Write();}
-      output->Write();
-      errCode = CAEN_DGTZ_ClearData(handle);
-      std::cout << "Error : " << errCode << std::endl;
-      //  }
+    n_acquired_previous = n_acquired;
+    DEBUG(n_acquired);
+    } // end acquisition
+
+    //CAEN_DGTZ_SendSWtrigger(handle); 
+    CAEN_DGTZ_SWStopAcquisition(handle); 
+    INFO("Acquisition Stopped for Board " << b);  
+
+    for (unsigned int ch=0; ch<MaxNChannels; ch++)
+      {INFO("Saw " << nAcquired[ch] << " events " << " for channel " << ch);}
+    //Run(handle,DATATRANSFER_INTERVAL, histos);
+    output->cd();
+    for (auto h : histos)
+        {h->Write();}
+    output->Write();
+    errCode = CAEN_DGTZ_ClearData(handle);
+    std::cout << "Error : " << errCode << std::endl;
     return EXIT_SUCCESS;
 }
