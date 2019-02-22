@@ -9,13 +9,13 @@
 #include <CAENDigitizer.h>
 // FIXME find out how to set dynamic range
 
+#include "TFile.h"
+#include "TH1I.h"
 
 // from gaps software
 #include "gaps/GOptionParser.hh"
 #include "gaps/GLogging.hh"
 #include "gaps/GProgressBar.hh"
-#include "TFile.h"
-#include "TH1I.h"
 
 // actual number of connected boards
 #define MAXNB   1
@@ -199,7 +199,7 @@ int ProgramDigitizer(int handle, DigitizerParams_t Params)
     ret |= CAEN_DGTZ_SetDPP_VirtualProbe(handle, DIGITAL_TRACE_1, CAEN_DGTZ_DPP_DIGITALPROBE_Peaking);
 
     if (ret) {
-        printf("Warning: errors found during the programming of the digitizer.\nSome settings may not be executed\n");
+        WARN("Warning: errors found during the programming of the digitizer.\nSome settings may not be executed\n");
         return ret;
     } else {
         return 0;
@@ -276,59 +276,22 @@ long get_time()
 
 /***************************************************************/
 
-//void Run(int handle, int nsec,
-//         HistogramSeries &histos
-//         )
-//{
-//    uint b(0);
-//    CAEN_DGTZ_SWStartAcquisition(handle);
-//
-//    long currentTime = get_time(); // time in millisec
-//    long timeDelta = 0; 
-//    while (timeDelta < 1000*nsec){
-//        errCode = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
-//        std::cout << "Error : " << errCode << std::endl;
-//        std::cout << "BufferSize : " << BufferSize << std::endl;
-//        errCode =  CAEN_DGTZ_GetDPPEvents(handle, buffer, BufferSize, (void**)(Events), NumEvents);
-//        std::cout << "Error : " << errCode << std::endl;
-//   
-//        for (unsigned int ch=0; ch<MaxNChannels; ch++)
-//            {
-//                std::cout << "Saw " << NumEvents[ch] << " events " << " for channel " << ch << std::endl;
-//                for (unsigned int ev=0; ev<NumEvents[ch]; ev++)
-//                    {
-//                        histos.at(ch)->Fill(Events[ch]->Energy);
-//                        //std::cout<< Events[ch]->Energy << std::endl;
-//                        //CAEN_DGTZ_DecodeDPPWaveforms(handle, &Events[ch][ev], Waveform);
-//                        //size = (int)(Waveform->Ns); // Number of samples
-//                        //WaveLine = Waveform->Trace1; // First trace (ANALOG_TRACE_1)
-//   
-//                        //for (unsigned int k=0; k<size; k++)
-//                        //    {
-//                        //        //*(bin) = k;
-//                        //        //*(wdata) = WaveLine[k];
-//                        //        //tree->Fill();
-//                        //    }
-//                    //break;
-//                    }
-//            }
-//    timeDelta += get_time();
-//    }
-//    printf("Acquisition Started for Board %d\n", b);
-//    //CAEN_DGTZ_SendSWtrigger(handle); 
-//    CAEN_DGTZ_SWStopAcquisition(handle); 
-//    printf("Acquisition Stopped for Board %d\n", b);  
-//}
 
-/***************************************************************/
-
-//int get_minimum_n_acquired(std::vector<int> n_acq)
-//{
-//    int minimum(0);
-//    for (auto n_events : n_acq)
-//        { 
-//
-//}
+// FIXME: pro;er close function
+void CloseDigitizer()
+{
+    /* stop the acquisition, close the device and free the buffers */
+    //for (b =0 ; b < MAXNB; b++) {
+    //    CAEN_DGTZ_SWStopAcquisition(handle[b]);
+    //    CAEN_DGTZ_CloseDigitizer(handle[b]);
+    //    for (ch = 0; ch < MaxNChannels; ch++)
+    //        if (EHisto[b][ch] != NULL)
+    //            free(EHisto[b][ch]);
+    //}   
+    //CAEN_DGTZ_FreeReadoutBuffer(&buffer);
+    //CAEN_DGTZ_FreeDPPEvents(handle[0], Events);
+    //CAEN_DGTZ_FreeDPPWaveforms(handle[0], Waveform);
+};
 
 /***************************************************************/
 
@@ -388,7 +351,7 @@ int main(int argc, char* argv[])
 
     DigitizerParams_t thisParams = InitializeDigitizerForPulseGenerator(parser);
     ret = CAEN_DGTZ_OpenDigitizer(thisParams.LinkType, 0, 0, thisParams.VMEBaseAddress, &handle);
-    std::cout << "Handler : " << handle << std::endl;
+    INFO("Handler : " << handle);
     /* The following is for b boards connected via 1 opticalLink in dasy chain
     in this case you must set Params[b].LinkType = CAEN_DGTZ_PCI_OpticalLink and Params[b].VMEBaseAddress = 0 */
     //ret = CAEN_DGTZ_OpenDigitizer(Params[b].LinkType, 0, b, Params[b].VMEBaseAddress, &handle[b]);
@@ -402,14 +365,14 @@ int main(int argc, char* argv[])
     //ret = CAEN_DGTZ_OpenDigitizer(Params[b].LinkType, 0, 0, Params[b].VMEBaseAddress, &handle[b]);
 
     if (ret) {
-        printf("Can't open digitizer\n");
+        FATAL("Can't open digitizer\n");
         //goto QuitProgram;    
     }
     
     /* Once we have the handler to the digitizer, we use it to call the other functions */
     ret = CAEN_DGTZ_GetInfo(handle, &BoardInfo);
     if (ret) {
-        printf("Can't read board info\n");
+        FATAL("Can't read board info\n");
         //goto QuitProgram;
     }
     printf("\nConnected to CAEN Digitizer Model %s, recognized as board %d\n", BoardInfo.ModelName, 0);
@@ -425,22 +388,25 @@ int main(int argc, char* argv[])
     // ufjehuebscht wird spaeta
     CAEN_DGTZ_ErrorCode errCode;
     errCode = CAEN_DGTZ_MallocReadoutBuffer(handle, &buffer, &AllocatedSize);
-    std::cout << "Error : " << errCode << std::endl;
+    if (errCode != 0) WARN("Error while allocating the readout buffer : " << errCode);
     /* Allocate memory for the events */
     errCode = CAEN_DGTZ_MallocDPPEvents(handle, (void**)(Events), &AllocatedSize); 
-    std::cout << "Error : " << errCode << std::endl;
+    if (errCode != 0) WARN("Error while allocation DPP event buffer : " << errCode);
     /* Allocate memory for the waveforms */
     errCode = CAEN_DGTZ_MallocDPPWaveforms(handle, (void**)(&Waveform), &AllocatedSize); 
-    std::cout << "Error : " << errCode << std::endl;
+    if (errCode != 0) WARN("Error while allocating DPP waveform buffer : " << errCode);
+
     uint32_t temp;
+    
     for (uint ch=0; ch<MaxNChannels; ch++)
         {
             CAEN_DGTZ_ReadTemperature(handle, ch, &temp);
-            printf("Ch %d  ADC temperature: %d %cC\n", ch, temp, 248);
+            INFO("Ch " << ch << " ADC temperature: " <<  temp);
         }
+
     uint32_t NumEvents[MaxNChannels];
     for (unsigned int ch=0; ch<MaxNChannels; ch++)
-        {NumEvents[ch] = 42;}
+        {NumEvents[ch] = 0;}
    
     unsigned int runs = 1;
     unsigned int const DATATRANSFER_INTERVAL(2);
@@ -552,14 +518,22 @@ int main(int argc, char* argv[])
     CAEN_DGTZ_SWStopAcquisition(handle); 
     INFO("Acquisition Stopped for Board " << b);  
 
+    std::string acquired_events_display("Acquired: ");
     for (unsigned int ch=0; ch<MaxNChannels; ch++)
-      {INFO("Saw " << nAcquired[ch] << " events " << " for channel " << ch);}
+      {
+        acquired_events_display += std::to_string(nAcquired[ch]);
+        acquired_events_display += " events for channel ";
+        acquired_events_display += std::to_string(ch);
+        acquired_events_display += " \n"; 
+        //INFO("Acquired " << nAcquired[ch] << " events " << " for channel " << ch);
+      }
+    INFO( acquired_events_display);
     //Run(handle,DATATRANSFER_INTERVAL, histos);
     output->cd();
     for (auto h : histos)
         {h->Write();}
     output->Write();
     errCode = CAEN_DGTZ_ClearData(handle);
-    std::cout << "Error : " << errCode << std::endl;
+    if (errCode != 0) WARN("Error when clearing data : " << errCode);
     return EXIT_SUCCESS;
 }
