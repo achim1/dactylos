@@ -324,6 +324,7 @@ int main(int argc, char* argv[])
     // FIXME: this should be a flag then, no?
     parser.AddOption<int>("trigger-window", "enable rise time discrimatinon. Options 0->disabled, 1->enabled", 0);
     parser.AddOption<int>("rise-time-validation-window", "in ns", 100); 
+    parser.AddOption<int>("acquire-n-events", "Acquire in total N events, summed up over all channels", 1000, "n"); 
     parser.Parse();
     
     /* The following variable is the type returned from most of CAENDigitizer
@@ -454,8 +455,7 @@ int main(int argc, char* argv[])
     std::vector<int> nAcquired({0,0,0,0,0,0,0,0});
     //std::cout << currentTime << std::endl;
     //long timeDelta = 0;
-    // FIXME configurable 
-    int n_events = 1000;
+    int n_events = parser.GetOption<int>("acquire-n-events");
     GProgressBar bar = GProgressBar(n_events);
     //FIXME: How to decide when we have enough statistics"
     //Single channel > n, sum(all channels) > n or something else?
