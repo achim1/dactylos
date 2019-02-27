@@ -1,0 +1,1 @@
+ATTRS{idVendor}=="0403", SYMLINK+="caen1471", MODE="0666"
