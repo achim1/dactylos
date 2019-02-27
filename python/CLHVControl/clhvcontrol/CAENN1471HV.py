@@ -6,6 +6,9 @@ import serial
 import time
 import tqdm
 import re
+import numpy as np
+
+from .loggers import get_logger
 
 class UnknownException(Exception):
     pass
@@ -58,34 +61,61 @@ class Channel(object):
     Namespace to access the individual channels of
     the CAENN1471 HV power supply
     """
-    def __init__(self, channel, board):
+    def __init__(self, channel, board, loglevel=30):
+        """
+        Keyword Args:
+            loglevel (int) : 10 dbg, 20 info, 30 warn
+        """
         self.channel = channel
         self.board = board
-
+        self.logger = get_logger(loglevel)
     # per channel commands, set parameters
     def _set_parameter(self, parameter, value):
         command = "$BD:{:02d},CMD:SET,CH:{}:PAR:{},VAL:{}".format(self.board.board,self.channel,parameter, str(value))
         self.board._send(command)
         response = self.board._listen()
-        print ("Set parameter for channel {} succesful {}".format(self.channel, response))    
+        self.logger.debug("Set parameter for channel {} succesful {}".format(self.channel, response))    
 
     # get channel values
     def _get_parameter(self, parameter):
         command = "$BD:{:02d},CMD:MON,CH:{}:PAR:{}".format(self.board.board,self.channel,parameter)
         self.board._send(command)
         response = self.board._listen()
-        print ("Retrieved parameter {} for channel {}".format(response, self.channel, response))    
+        self.logger.debug("Retrieved parameter {} for channel {}".format(response, self.channel, response))    
         return response    
    
     def activate(self):
         """
         Set channel to on 
         """
-        print (self.board)
-        print (self.channel)   
+        self.logger.info("Activating channel {}".format(self.channel))
         command = "$BD:{:02d},CMD:SET,CH:{},PAR:ON".format(self.board.board, self.channel)
         self.board._send(command)
         self.board._listen()
+
+    def take_iv_curve(self, voltages, time_interval=1):
+        """
+        Take iv curve. Get voltages and currents for the given 
+        number of voltages.
+
+        Args:
+            voltages (iterable): array of voltages
+
+        Keyword Args:
+            time_interval (float): time [in sec] between measurments
+
+        """
+        measured_voltages = []
+        measured_currents = []
+        for volt in tqdm.tqdm(voltages):
+            self.voltage_as_set = volt
+            measured_voltages.append(self.voltage_as_is)
+            measured_currents.append(self.current_as_is)
+            time.sleep(time_interval)
+
+        measured_voltages = np.array(measured_voltages)
+        measured_currents = np.array(measured_currents)
+        return measured_voltages, measured_currents
 
     def deactivate(self):
         """
@@ -118,26 +148,32 @@ class CAENN1471HV(object):
     ERROR_STRING = re.compile('#BD:[0-9]{2},(?P<errcode>[A-Z]{2,3}):ERR')
     SUCCESS_STRING = re.compile('#BD:[0-9]{2},CMD:OK(,VAL:)*(?P<values>[0-9A-Za-z;.]*)')
 
-    def __init__(self, port='/dev/caen1471', board=0):
+    def __init__(self, port='/dev/caen1471',
+                 board=0,
+                 time_delay=1,
+                 loglevel=30):
         """
         Set up a connection to a CAEN1471HV module via usb/serial connection.
 
         Keyword Args:
             port (str):  unix device file, e.g. /dev/ttyUSB0 or /dev/caen1471
             board (int): board number
+            loglevel (int) : 10 dbg, 20 info, 30 warn
         """
+        self.logger = get_logger(loglevel)
+        self.logger.info('Opening connection to {}'.format(port))
         self.connection = CAENN1471HV.open_connection(port)
         self.board = board
         self.last_command = None
         # give the hv module some time to respond
         # wait self.time_delay after each write command 
         # on the interface
-        self.time_delay = 1.5
+        self.time_delay = time_delay
         self.channels = dict()
         # the channel number 0-3 are the 4 channels
         # channel 4 is all channels together
         for i in range(int(self.nchannels[0]) + 1):
-            thischan = Channel(i, board=self)
+            thischan = Channel(i, board=self, loglevel=loglevel)
             if i < 4:
                 setattr(self, "channel{}".format(i),thischan)
             if i == 4:
@@ -153,7 +189,6 @@ class CAENN1471HV(object):
     @staticmethod
     def open_connection(port):
         conn = serial.Serial(port=port, xonxoff=True)   
-        print ('Opening connection to {}'.format(port))
         for __ in tqdm.tqdm(range(10)):
             time.sleep(0.05)
         return conn
@@ -164,7 +199,7 @@ class CAENN1471HV(object):
             command += "\r\n"
         command = command.encode()
         self.last_command = command
-        print (command)
+        self.logger.debug("Sending command {}".format(command))
         self.connection.write(command)
         time.sleep(self.time_delay)
 
@@ -190,9 +225,9 @@ class CAENN1471HV(object):
         self.check_response(response)
         success = CAENN1471HV.SUCCESS_STRING.match(response)
         if success is not None:
-            print (response)
+            self.logger.debug("Got repsonse {}".format(response))
             if 'values' in success.groupdict():
-                print (success.groupdict()['values'])
+                self.logger.debug("Got values {}".format(success.groupdict()['values']))
                 values = success.groupdict()['values']
                 if ';' in values:
                     values = [k for k in values.split(';')]
