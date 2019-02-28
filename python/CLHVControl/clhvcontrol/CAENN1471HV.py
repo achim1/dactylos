@@ -125,6 +125,16 @@ class Channel(object):
         self.board._send(command)
         self.board._listen()
 
+    @property
+    def status(self):
+        command = "$BD:{:02d},CMD:MON,CH:{},PAR:STAT".format(self.board.board, self.channel)
+        self.board._send(command)
+        response = self.board._listen()
+        return response
+        
+
+
+    # setters/getters
     voltage_as_set = setget("VSET", doc = "The desired voltage")
     current_as_set = setget("ISET", doc = "The desired current")
     max_set_voltage = setget("MAXV")
@@ -135,13 +145,20 @@ class Channel(object):
     power_down_ramp_or_kill = setget("PDWN")
     # can be either LOW or HIGH
     imon_range_low_or_high = setget("IMRANGE")
-    voltage_n_decimal_digits = setget("VDEC", getter_only = True)
+
+    # getters only
     voltage_as_is = setget("VMON", getter_only = True, doc = "Get current [true] voltage")
+    max_set_voltage = setget("VMAX", getter_only = True, doc = "Get max vset value")
+    min_set_voltage = setget("VMIN", getter_only = True, doc = "Get min vset value")
+    voltage_n_decimal_digits = setget("VDEC", getter_only = True)
+
     current_as_is = setget("IMON", getter_only = True, doc = "Get curretn [true] current")
     max_set_current = setget("IMAX", getter_only = True)
     min_set_current = setget("IMIN", getter_only = True)
-    iset_n_decimal_digits = setget("ISDEC", getter_only=True)
-    
+    current_n_decimal_digits = setget("ISDEC", getter_only=True)
+
+    polarity = setget("POL", getter_only=True, doc="channel polarity, readout only") 
+
 
 class CAENN1471HV(object):
     #command_string = 
@@ -213,12 +230,12 @@ class CAENN1471HV(object):
                 raise ChannelException("Channel field not present or wrong channel value {}".format(self.last_command))
             elif errcode == "PAR":
                 raise ParameterException("Field parameter not present or parameter not recognized {}".format(self.last_command))
-            elif errcode == "Val":
-                raise ValueExceptionException("Wrong set value (<Min or >Max) {}".format(self.last_command))
+            elif errcode == "VAL":
+                raise ValueException("Wrong set value (<Min or >Max) {}".format(self.last_command))
             elif errcode == "LOC":
                 raise LocalModeError("Command SET with module in LOCK mode {}".format(self.last_command))
             else:
-                raise UnknownException("Some unknown problem occured with command {}".format(self.last_command))
+                raise UnknownException("Some unknown problem occured with command {} - got response {}".format(self.last_command, response))
 
     def _listen(self):
         response = self.connection.read_all().decode()
