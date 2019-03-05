@@ -71,14 +71,14 @@ class Channel(object):
         self.logger = get_logger(loglevel)
     # per channel commands, set parameters
     def _set_parameter(self, parameter, value):
-        command = "$BD:{:02d},CMD:SET,CH:{}:PAR:{},VAL:{}".format(self.board.board,self.channel,parameter, str(value))
+        command = "$BD:{:02d},CMD:SET,CH:{},PAR:{},VAL:{}".format(self.board.board,self.channel,parameter, str(value))
         self.board._send(command)
         response = self.board._listen()
         self.logger.debug("Set parameter for channel {} succesful {}".format(self.channel, response))    
 
     # get channel values
     def _get_parameter(self, parameter):
-        command = "$BD:{:02d},CMD:MON,CH:{}:PAR:{}".format(self.board.board,self.channel,parameter)
+        command = "$BD:{:02d},CMD:MON,CH:{},PAR:{}".format(self.board.board,self.channel,parameter)
         self.board._send(command)
         response = self.board._listen()
         self.logger.debug("Retrieved parameter {} for channel {}".format(response, self.channel, response))    

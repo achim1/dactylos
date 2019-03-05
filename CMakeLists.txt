@@ -50,10 +50,83 @@ add_definitions(-DUSE_AIXLOG)
 set(SOURCES
     CraneLabDigitizer
     )
-#
-#set(HDFWRITER_LIBRARY_SHARED ${HDFWRITER_PATH}/libhdfwriter.so)
+
+option(BUILD_PYBINDINGS "pybindings for the digitizer" ON)
+
+set(PYBIND_VERSION 2.2.4 CACHE STRING "used pybindings version" FORCE)
+set(pybindings "pyCaenN6725")
+
+# get external projects - rename external headers to hpp to distinguish
+if (BUILD_PYBINDINGS)
+message(STATUS "Checking for pyoind11....")
+find_package(pybind11 )
+  if(NOT ${pybind11_FOUND})
+    message(WARNING "-- Can not find pybind11! Please install with sudo apt install pybind11-dev on a linux system!")
+    set(BUILD_PYBINDINGS OFF CACHE BOOL "pybindings for the digitizer" FORCE)
+  else()
+    message(STATUS "-- found pybind11, building pybindings.")
+    pybind11_add_module(${pybindings} MODULE src/module.cxx)
+    target_include_directories(${pybindings}
+                               PRIVATE
+                                    #${HIGHFIVE_INCLUDE_DIR}
+                                    ${ROOT_INCLUDE_DIRS}
+                                    ${GAPS_INCLUDE_DIRS}
+                                    #${HDFWRITER_PATH}
+                                    #${HDF5_INCLUDE_DIR}
+                                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                                   $<INSTALL_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                              )
+
+    target_link_libraries(${pybindings}
+                          ${ROOT_LIBRARIES}
+                          #${HDF5_LIBRARIES}
+                          #${Geant4_LIBRARIES}
+                          #GAPS::GAPSCommon
+                          #GAPS::GAPSAnalysis
+                          ${GAPS_LIBRARIES}/libGAPSCommon.so
+                          Boost::program_options
+                          Boost::timer
+                          ${CAEN_LIBRARIES}
+                          #GAPS::GAPSReconstruction
+                          #${HDFWRITER_LIBRARY_SHARED}
+                          #${Boost_LIBRARIES})
+                          )
+
+  endif()
+endif(BUILD_PYBINDINGS)
+
+set(DIGITIZER_LIBRARY_SHARED CLCAEN6725)
+# build shared library
+add_library(${DIGITIZER_LIBRARY_SHARED} SHARED src/CLCAEN6725.cxx)
+target_include_directories(${DIGITIZER_LIBRARY_SHARED}
+                           PRIVATE
+                                #${HIGHFIVE_INCLUDE_DIR}
+                                ${ROOT_INCLUDE_DIRS}
+                                ${GAPS_INCLUDE_DIRS}
+                                #${HDFWRITER_PATH}
+                                #${HDF5_INCLUDE_DIR}
+                                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                                $<INSTALL_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                              )
+
+target_link_libraries(${DIGITIZER_LIBRARY_SHARED}
+                          ${ROOT_LIBRARIES}
+                          #${HDF5_LIBRARIES}
+                          #${Geant4_LIBRARIES}
+                          #GAPS::GAPSCommon
+                          #GAPS::GAPSAnalysis
+                          ${GAPS_LIBRARIES}/libGAPSCommon.so
+                          Boost::program_options
+                          Boost::timer
+                          ${CAEN_LIBRARIES}
+                          #GAPS::GAPSReconstruction
+                          #${HDFWRITER_LIBRARY_SHARED}
+                          #${Boost_LIBRARIES})
+                          )
+
 
 foreach(source ${SOURCES})
+
     add_executable(${source} src/${source}.cxx)
     target_include_directories(${source}
                                PRIVATE
@@ -63,7 +136,9 @@ foreach(source ${SOURCES})
                                 #${HDFWRITER_PATH}
                                 #${HDF5_INCLUDE_DIR}
                                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                                $<INSTALL_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
                               )
+
     target_link_libraries(${source}
                           ${ROOT_LIBRARIES}
                           #${HDF5_LIBRARIES}
@@ -74,6 +149,7 @@ foreach(source ${SOURCES})
                           Boost::program_options
                           Boost::timer
                           ${CAEN_LIBRARIES}
+                          ${DIGITIZER_LIBRARY_SHARED}
                           #GAPS::GAPSReconstruction
                           #${HDFWRITER_LIBRARY_SHARED}
                           #${Boost_LIBRARIES})
