@@ -324,14 +324,14 @@ int main(int argc, char* argv[])
     // FIXME: this should be a flag then, no?
     parser.AddOption<int>("trigger-window", "enable rise time discrimatinon. Options 0->disabled, 1->enabled", 0);
     parser.AddOption<int>("rise-time-validation-window", "in ns", 100); 
-    parser.AddOption<int>("n-events-ch1", "Acquire N events for channel 1", 1000, "n1"); 
-    parser.AddOption<int>("n-events-ch2", "Acquire N events for channel 2", 1000, "n2"); 
-    parser.AddOption<int>("n-events-ch3", "Acquire N events for channel 3", 1000, "n3"); 
-    parser.AddOption<int>("n-events-ch4", "Acquire N events for channel 4", 1000, "n4"); 
-    parser.AddOption<int>("n-events-ch5", "Acquire N events for channel 5", 1000, "n5"); 
-    parser.AddOption<int>("n-events-ch6", "Acquire N events for channel 6", 1000, "n6"); 
-    parser.AddOption<int>("n-events-ch7", "Acquire N events for channel 7", 1000, "n7"); 
-    parser.AddOption<int>("n-events-ch8", "Acquire N events for channel 8", 1000, "n8"); 
+    parser.AddOption<int>("n-events-ch1", "Acquire N events for channel 1", 1000); 
+    parser.AddOption<int>("n-events-ch2", "Acquire N events for channel 2", 1000); 
+    parser.AddOption<int>("n-events-ch3", "Acquire N events for channel 3", 1000); 
+    parser.AddOption<int>("n-events-ch4", "Acquire N events for channel 4", 1000); 
+    parser.AddOption<int>("n-events-ch5", "Acquire N events for channel 5", 1000); 
+    parser.AddOption<int>("n-events-ch6", "Acquire N events for channel 6", 1000); 
+    parser.AddOption<int>("n-events-ch7", "Acquire N events for channel 7", 1000); 
+    parser.AddOption<int>("n-events-ch8", "Acquire N events for channel 8", 1000); 
     parser.Parse();
     
     /* The following variable is the type returned from most of CAENDigitizer
@@ -462,7 +462,7 @@ int main(int argc, char* argv[])
     std::vector<int> nAcquired({0,0,0,0,0,0,0,0});
     //std::cout << currentTime << std::endl;
     //long timeDelta = 0;
-    std::vector<int> to_acquire(8);
+    std::vector<int> to_acquire({});
     to_acquire.push_back(parser.GetOption<int>("n-events-ch1"));
     to_acquire.push_back(parser.GetOption<int>("n-events-ch2"));
     to_acquire.push_back(parser.GetOption<int>("n-events-ch3"));
@@ -472,7 +472,13 @@ int main(int argc, char* argv[])
     to_acquire.push_back(parser.GetOption<int>("n-events-ch7"));
     to_acquire.push_back(parser.GetOption<int>("n-events-ch8"));
     int n_events(0);
-    for (int n : to_acquire) {n_events += n;}
+    int tmpchannel=0;
+    for (int n : to_acquire)
+         {
+            INFO("Will acquire " << n << "events for channel " << tmpchannel);
+            n_events += n;
+            tmpchannel++;
+         }
     int n_acquired(0);
     GProgressBar bar = GProgressBar(n_events);
     //FIXME: How to decide when we have enough statistics"
