@@ -5,7 +5,7 @@ import tkinter
 
 import pylab as p
 
-from risingsun.chamber import chamber
+import risingsun as sun
 from risingsun.gui import gui
 
 if __name__ == "__main__":
@@ -31,33 +31,41 @@ if __name__ == "__main__":
                         default=False, action="store_true")
     parser.add_argument("--channel", help="Select channel if multichannel instrument",
                         default=1, type=int)
+    parser.add_argument("--controller", help="Use either NI usb/gpib controller or Prologix. Set parameter to 'ni' or 'prologix'. [DEFAULT: prologix]",
+                        default='prologix', type=str)
 
     args = parser.parse_args()
 
+    assert (args.controller == "ni" or args.controller == "prologix"), "Need to choose either 'ni' or 'prologix' for controller argument"
     loglevel = 20 # log_info
     if args.debug:
         loglevel = 10
 
+
+    #try:
+    #    p.style.use("goldschmidt")
+    #except:
+    #    print("Can not use style file!")
+
+    # setup an instrument and find out what it is
+    #meter = SunChamber(device=args.device, loglevel=loglevel, publish=args.publish, port=args.port)
+    if args.controller == 'ni':
+        controller = sun.NI_GPIB_USB()
+    if args.controller == 'prologix': 
+        controller = sun.PrologixUsbGPIBController()
+    #meter = chamber.SunChamber(publish=args.publish, port=args.port)
+    chamber = sun.SunChamber(controller)
     if args.gui:
-
-        #try:
-        #    p.style.use("goldschmidt")
-        #except:
-        #    print("Can not use style file!")
-
         window = tkinter.Tk()
-        # setup an instrument and find out what it is
-        #meter = SunChamber(device=args.device, loglevel=loglevel, publish=args.publish, port=args.port)
-        meter = chamber.SunChamber(publish=args.publish, port=args.port)
         window.title("SUN EC-13 control")
 
-        app = gui.SunChamberMonitoringGraphical(window, meter, interval=args.interval,\
-                                  maxpoints=args.maxpoints, loglevel=loglevel)
+        app = gui.SunChamberMonitoringGraphical(window, chamber, interval=args.interval,\
+                                                maxpoints=args.maxpoints, loglevel=loglevel)
         window.mainloop()
 
     else:
-        meter = GaussMeterGU3001D(device=args.device, loglevel=loglevel, port=args.port, publish=args.publish)
-        for seconds, fields in meter.measure_continously(args.npoints, args.interval):
+        #meter = GaussMeterGU3001D(device=args.device, loglevel=loglevel, port=args.port, publish=args.publish)
+        for seconds, fields in chamber.measure_continously(args.npoints, args.interval):
             if not args.silent:
                 print(seconds, fields)
 
