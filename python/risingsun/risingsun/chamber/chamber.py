@@ -3,7 +3,11 @@
 Control SUN EC13 temperature chamber
 """
 
-import visa
+from .ni_gpib_usb import NI_GPIB_USB 
+from .prologix_gpib_usb import PrologixUsbGPIBController
+
+import numpy as np
+import time 
 
 try:
     import zmq 
@@ -18,7 +22,7 @@ class SUNEC13Commands:
     TEMP4 = "C4?"
 
 
-class  SunChamber:
+class  SunChamber(object):
 
     axis_label = "Temperature "
     temperature_unit = "C"
@@ -44,27 +48,28 @@ class  SunChamber:
                      "2" : "EE RAM error found (check default settings)", "3" : "ROM error found (call factory)"}]
     
 
-    def __init__(self,gpib_adress=6, port=9999, publish=False):
-        resource_manager = visa.ResourceManager()
-        print("Found the following visa resources : {}".format(resource_manager.list_resources()))
-        chamber_found = False
-        try:
-            self.chamber = resource_manager.open_resource(resource_manager.list_resources()[0])
-            chamber_found = True
-        except IndexError:
-            print("Can not find any visa resources!")
-            self.chamber = None
+    #def __init__(self,gpib_adress=6, port=9999, publish=False):
+    def __init__(self, controller, port=9999, publish=False):
+        
+        assert (isinstance(controller, NI_GPIB_USB) or isinstance(controller, PrologixUsbGPIBController)), "The used controller has to be either the NI usb one or the prologix usb"
+        
+        self.chamber = controller
+        self.is_running = False
+        self.publish = publish
+        self.port = port
+        self._socket = None
 
-        if chamber_found:
-            self.last_status = ""
-            status = self.get_status()
-            self.print_status(status)
-            self.is_running = False
-            self.publish = publish
-            self.port = port
-            self._socket = None
-            if publish:
-                self._setup_port()
+        # sometimes the chamber needs a bit till it is responding
+        # get the status a few times
+        self.get_temperature()
+        self.get_status()
+        self.get_status()
+
+        self.last_status = ""
+        status = self.get_status()
+        self.print_status(status)
+        if publish:
+            self._setup_port()
 
     def _setup_port(self):
         """
@@ -113,12 +118,18 @@ class  SunChamber:
         Channel 0,1
         """
         if channel == 0:
-            temp = float(self.chamber.query(SUNEC13Commands.TEMP3))
+            temp = self.chamber.query(SUNEC13Commands.TEMP3)
         elif channel == 1:
-            temp = float(self.chamber.query(SUNEC13Commands.TEMP4))
+            temp = self.chamber.query(SUNEC13Commands.TEMP4)
         else:
             raise ValueError("Channel has to be either 0 or 1!")
         print ("Got channel temp of {}".format(temp))
+        
+        try:
+            temp = float(temp)
+        except ValueError:
+            print ("Problems digesting {}".format(temp))
+            temp = np.nan
 
         if self.publish and (self._socket is None):
             self._setup_port()
@@ -126,4 +137,14 @@ class  SunChamber:
             self._socket.send_string("{}::CH{} {}; {}".format("SUNEC13", channel, temp, self.temperature_unit))
   
         return temp 
+
+    def measure_continously(self, npoints, interval):
+        for n in range(npoints):
+            temp1 = self.get_temperature(channel=0)
+            temp2 = self.get_temperature(channel=1)
+            if self.publish:
+                self._socket.send_string("{}::CH{} {}; {}".format("SUNEC13", 0, temp1, self.temperature_unit))
+                self._socket.send_string("{}::CH{} {}; {}".format("SUNEC13", 1, temp2, self.temperature_unit))
+            time.sleep(interval)
+            yield n*interval, (temp1,temp2)
     

@@ -12,6 +12,8 @@ from os.path import exists as _exists
 from shutil import copy2 as _copy
 from datetime import datetime as _datetime
 
+from .chamber import SunChamber, NI_GPIB_USB, PrologixUsbGPIBController
+
 
 __all__ = ['gui', 'chamber']
 __version__ = "0.0.1dev"
