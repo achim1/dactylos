@@ -79,6 +79,9 @@ class CaenN6725 {
         void allocate_memory();
         int get_nchannels() const;
         std::vector<int> get_temperatures() const;
+        void configure_channel(int channel, ChannelParams_t params);
+        void calibrate();
+
     private:
         // is it configured"
         bool configured_ = false;

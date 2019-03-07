@@ -275,6 +275,62 @@ long CaenN6725::get_time() const
 
 /*******************************************************************/
 
+void CaenN6725::configure_channel(int channel, ChannelParams_t params)
+{
+    uint32_t mask;
+    switch (channel){
+        case (0) : {
+                    mask = 0x01;
+                    break;   
+                 }
+        case (1) : {
+                    mask = 0x02;
+                    break;
+                 }
+        case (2) : {
+                    mask = 0x04;
+                    break;
+                 }
+        case (3) : {
+                    mask = 0x08;
+                    break;
+                 }
+        case (4) : {
+                    mask = 0x10;
+                    break;
+                 }
+        case (5) : {
+                    mask = 0x20;
+                    break;
+                 }
+        case (6) : {
+                    mask = 0x40;
+                    break;
+                 }
+        case (7) : {
+                    mask = 0x80;
+                    break;
+                 }
+    }
+    mask = 0xff;
+
+    // channel mask 0xff means all channels ( 8bit set)
+    current_error_ = CAEN_DGTZ_SetDPPParameters(handle_, mask, &params);
+    if (current_error_ != 0) throw std::runtime_error("Problems configuring channel, err code " + std::to_string(current_error_));
+
+};
+
+/*******************************************************************/
+
+void CaenN6725::calibrate()
+{
+    current_error_ = CAENDGTZ_API CAEN_DGTZ_Calibrate(handle_);
+    if (current_error_ != 0) throw std::runtime_error("Issue during calibration err code: " + std::to_string(current_error_));
+
+}
+
+/*******************************************************************/
+
 // FIXME: pro;er close function
 CaenN6725::~CaenN6725()
 {
