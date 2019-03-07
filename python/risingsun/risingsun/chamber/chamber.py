@@ -15,11 +15,51 @@ except ImportError:
     print("Can not import zero MQ")
 
 class SUNEC13Commands:
-    STATUS = "STATUS?"
-    ON     = "ON"
-    OFF    = "OFF"
-    TEMP3 = "C3?"
-    TEMP4 = "C4?"
+    STATUS  = "STATUS"
+    ON      = "ON"
+    OFF     = "OFF"
+    HON     = 'HON' # heater on
+    HOFF    = 'HOFF' # heater on
+    CON     = 'CON' # cooler on
+    COFF    = 'COFF'
+    TEMP3   = "C3"
+    TEMP4   = "C4"
+    SETTEMP = "SET"
+    WAIT    = "WAIT" # wait time
+    RATE    = "RATE" # temperature ramping time deg/minute
+    STOP    = "STOP" # terminate run mode
+    LTL     = "LTL"  # chamber lower temperature limit
+    UTL     = "UTL"  # chamber upper temperature limit
+    DEVL    = "DEVL" # chamber maximum deviation limit +/-
+    PWMP    = "PWMP" # pwm period
+
+
+
+    @staticmethod
+    def querify(cmd):
+        return cmd + "?"
+
+    @staticmethod
+    def settify(cmd):
+        return cmd + "="
+
+
+def setget(parameter, getter_only = False, doc=None):
+    """
+    Shortcut to construct property objects to wrap getters and setters
+    for a number of settings
+
+    Args:
+        parameter: The parameter name to get/set. Get will be a query
+
+    Returns:
+        property object
+    """
+    if getter_only:
+        return property(lambda self: self._get_parameter(parameter), doc=doc)
+    else:
+        return property(lambda self: self._get_parameter(parameter),\
+                        lambda self, value: self._set_parameter(parameter,value), doc=doc)
 
 
 class  SunChamber(object):
@@ -83,6 +123,18 @@ class  SunChamber(object):
         self._socket.connect("tcp://0.0.0.0:%s" % int(self.port))
         return
 
+    def _set_parameter(self, parameter, value):
+        command = f"{parameter}={value}\r\n"
+        self.chamber.write(command)
+
+    def _get_parameter(self, parameter):
+        command = f"{parameter}?\r\n"
+        resp = self.chamber.query(command)
+        return resp
+        
+    # a bunch of setters/getters
+    temperatur_as_is = setget(SUNEC13Commands.SETTEMP)
+
 
     @property
     def ON(self):
@@ -97,9 +149,53 @@ class  SunChamber(object):
             return
         self.chamber.write(SUNEC13Commands.OFF)
 
+    def activate_heater(self):
+        self.chamber.write(SUNEC13Commands.HON)
+    
+    def deactivate_heater(self):
+        self.chamber.write(SUNEC13Commands.HOFF)
+
+    def activate_cooler(self):
+        self.chamber.write(SUNEC13Commands.CON)
+
+    def deactivate_heater(self):
+        self.chamber.write(SUNEC13Commands.COFF)
+
     def get_status(self):
-        self.last_status = self.chamber.query(SUNEC13Commands.STATUS)
+        self.last_status = self.chamber.query(SUNEC13Commands.querify(SUNEC13Commands.STATUS))
         return self.last_status
+
+    def _bit_io_channel_active(self, channel):
+        """
+        Read the in-built analog_io port, which controls a bunch of relays
+        
+        Args:
+            channel (int) ; channel on the analog port, FIXME: which ic which is not yet clear
+        """
+        command = f"IN0:{channel},I0\r\n" # read the value into I0 variable
+        self.chamber.write(commend)
+        command = "I0?"
+        resp = self.chamber.query(command)
+        print (resp)
+        # FIXME: check which corresponds to actual on/off states
+        if int(resp) == 1: # TTL low, input closed
+            return False
+        if int(resp) == 0: # TTL high, input open
+            return True
+
+    def _activate_bitio_channel(self, channel):
+        """
+        Write to the analog i/0 board
+        """
+        command = f"OUT0:{channel},1\r\n" # read the value into I0 variable
+        self.chamber.write(command)       
+
+    def _deactivate_bitio_channel(self, channel):
+        """
+        Write to the analog i/0 board
+        """
+        command = f"OUT0:{channel},0\r\n" # read the value into I0 variable
+        self.chamber.write(command)
 
     @staticmethod
     def print_status(status): 
@@ -118,9 +214,9 @@ class  SunChamber(object):
         Channel 0,1
         """
         if channel == 0:
-            temp = self.chamber.query(SUNEC13Commands.TEMP3)
+            temp = self.chamber.query(SUNEC13Commands.querify(SUNEC13Commands.TEMP3))
         elif channel == 1:
-            temp = self.chamber.query(SUNEC13Commands.TEMP4)
+            temp = self.chamber.query(SUNEC13Commands.querify(SUNEC13Commands.TEMP4))
         else:
             raise ValueError("Channel has to be either 0 or 1!")
         print ("Got channel temp of {}".format(temp))
