@@ -1,3 +1,5 @@
+#include <stdexcept>
+
 #include <CAENDigitizerType.h>
 #include <CAENDigitizer.h>
 
@@ -7,7 +9,46 @@
 
 /***************************************************************/
 
-CaenN6725::CaenN6725(){};
+CaenN6725::CaenN6725()
+{
+    // make this specific for our case
+    // third 0 is VMEBaseAddress, which must be 0 for direct USB connections
+    current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 0, 0, 0, &handle_);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not open digitizer");
+};
+
+/***************************************************************/
+
+CAEN_DGTZ_ErrorCode CaenN6725::get_last_error() const
+{
+    return current_error_;
+}
+
+/***************************************************************/
+
+CAEN_DGTZ_BoardInfo_t CaenN6725::get_board_info()
+{
+
+    current_error_ = CAEN_DGTZ_GetInfo(handle_, &board_info_);
+    return board_info_;
+
+}
+
+
+/***************************************************************/
+
+void CaenN6725::allocate_memory()
+{
+    if (!configured_) throw std::runtime_error("ERROR: The mallocs MUST be done after the digitizer programming because the following functions needs to know the digitizer configuration to allocate the right memory amount");
+    current_error_ = CAEN_DGTZ_MallocReadoutBuffer(handle_, &buffer_, &allocated_size_);
+    if (current_error_ != 0) throw std::runtime_error("Error while allocating readout buffer, err code " + std::to_string(current_error_));
+    /* Allocate memory for the events */
+    current_error_ = CAEN_DGTZ_MallocDPPEvents(handle_, (void**)(events_), &allocated_size_);
+    if (current_error_ != 0) throw std::runtime_error("Error while allocating DPP event buffer, err code " + std::to_string(current_error_));
+    /* Allocate memory for the waveforms */
+    current_error_ = CAEN_DGTZ_MallocDPPWaveforms(handle_, (void**)(&waveform_), &allocated_size_);
+    if (current_error_ != 0) throw std::runtime_error("Error while allocating DPP waveform buffer, err code " + std::to_string(current_error_));
+}
 
 /***************************************************************/
 
@@ -53,6 +94,13 @@ DigitizerParams_t CaenN6725::InitializeDigitizerForPulseGenerator(GOptionParser 
         } //r
     digiParams.DPPParams = DPPParams;
     return digiParams;
+}
+
+/***************************************************************/
+
+int CaenN6725::get_nchannels() const
+{
+    return max_n_channels_;
 }
 
 /***************************************************************/
@@ -174,8 +222,12 @@ int CaenN6725::ProgramDigitizer(int handle, DigitizerParams_t Params)
     ret |= CAEN_DGTZ_SetDPP_VirtualProbe(handle, ANALOG_TRACE_2, CAEN_DGTZ_DPP_VIRTUALPROBE_Input);
     ret |= CAEN_DGTZ_SetDPP_VirtualProbe(handle, DIGITAL_TRACE_1, CAEN_DGTZ_DPP_DIGITALPROBE_Peaking);
 
+    // set as configured
+    configured_ = true;
+
     if (ret) {
-        WARN("Warning: errors found during the programming of the digitizer.\nSome settings may not be executed\n");
+        //WARN("Warning: errors found during the programming of the digitizer.\nSome settings may not be executed\n");
+        throw std::runtime_error("Problems during digitizer configuration, err code : " + std::to_string(ret));
         return ret;
     } else {
         return 0;
@@ -184,13 +236,28 @@ int CaenN6725::ProgramDigitizer(int handle, DigitizerParams_t Params)
 
 /*******************************************************************/
 
+std::vector<int> CaenN6725::get_temperatures() const
+{
+    std::vector<int> temperatures({});
+    uint32_t temp;
+    for (uint ch=0; ch<MaxNChannels; ch++)
+        {
+          CAEN_DGTZ_ReadTemperature(handle_, ch, &temp);
+          INFO("Ch " << ch << " ADC temperature: " <<  temp);
+          temperatures.push_back(temp);   
+       }
+    return temperatures;
+
+}
+
+/*******************************************************************/
 
 
 /*! \fn      static long get_time()
 *   \brief   Get time in milliseconds
 *   \return  time in msec */
 // stolen from CAEN examples
-long CaenN6725::get_time()
+long CaenN6725::get_time() const
 {
     long time_ms;
 #ifdef WIN32

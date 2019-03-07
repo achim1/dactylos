@@ -1,6 +1,8 @@
 #ifndef CLCAEN6725_H_INCLUDED
 #define CLCAEN6725_H_INCLUDED
 
+#include <vector>
+
 #include <CAENDigitizerType.h>
 #include <CAENDigitizer.h>
 
@@ -71,21 +73,47 @@ class CaenN6725 {
         ~CaenN6725();
         DigitizerParams_t InitializeDigitizerForPulseGenerator(GOptionParser parser);
         int ProgramDigitizer(int handle, DigitizerParams_t Params);
-        long get_time();
-
-
+        long get_time() const;
+        CAEN_DGTZ_ErrorCode get_last_error() const;
+        CAEN_DGTZ_BoardInfo_t get_board_info();
+        void allocate_memory();
+        int get_nchannels() const;
+        std::vector<int> get_temperatures() const;
     private:
+        // is it configured"
+        bool configured_ = false;
+
+
         // actual number of connected boards
         const int MAXNB_ = 1;
         // NB: the following define MUST specify the ACTUAL max allowed number of board's channels
         // it is needed for consistency inside the CAENDigitizer's functions used to allocate the memory
-        const int MaxNChannels_ = 8;
+        static const uint32_t max_n_channels_ = 8;
         
         // The following define MUST specify the number of bits used for the energy calculation
         const int MAXNBITS_ = 15;
         
         // digitizer channels - we have 14 bit, so that 16834 channels
         const int NBINS_ = 16834;
+    
+        // something like the "address"
+        // this gets assigned when the digitizer
+        // is opened
+        int handle_;
+        CAEN_DGTZ_ErrorCode current_error_;
+        /* Buffers to store the data. The memory must be allocated using the appropriate
+        CAENDigitizer API functions (see below), so they must not be initialized here
+        NB: you must use the right type for different DPP analysis (in this case PHA) */
+        uint32_t                        allocated_size_;
+        uint32_t                        buffer_size_;
+        char                            *buffer_ = nullptr; // readout buffer
+        CAEN_DGTZ_DPP_PHA_Event_t       *events_[max_n_channels_];  // events buffer
+        CAEN_DGTZ_DPP_PHA_Waveforms_t   *waveform_=nullptr;     // waveforms buffer
+        CAEN_DGTZ_BoardInfo_t           board_info_;
+
+
+
+
 };
 
 /************************************************************************/

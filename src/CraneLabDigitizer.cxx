@@ -89,8 +89,6 @@ int main(int argc, char* argv[])
     CaenN6725 digitizer;
 
     DigitizerParams_t thisParams = digitizer.InitializeDigitizerForPulseGenerator(parser);
-    ret = CAEN_DGTZ_OpenDigitizer(thisParams.LinkType, 0, 0, thisParams.VMEBaseAddress, &handle);
-    INFO("Handler : " << handle);
     /* The following is for b boards connected via 1 opticalLink in dasy chain
     in this case you must set Params[b].LinkType = CAEN_DGTZ_PCI_OpticalLink and Params[b].VMEBaseAddress = 0 */
     //ret = CAEN_DGTZ_OpenDigitizer(Params[b].LinkType, 0, b, Params[b].VMEBaseAddress, &handle[b]);
@@ -102,14 +100,15 @@ int main(int argc, char* argv[])
     Params[1].VMEBaseAddress = <0xYYYYYYYY> (address of second board) 
     etc */
     //ret = CAEN_DGTZ_OpenDigitizer(Params[b].LinkType, 0, 0, Params[b].VMEBaseAddress, &handle[b]);
-
+    ret = digitizer.get_last_error();
     if (ret) {
         FATAL("Can't open digitizer\n");
         //goto QuitProgram;    
     }
-    
+   
+    CAEN_DGTZ_BoardInfo_t board_info = digitizer.get_board_info(); 
+    ret = digitizer.get_last_error(); 
     /* Once we have the handler to the digitizer, we use it to call the other functions */
-    ret = CAEN_DGTZ_GetInfo(handle, &BoardInfo);
     if (ret) {
         FATAL("Can't read board info\n");
         //goto QuitProgram;
@@ -125,22 +124,12 @@ int main(int argc, char* argv[])
     to allocate the right memory amount */
     /* Allocate memory for the readout buffer */
     // ufjehuebscht wird spaeta
-    CAEN_DGTZ_ErrorCode errCode;
-    errCode = CAEN_DGTZ_MallocReadoutBuffer(handle, &buffer, &AllocatedSize);
-    if (errCode != 0) WARN("Error while allocating the readout buffer : " << errCode);
-    /* Allocate memory for the events */
-    errCode = CAEN_DGTZ_MallocDPPEvents(handle, (void**)(Events), &AllocatedSize); 
-    if (errCode != 0) WARN("Error while allocation DPP event buffer : " << errCode);
-    /* Allocate memory for the waveforms */
-    errCode = CAEN_DGTZ_MallocDPPWaveforms(handle, (void**)(&Waveform), &AllocatedSize); 
-    if (errCode != 0) WARN("Error while allocating DPP waveform buffer : " << errCode);
-
-    uint32_t temp;
-    
-    for (uint ch=0; ch<MaxNChannels; ch++)
+    digitizer.allocate_memory();
+    std::vector<int> temps = digitizer.get_temperatures();
+     
+    for (uint ch=0; ch<digitizer.get_nchannels(); ch++)
         {
-            CAEN_DGTZ_ReadTemperature(handle, ch, &temp);
-            INFO("Ch " << ch << " ADC temperature: " <<  temp);
+            INFO("Ch " << ch << " ADC temperature: " <<  temps[ch]);
         }
 
     uint32_t NumEvents[MaxNChannels];
@@ -229,11 +218,11 @@ int main(int argc, char* argv[])
     )
     //while (timeDelta < 1000*nsec){
     {
-        errCode = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
-        DEBUG("Error : " << errCode);
+        ret = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
+        DEBUG("Error : " << ret);
         DEBUG("BufferSize : " << BufferSize);
         if (BufferSize == 0) continue;
-        errCode =  CAEN_DGTZ_GetDPPEvents(handle, buffer, BufferSize, (void**)(Events), NumEvents);
+        ret =  CAEN_DGTZ_GetDPPEvents(handle, buffer, BufferSize, (void**)(Events), NumEvents);
         //std::cout << "Error : " << errCode << std::endl;
    
         for (unsigned int ch=0; ch<MaxNChannels; ch++)
@@ -297,7 +286,7 @@ int main(int argc, char* argv[])
     for (auto h : histos)
         {h->Write();}
     output->Write();
-    errCode = CAEN_DGTZ_ClearData(handle);
-    if (errCode != 0) WARN("Error when clearing data : " << errCode);
+    ret = CAEN_DGTZ_ClearData(handle);
+    if (ret != 0) WARN("Error when clearing data : " << ret);
     return EXIT_SUCCESS;
 }
