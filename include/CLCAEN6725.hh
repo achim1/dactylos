@@ -3,10 +3,13 @@
 
 #include <vector>
 
+//#define CAEN_DGTZ_BoardInfo_t _TRASH_
+
 #include <CAENDigitizerType.h>
 #include <CAENDigitizer.h>
 
-
+//#define DUMMY CAEN_DGTZ_BoardInfo_t 
+// #undef CAEN_DGTZ_BoardInfo_t
 // actual number of connected boards
 static const int MAXNB(1);
 // NB: the following define MUST specify the ACTUAL max allowed number of board's channels
@@ -49,6 +52,27 @@ struct ChannelParams_t
 };
 //} ChannelParams_t;
 
+//----------------
+////struct BoardInfo_t {
+//struct CAEN_DGTZ_BoardInfo_t {
+//        char ModelName[12];
+//        uint32_t Model;
+//        uint32_t Channels;
+//        uint32_t FormFactor;
+//        uint32_t FamilyCode;
+//        char ROC_FirmwareRel[20];
+//        char AMC_FirmwareRel[40];
+//        uint32_t SerialNumber;
+//        char MezzanineSerNum[4][8]; //used only for x743 boards
+//        uint32_t PCB_Revision;
+//        uint32_t ADC_NBits;
+//        uint32_t SAMCorrectionDataLoaded; //used only for x743 boards
+//        int CommHandle;
+//        int VMEHandle;
+//        char License[MAX_LICENSE_LENGTH];
+//};
+
+
 /************************************************************************/
 
 struct DigitizerParams_t
@@ -70,22 +94,26 @@ class CaenN6725 {
 
     public:
         CaenN6725();
+        CaenN6725(DigitizerParams_t pars);
         ~CaenN6725();
         DigitizerParams_t InitializeDigitizerForPulseGenerator(GOptionParser parser);
         int ProgramDigitizer(int handle, DigitizerParams_t Params);
         long get_time() const;
         CAEN_DGTZ_ErrorCode get_last_error() const;
         CAEN_DGTZ_BoardInfo_t get_board_info();
+        //BoardInfo_t get_board_info();
         void allocate_memory();
+        void start_acquisition();
         int get_nchannels() const;
         std::vector<int> get_temperatures() const;
-        void configure_channel(int channel, ChannelParams_t params);
+        void configure_channel(int channel, CAEN_DGTZ_DPP_PHA_Params_t* params);
+        void configure_all_channels(CAEN_DGTZ_DPP_PHA_Params_t* params);
         void calibrate();
-
+        void read_data();
+        int get_handle() const;
     private:
         // is it configured"
         bool configured_ = false;
-
 
         // actual number of connected boards
         const int MAXNB_ = 1;
@@ -112,6 +140,7 @@ class CaenN6725 {
         char                            *buffer_ = nullptr; // readout buffer
         CAEN_DGTZ_DPP_PHA_Event_t       *events_[max_n_channels_];  // events buffer
         CAEN_DGTZ_DPP_PHA_Waveforms_t   *waveform_=nullptr;     // waveforms buffer
+        //BoardInfo_t                     board_info_;
         CAEN_DGTZ_BoardInfo_t           board_info_;
 
 
