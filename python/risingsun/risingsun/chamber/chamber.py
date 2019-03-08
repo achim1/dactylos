@@ -173,14 +173,14 @@ class  SunChamber(object):
             channel (int) ; channel on the analog port, FIXME: which ic which is not yet clear
         """
         command = f"IN0:{channel},I0\r\n" # read the value into I0 variable
-        self.chamber.write(commend)
+        self.chamber.write(command)
         command = "I0?"
         resp = self.chamber.query(command)
         print (resp)
         # FIXME: check which corresponds to actual on/off states
-        if int(resp) == 1: # TTL low, input closed
+        if float(resp) == 1: # TTL low, input closed
             return False
-        if int(resp) == 0: # TTL high, input open
+        if float(resp) == 0: # TTL high, input open
             return True
 
     def _activate_bitio_channel(self, channel):
