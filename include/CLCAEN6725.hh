@@ -8,19 +8,24 @@
 #include <CAENDigitizerType.h>
 #include <CAENDigitizer.h>
 
-//#define DUMMY CAEN_DGTZ_BoardInfo_t 
-// #undef CAEN_DGTZ_BoardInfo_t
-// actual number of connected boards
-static const int MAXNB(1);
-// NB: the following define MUST specify the ACTUAL max allowed number of board's channels
-// it is needed for consistency inside the CAENDigitizer's functions used to allocate the memory
-static const int MaxNChannels(8);
 
-// The following define MUST specify the number of bits used for the energy calculation
-static const int MAXNBITS(15);
+/************************************************************************/
 
-// digitizer channels - we have 14 bit, so that 16834 channels
-static const int NBINS(16834);
+// channels are encoded with an 8 bit mask
+// combinations can be achieved with bitwise &
+enum CHANNEL : uint32_t
+{
+    CH0 = 1,
+    CH1 = 2,
+    CH2 = 4,
+    CH3 = 8,
+    CH4 = 16,
+    CH5 = 32,
+    CH6 = 64,
+    CH7 = 128,
+    ALL = 0xff 
+};
+
 
 /************************************************************************/
 
@@ -28,6 +33,8 @@ class GOptionParser;
 
 /************************************************************************/
 
+
+// configure the DPP_PHA algorithm
 struct ChannelParams_t
 {
         uint32_t trigger_threshold; //100 (number of bins y axis)
@@ -50,31 +57,11 @@ struct ChannelParams_t
         uint32_t enable_rise_time_discrimination;//
         uint32_t rise_time_validation_window;
 };
-//} ChannelParams_t;
-
-//----------------
-////struct BoardInfo_t {
-//struct CAEN_DGTZ_BoardInfo_t {
-//        char ModelName[12];
-//        uint32_t Model;
-//        uint32_t Channels;
-//        uint32_t FormFactor;
-//        uint32_t FamilyCode;
-//        char ROC_FirmwareRel[20];
-//        char AMC_FirmwareRel[40];
-//        uint32_t SerialNumber;
-//        char MezzanineSerNum[4][8]; //used only for x743 boards
-//        uint32_t PCB_Revision;
-//        uint32_t ADC_NBits;
-//        uint32_t SAMCorrectionDataLoaded; //used only for x743 boards
-//        int CommHandle;
-//        int VMEHandle;
-//        char License[MAX_LICENSE_LENGTH];
-//};
 
 
 /************************************************************************/
 
+// configure digitizer connection, active channels etc.
 struct DigitizerParams_t
 {
     CAEN_DGTZ_ConnectionType LinkType;
@@ -96,21 +83,46 @@ class CaenN6725 {
         CaenN6725();
         CaenN6725(DigitizerParams_t pars);
         ~CaenN6725();
-        DigitizerParams_t InitializeDigitizerForPulseGenerator(GOptionParser parser);
-        int ProgramDigitizer(int handle, DigitizerParams_t Params);
+
+        // helper function to 
         long get_time() const;
+
+        // return the current error state
         CAEN_DGTZ_ErrorCode get_last_error() const;
         CAEN_DGTZ_BoardInfo_t get_board_info();
-        //BoardInfo_t get_board_info();
+
+        // this needs to be called before any 
+        // acquisition is started
+        // to allocate the internal buffers
         void allocate_memory();
+
+        // prepare acquisition
+        // don't acquire anything yet
         void start_acquisition();
+        
+        // end acquistion mode
+        void end_acquisition();
+
+        // number of digitizer channels
         int get_nchannels() const;
+        
+        // the current temperatures
         std::vector<int> get_temperatures() const;
-        void configure_channel(int channel, CAEN_DGTZ_DPP_PHA_Params_t* params);
-        void configure_all_channels(CAEN_DGTZ_DPP_PHA_Params_t* params);
+
+        // set the parameters for the DPP-PHA algorithm for
+        // ALL ACTIVE channels (see channel mask in DigitizerParams_t)
+        void configure_channels(CAEN_DGTZ_DPP_PHA_Params_t* params);
+
+        // temperature calibrabion
         void calibrate();
-        void read_data();
-        int get_handle() const;
+
+        // get a chunk of data
+        // this needs to be run in some sort of loop
+        std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> read_data();
+
+        // get the number of events acquired per read_data call
+        uint32_t* get_n_events();
+
     private:
         // is it configured"
         bool configured_ = false;
@@ -137,29 +149,15 @@ class CaenN6725 {
         NB: you must use the right type for different DPP analysis (in this case PHA) */
         uint32_t                        allocated_size_;
         uint32_t                        buffer_size_;
-        char                            *buffer_ = nullptr; // readout buffer
-        CAEN_DGTZ_DPP_PHA_Event_t       *events_[max_n_channels_];  // events buffer
-        CAEN_DGTZ_DPP_PHA_Waveforms_t   *waveform_=nullptr;     // waveforms buffer
+        char*                           buffer_ = nullptr; // readout buffer
+        CAEN_DGTZ_DPP_PHA_Event_t*      events_[max_n_channels_];  // events buffer
+        CAEN_DGTZ_DPP_PHA_Waveforms_t*  waveform_=nullptr;     // waveforms buffer
         //BoardInfo_t                     board_info_;
         CAEN_DGTZ_BoardInfo_t           board_info_;
+        // channel mask (8bit)
+        uint32_t                        active_channels_;
 
-
-
-
+        uint32_t                        num_events_[max_n_channels_];
 };
-
-/************************************************************************/
-
-
-
-/************************************************************************/
-
-//long get_time();
-
-/************************************************************************/
-
-//void CloseDigitizer();
-
-/************************************************************************/
 
 #endif

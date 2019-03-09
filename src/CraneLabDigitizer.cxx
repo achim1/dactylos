@@ -19,6 +19,10 @@
 
 #include "CLCAEN6725.hh"
 
+// constants
+// digitizer channels - we have 14 bit, so that 16834 channels
+static const int NBINS(16834);
+
 /***************************************************************/
 
 typedef std::vector<TH1I*> HistogramSeries;
@@ -48,8 +52,27 @@ void extract_channel_pars(GOptionParser parser, CAEN_DGTZ_DPP_PHA_Params_t* DPPP
             DPPParams->trgwin[ch] = parser.GetOption<int>("trigger-window");
             DPPParams->twwdt[ch] = parser.GetOption<int>("rise-time-validation-window");
         } //r
- 
+};
 
+/***************************************************************/
+
+void readout_loop(CaenN6725* digitizer,std::vector<int> &n_acquired, HistogramSeries &histos)
+{
+
+    auto events = digitizer->read_data();
+    auto nevents = digitizer->get_n_events();
+    if (events.size() != 0)
+    {
+      for (unsigned int ch=0; ch<digitizer->get_nchannels(); ch++)
+        {
+         n_acquired[ch] += nevents[ch];
+         for (int ev=0; ev<nevents[ch]; ev++)
+             {
+                 auto energy = events[ch][ev].Energy;
+                 histos.at(ch)->Fill(energy);
+             }
+        }
+    }
 
 };
 
@@ -84,53 +107,19 @@ int main(int argc, char* argv[])
     // FIXME: this should be a flag then, no?
     parser.AddOption<int>("trigger-window", "enable rise time discrimatinon. Options 0->disabled, 1->enabled", 0);
     parser.AddOption<int>("rise-time-validation-window", "in ns", 100); 
-    parser.AddOption<int>("n-events-ch1", "Acquire N events for channel 1", 1000); 
-    parser.AddOption<int>("n-events-ch2", "Acquire N events for channel 2", 1000); 
-    parser.AddOption<int>("n-events-ch3", "Acquire N events for channel 3", 1000); 
-    parser.AddOption<int>("n-events-ch4", "Acquire N events for channel 4", 1000); 
-    parser.AddOption<int>("n-events-ch5", "Acquire N events for channel 5", 1000); 
-    parser.AddOption<int>("n-events-ch6", "Acquire N events for channel 6", 1000); 
-    parser.AddOption<int>("n-events-ch7", "Acquire N events for channel 7", 1000); 
-    parser.AddOption<int>("n-events-ch8", "Acquire N events for channel 8", 1000); 
+    parser.AddOption<int>("runtime", "in s [DEFAULT = -1, run as long as needed to acquire given number of events]", -1);
+    parser.AddOption<int>("n-events", "Each active channel will acquire this amoutn of events", -1); 
+    parser.AddOption<int>("n-events-ch1", "Acquire N events for channel 1", 0); 
+    parser.AddOption<int>("n-events-ch2", "Acquire N events for channel 2", 0); 
+    parser.AddOption<int>("n-events-ch3", "Acquire N events for channel 3", 0); 
+    parser.AddOption<int>("n-events-ch4", "Acquire N events for channel 4", 0); 
+    parser.AddOption<int>("n-events-ch5", "Acquire N events for channel 5", 0); 
+    parser.AddOption<int>("n-events-ch6", "Acquire N events for channel 6", 0); 
+    parser.AddOption<int>("n-events-ch7", "Acquire N events for channel 7", 0); 
+    parser.AddOption<int>("n-events-ch8", "Acquire N events for channel 8", 0); 
     parser.Parse();
     
 
-    // initialize histograms
-    HistogramSeries histos;
-    histos.reserve(8);
-    std::string histname;
-    std::string histtitle;
-    for (unsigned int ch=0; ch<MaxNChannels; ch++)
-        {
-            histname = "ehistch" + std::to_string(ch);
-            histtitle = "DigitizerChannel Ch" + std::to_string(ch);
-            histos.push_back(new TH1I(histname.c_str(), histtitle.c_str(), NBINS, 0, NBINS-1));
-        }
-
-    std::string outfile = parser.GetOption<std::string>("output-file");
-    INFO("Writing to root file " << outfile);
-    TFile* output = new TFile(outfile.c_str(),"RECREATE");
-
-
-    /* The following variable is the type returned from most of CAENDigitizer
-    library functions and is used to check if there was an error in function
-    execution. For example:
-    ret = CAEN_DGTZ_some_function(some_args);
-    if(ret) printf("Some error"); */
-    CAEN_DGTZ_ErrorCode ret;
-
-    /* Buffers to store the data. The memory must be allocated using the appropriate
-    CAENDigitizer API functions (see below), so they must not be initialized here
-    NB: you must use the right type for different DPP analysis (in this case PHA) */
-    uint32_t AllocatedSize, BufferSize;
-    char *buffer = NULL;                                 // readout buffer
-    CAEN_DGTZ_DPP_PHA_Event_t       *Events[MaxNChannels];  // events buffer
-    CAEN_DGTZ_DPP_PHA_Waveforms_t   *Waveform=NULL;     // waveforms buffer
-    //CAEN_DGTZ_BoardInfo_t           BoardInfo;
-
-    /* The following variables will store the digitizer configuration parameters */
-    //CAEN_DGTZ_DPP_PHA_Params_t DPPParams[MAXNB];
-    //DigitizerParams_t Params[MAXNB];
     CAEN_DGTZ_DPP_PHA_Params_t* dpp_params = new CAEN_DGTZ_DPP_PHA_Params_t();
     extract_channel_pars(parser, dpp_params); 
 
@@ -139,195 +128,127 @@ int main(int argc, char* argv[])
     digi_params.LinkType = CAEN_DGTZ_USB;  // Link Type
     digi_params.VMEBaseAddress = 0;  // For direct USB connection, VMEBaseAddress must be 0
     digi_params.IOlev = CAEN_DGTZ_IOLevel_NIM;
+
     /****************************\
     *  Acquisition parameters    *
     \****************************/
-    //digiParams.AcqMode = CAEN_DGTZ_DPP_ACQ_MODE_Mixed;          // CAEN_DGTZ_DPP_ACQ_MODE_List or CAEN_DGTZ_DPP_ACQ_MODE_Oscilloscope
     digi_params.AcqMode = CAEN_DGTZ_DPP_ACQ_MODE_Mixed;          // CAEN_DGTZ_DPP_ACQ_MODE_List or CAEN_DGTZ_DPP_ACQ_MODE_Oscilloscope
     digi_params.RecordLength = 2000;                              // Num of samples of the waveforms (only for Oscilloscope mode)
-    //digiParams.ChannelMask = 0x01;                               // Channel enable mask
-    digi_params.ChannelMask = 0xff;                               // Channel enable mask
+    digi_params.ChannelMask = CHANNEL::ALL;                               // Channel enable mask
     digi_params.EventAggr = 0;                                   // number of events in one aggregate (0=automatic)
     digi_params.PulsePolarity = CAEN_DGTZ_PulsePolarityPositive; // Pulse Polarity (this parameter can be individual)
 
-    int handle;
+
+    // initialize the digitizer
     CaenN6725 digitizer(digi_params);
 
-    
+    // initialize histograms
+    HistogramSeries histos;
+    histos.reserve(8);
+    std::string histname;
+    std::string histtitle;
+    for (unsigned int ch=0; ch<digitizer.get_nchannels(); ch++)
+        {
+            histname = "ehistch" + std::to_string(ch);
+            histtitle = "DigitizerChannel Ch" + std::to_string(ch);
+            histos.push_back(new TH1I(histname.c_str(), histtitle.c_str(), NBINS, 0, NBINS-1));
+        }
+
+    // prepare output file
+    std::string outfile = parser.GetOption<std::string>("output-file");
+    INFO("Writing to root file " << outfile);
+    TFile* output = new TFile(outfile.c_str(),"RECREATE");
 
     CAEN_DGTZ_BoardInfo_t board_info = digitizer.get_board_info(); 
 
-    printf("\nConnected to CAEN Digitizer Model %s, recognized as board %d\n", board_info.ModelName, 0);
-    printf("ROC FPGA Release is %s\n", board_info.ROC_FirmwareRel);
-    printf("AMC FPGA Release is %s\n", board_info.AMC_FirmwareRel);
+    INFO("\nConnected to CAEN Digitizer Model " << board_info.ModelName <<", recognized as board 0\n");
+    INFO("ROC FPGA Release is " << board_info.ROC_FirmwareRel);
+    INFO("AMC FPGA Release is " << board_info.AMC_FirmwareRel);
     std::vector<int> temps = digitizer.get_temperatures();
     for (uint ch=0; ch<digitizer.get_nchannels(); ch++)
         {
             INFO("Ch " << ch << " ADC temperature: " <<  temps[ch]);
         }
-    INFO("dpp params flat top delay " << dpp_params->ftd[0]);
-    digitizer.configure_all_channels(dpp_params);
-    //for (unsigned int ch=0; ch<digitizer.get_nchannels(); ch++)
-    //    {
-    //        digitizer.configure_channel(ch, DPPParams); 
-    //    }
-
-    //digitizer.ProgramDigitizer(handle, thisParams);
-
+    digitizer.configure_channels(dpp_params);
     /* WARNING: The mallocs MUST be done after the digitizer programming,
     because the following functions needs to know the digitizer configuration
     to allocate the right memory amount */
     /* Allocate memory for the readout buffer */
-    // ufjehuebscht wird spaeta
     digitizer.allocate_memory();
+
+    // from here on, acquisition
     digitizer.start_acquisition();
-    //int error = CAEN_DGTZ_ReadData(digitizer.get_handle(), CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
-    digitizer.read_data();
-    INFO("last error " << digitizer.get_last_error());
-    //INFO("error during acquisition " << error);
-//
-//    uint32_t NumEvents[MaxNChannels];
-//    for (unsigned int ch=0; ch<MaxNChannels; ch++)
-//        {NumEvents[ch] = 0;}
-//   
-//    unsigned int runs = 1;
-//    unsigned int const DATATRANSFER_INTERVAL(2);
-//    
-//    // run the digitizer for a while,
-//    // copy over the data and save it
-//    // to root files and then clear 
-//    // the buffers on the digitizer and run it 
-//    // again
-//    // FIXME: optimize - how large is the buffer 
-//    // on the digitizer?
-//   
-//    int *bin = new int();
-//    int *wdata = new int();
-//    int size;
-//    int16_t *WaveLine;
-//    uint8_t *DigitalWaveLine;
-//
-//
-//    // runtime
-//    //int nsec = 5;
-//
-//    //for (unsigned int r=0; r<runs; r++)
-//    //    {
-//    uint b(0);
-//    CAEN_DGTZ_SWStartAcquisition(handle);
-//    //      long currentTime = get_time(); // time in millisec
-//    INFO("Acquisition Started for Board " <<  b);
-//    
-//    std::vector<int> nAcquired({0,0,0,0,0,0,0,0});
-//    //std::cout << currentTime << std::endl;
-//    //long timeDelta = 0;
-//    std::vector<int> to_acquire({});
-//    to_acquire.push_back(parser.GetOption<int>("n-events-ch1"));
-//    to_acquire.push_back(parser.GetOption<int>("n-events-ch2"));
-//    to_acquire.push_back(parser.GetOption<int>("n-events-ch3"));
-//    to_acquire.push_back(parser.GetOption<int>("n-events-ch4"));
-//    to_acquire.push_back(parser.GetOption<int>("n-events-ch5"));
-//    to_acquire.push_back(parser.GetOption<int>("n-events-ch6"));
-//    to_acquire.push_back(parser.GetOption<int>("n-events-ch7"));
-//    to_acquire.push_back(parser.GetOption<int>("n-events-ch8"));
-//    int n_events(0);
-//    int tmpchannel=0;
-//    for (int n : to_acquire)
-//         {
-//            INFO("Will acquire " << n << "events for channel " << tmpchannel);
-//            n_events += n;
-//            tmpchannel++;
-//         }
-//    int n_acquired(0);
-//    n_events = 500;
-//    GProgressBar bar = GProgressBar(n_events);
-//    //FIXME: How to decide when we have enough statistics"
-//    //Single channel > n, sum(all channels) > n or something else?
-//    //int n_acquired = *std::min_element(nAcquired.begin(), nAcquired.end());
-//
-//    //std::vector<int> n_acquired_previous({0,0,0,0,0,0,0,0});
-//    int n_acquired_previous(0); // just used for propper counter display 
-////    while (nAcquired[0] < to_acquire[0] ||
-////           nAcquired[1] < to_acquire[1] ||
-////           nAcquired[2] < to_acquire[2] ||
-////           nAcquired[3] < to_acquire[3] ||
-////           nAcquired[4] < to_acquire[4] ||
-////           nAcquired[5] < to_acquire[5] ||
-////           nAcquired[6] < to_acquire[6] ||
-////           nAcquired[7] < to_acquire[7]
-////    )
-//    for (int it = 0; it < n_events; it++)
-//    //while (timeDelta < 1000*nsec){
-//    {
-//        ret = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
-//        INFO("Error : " << ret);
-//        DEBUG("BufferSize : " << BufferSize);
-//        if (BufferSize == 0) continue;
-//        ret =  CAEN_DGTZ_GetDPPEvents(handle, buffer, BufferSize, (void**)(Events), NumEvents);
-//        //std::cout << "Error : " << errCode << std::endl;
-//   
-//        for (unsigned int ch=0; ch<MaxNChannels; ch++)
-//            {
-//                nAcquired[ch] += NumEvents[ch];
-//                n_acquired += NumEvents[ch]; // total number of acquired events
-//                INFO("Ch. " << ch << " saw " << NumEvents[ch] << " events");
-//                DEBUG("N acq " << nAcquired[ch]);
-//                for (unsigned int ev=0; ev<NumEvents[ch]; ev++)
-//                    {
-//                        //Events[ch]->Energy;
-//                        histos.at(ch)->Fill(Events[ch]->Energy);
-//
-//                        //std::cout<< Events[ch]->Energy << std::endl;
-//                        //CAEN_DGTZ_DecodeDPPWaveforms(handle, &Events[ch][ev], Waveform);
-//                        //size = (int)(Waveform->Ns); // Number of samples
-//                        //WaveLine = Waveform->Trace1; // First trace (ANALOG_TRACE_1)
-//   
-//                        //for (unsigned int k=0; k<size; k++)
-//                        //    {
-//                        //        //*(bin) = k;
-//                        //        //*(wdata) = WaveLine[k];
-//                        //        //tree->Fill();
-//                        //    }
-//                    //break;
-//                    } // end fill histos
-//            } // end loop over channels
-//
-//
-//          //long newTime = get_time();
-//          //timeDelta += newTime - currentTime;
-//          //currentTime = newTime;
-//
-//        // update counter and bar
-//        //n_acquired = *std::min_element(nAcquired.begin(), nAcquired.end());
-//        DEBUG("Acquired " << n_acquired);
-//        for (int i=0; i<(n_acquired - n_acquired_previous); i++)
-//        {
-//            ++bar;
-//        }
-//    n_acquired_previous = n_acquired;
-//    DEBUG(n_acquired);
-//    } // end acquisition
-//
-//    //CAEN_DGTZ_SendSWtrigger(handle); 
-//    CAEN_DGTZ_SWStopAcquisition(handle); 
-//    INFO("Acquisition Stopped for Board " << b);  
-//
-//    std::string acquired_events_display("Acquired: ");
-//    for (unsigned int ch=0; ch<MaxNChannels; ch++)
-//      {
-//        acquired_events_display += std::to_string(nAcquired[ch]);
-//        acquired_events_display += " events for channel ";
-//        acquired_events_display += std::to_string(ch);
-//        acquired_events_display += " \n"; 
-//        //INFO("Acquired " << nAcquired[ch] << " events " << " for channel " << ch);
-//      }
-//    INFO( acquired_events_display);
-//    //Run(handle,DATATRANSFER_INTERVAL, histos);
-//    output->cd();
-//    for (auto h : histos)
-//        {h->Write();}
-//    output->Write();
-//    ret = CAEN_DGTZ_ClearData(handle);
-//    if (ret != 0) WARN("Error when clearing data : " << ret);
+    int run_time = parser.GetOption<int>("runtime");
+    std::vector<int> n_acquired = {};
+    for (int k=0; k<digitizer.get_nchannels(); k++)
+      {
+          n_acquired.push_back(0);
+      }
+
+    // run time mode
+    if (run_time > 0)
+      {
+        INFO("Will acquire data for " << run_time << " seconds");
+        long timeDelta = 0;
+        long currentTime = digitizer.get_time(); // time in millisec
+        while (timeDelta < 1000*run_time){
+          readout_loop(&digitizer, n_acquired, histos);
+          long newTime = digitizer.get_time();
+          timeDelta += newTime - currentTime;
+          currentTime = newTime;
+        }
+      }
+    else
+      {
+        int nevents_per_channel = parser.GetOption<int>("n-events");
+        std::vector<int> to_acquire({});
+        if (nevents_per_channel > 0)
+          {
+          for (int k=0; k<digitizer.get_nchannels(); k++)
+            {
+                to_acquire.push_back(nevents_per_channel);
+            }
+
+          }
+        else 
+          {
+            to_acquire.push_back(parser.GetOption<int>("n-events-ch1"));
+            to_acquire.push_back(parser.GetOption<int>("n-events-ch2"));
+            to_acquire.push_back(parser.GetOption<int>("n-events-ch3"));
+            to_acquire.push_back(parser.GetOption<int>("n-events-ch4"));
+            to_acquire.push_back(parser.GetOption<int>("n-events-ch5"));
+            to_acquire.push_back(parser.GetOption<int>("n-events-ch6"));
+            to_acquire.push_back(parser.GetOption<int>("n-events-ch7"));
+            to_acquire.push_back(parser.GetOption<int>("n-events-ch8"));
+          }
+
+        //while (n_acquired < nevents_per_channel)
+        while (n_acquired[0] < to_acquire[0] ||
+               n_acquired[1] < to_acquire[1] ||
+               n_acquired[2] < to_acquire[2] ||
+               n_acquired[3] < to_acquire[3] ||
+               n_acquired[4] < to_acquire[4] ||
+               n_acquired[5] < to_acquire[5] ||
+               n_acquired[6] < to_acquire[6] ||
+               n_acquired[7] < to_acquire[7])
+          {
+              readout_loop(&digitizer, n_acquired, histos);
+          }
+      } // end else
+
+    digitizer.end_acquisition();
+    std::string acquired_events_display("Acquired: ");
+    for (unsigned int ch=0; ch<digitizer.get_nchannels(); ch++)
+      {
+        acquired_events_display += std::to_string(n_acquired[ch]);
+        acquired_events_display += " events for channel ";
+        acquired_events_display += std::to_string(ch);
+        acquired_events_display += " \n"; 
+      }
+    INFO( acquired_events_display);
+    output->cd();
+    for (auto h : histos)
+        {h->Write();}
+    output->Write();
     return EXIT_SUCCESS;
 }
