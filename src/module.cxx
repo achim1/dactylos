@@ -14,28 +14,338 @@ std::string to_string(char c_string[])
     return std::string(c_string);
 }
 
-
-//uint32_t trigger_threshold; //100 (number of bins y axis)
-//uint32_t trapezoidal_rise_time; //4 microsec // shaping time
-//uint32_t trapezoidal_flat_top; //1 microsec
-//uint32_t input_decay_time; //10microsec
-//uint32_t flat_top_delay; //80 per cent of trapezoid flat top
-//uint32_t input_signal_rise_time; // 50ns
-//// different for detector set to 80microsec, for muon 100
-//uint32_t trigger_filter_smoothing_factor; //16
-//uint32_t trigger_hold_off; // to avoid pile up the longer the better 5microsec     
-//uint32_t nsamples_baseline;// 5        
-//uint32_t peak_mean; //2 
-//uint32_t peak_holdoff; //5 microsec
-//uint32_t baseline_holdoff;// - unknown
-//float    energy_normalization;// 1.0
-//uint32_t decimation;// 0
-//uint32_t decimation_gain;// 0 
-//uint32_t otrej; //unknown
-//uint32_t enable_rise_time_discrimination;//
-//uint32_t rise_time_validation_window;
 PYBIND11_MODULE(pyCaenN6725, m) {
-    m.doc() = "pybind example";
+    m.doc() = "Pybindings for CaenN6725 digitizer library";
+
+    py::enum_<CAEN_DGTZ_PulsePolarity_t>(m, "PulsePolarity")
+        .value("Positive", CAEN_DGTZ_PulsePolarity_t::CAEN_DGTZ_PulsePolarityPositive)
+        .value("Negative", CAEN_DGTZ_PulsePolarity_t::CAEN_DGTZ_PulsePolarityNegative)
+        .export_values();
+
+    py::enum_<CAEN_DGTZ_AcquisitionMode_t>(m, "AcquisitionMode")
+        .value("STANDARD", CAEN_DGTZ_AcquisitionMode_t::CAEN_DGTZ_AcquisitionMode_STANDARD)
+        .value("DPP_CI", CAEN_DGTZ_AcquisitionMode_t::CAEN_DGTZ_AcquisitionMode_DPP_CI)
+        .export_values();   
+
+    py::enum_<CAEN_DGTZ_IOLevel_t>(m, "IOLevel") 
+        .value("NIM", CAEN_DGTZ_IOLevel_t::CAEN_DGTZ_IOLevel_NIM)
+        .value("TTL", CAEN_DGTZ_IOLevel_t::CAEN_DGTZ_IOLevel_TTL) 
+        .export_values();
+
+    py::enum_<CAEN_DGTZ_ConnectionType>(m, "ConnectionType")
+        .value("USB",              CAEN_DGTZ_ConnectionType::CAEN_DGTZ_USB)
+        .value("OptionalLink",     CAEN_DGTZ_ConnectionType::CAEN_DGTZ_OpticalLink) 
+        .value("PCI_OpticalLink",  CAEN_DGTZ_ConnectionType::CAEN_DGTZ_PCI_OpticalLink)
+        .value("PCIE_OpticalLink", CAEN_DGTZ_ConnectionType::CAEN_DGTZ_PCIE_OpticalLink)
+        .value("PCIE_EmbeddedDigitizer", CAEN_DGTZ_ConnectionType::CAEN_DGTZ_PCIE_OpticalLink)
+        .export_values();
+
+    py::enum_<CAEN_DGTZ_DPP_AcqMode_t>(m, "DPPAcqMode")
+        .value("Oscilloscope", CAEN_DGTZ_DPP_AcqMode_t::CAEN_DGTZ_DPP_ACQ_MODE_Oscilloscope)        
+        .value("List",         CAEN_DGTZ_DPP_AcqMode_t::CAEN_DGTZ_DPP_ACQ_MODE_List)
+        .value("Mixed",        CAEN_DGTZ_DPP_AcqMode_t::CAEN_DGTZ_DPP_ACQ_MODE_Mixed)
+        .export_values(); 
+
+
+
+    py::class_<CAEN_DGTZ_DPP_PHA_Params_t>(m, "DPPPHAParams")
+        .def(py::init())
+        //int M           [MAX_DPP_PHA_CHANNEL_SIZE]; // Signal Decay Time Constant
+        .def_property("M",      [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.M, std::end(p.M));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.M[i] = data[i];
+                                    }
+                                })
+        //int m           [MAX_DPP_PHA_CHANNEL_SIZE]; // Trapezoid Flat Top
+        .def_property("m",      [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.m, std::end(p.m));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.m[i] = data[i];
+                                    }
+                                })
+        //int k           [MAX_DPP_PHA_CHANNEL_SIZE]; // Trapezoid Rise Time
+        .def_property("k",      [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.k, std::end(p.k));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.k[i] = data[i];
+                                    }
+                                })
+        //int ftd         [MAX_DPP_PHA_CHANNEL_SIZE]; //
+        .def_property("ftd",    [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.ftd, std::end(p.ftd));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.ftd[i] = data[i];
+                                    }
+                                })
+        //int a           [MAX_DPP_PHA_CHANNEL_SIZE]; // Trigger Filter smoothing factor
+        .def_property("a",      [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.a, std::end(p.a));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.a[i] = data[i];
+                                    }
+                                })
+        //int b           [MAX_DPP_PHA_CHANNEL_SIZE]; // Input Signal Rise time
+        .def_property("b",      [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.b, std::end(p.b));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.b[i] = data[i];
+                                    }
+                                })
+        //int thr         [MAX_DPP_PHA_CHANNEL_SIZE]; // Trigger Threshold
+        .def_property("thr",    [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.thr, std::end(p.thr));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.thr[i] = data[i];
+                                    }
+                                })
+        //int nsbl        [MAX_DPP_PHA_CHANNEL_SIZE]; // Number of Samples for Baseline Mean
+        .def_property("nsbl",   [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.nsbl, std::end(p.nsbl));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.nsbl[i] = data[i];
+                                    }
+                                })
+        //int nspk        [MAX_DPP_PHA_CHANNEL_SIZE]; // Number of Samples for Peak Mean Calculation
+        .def_property("nspk",   [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<float> data(p.nspk, std::end(p.nspk));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<float> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.nspk[i] = data[i];
+                                    }
+                                })
+        //int pkho        [MAX_DPP_PHA_CHANNEL_SIZE]; // Peak Hold Off
+        .def_property("pkho",   [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.pkho, std::end(p.pkho));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.pkho[i] = data[i];
+                                    }
+                                })
+        //int blho        [MAX_DPP_PHA_CHANNEL_SIZE]; // Base Line Hold Off
+        .def_property("blho",   [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.blho, std::end(p.blho));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.blho[i] = data[i];
+                                    }
+                                })
+        //int otrej       [MAX_DPP_PHA_CHANNEL_SIZE]; // 
+        .def_property("otrej",  [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.otrej, std::end(p.otrej));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.otrej[i] = data[i];
+                                    }
+                                })
+        //int trgho       [MAX_DPP_PHA_CHANNEL_SIZE]; // Trigger Hold Off
+        .def_property("trgho",  [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.trgho, std::end(p.trgho));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.trgho[i] = data[i];
+                                    }
+                                })
+        //int twwdt       [MAX_DPP_PHA_CHANNEL_SIZE]; // 
+        .def_property("twwdt",  [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.twwdt, std::end(p.twwdt));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.twwdt[i] = data[i];
+                                    }
+                                })
+        //int trgwin      [MAX_DPP_PHA_CHANNEL_SIZE]; //
+        .def_property("trgwin", [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.trgwin, std::end(p.trgwin));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.trgwin[i] = data[i];
+                                    }
+                                })
+        //int dgain       [MAX_DPP_PHA_CHANNEL_SIZE]; // Digital Probe Gain
+        .def_property("dgain",  [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.dgain, std::end(p.dgain));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.dgain[i] = data[i];
+                                    }
+                                })
+        //float enf       [MAX_DPP_PHA_CHANNEL_SIZE]; // Energy Nomralization Factor
+        .def_property("enf",    [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<float> data(p.enf, std::end(p.enf));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<float> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.enf[i] = data[i];
+                                    }
+                                })
+        //int decimation  [MAX_DPP_PHA_CHANNEL_SIZE]; // Decimation of Input Signal
+        .def_property("decimation", [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.decimation, std::end(p.decimation));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.decimation[i] = data[i];
+                                    }
+                                })
+        //int enskim      [MAX_DPP_PHA_CHANNEL_SIZE]; // Enable energy skimming
+        .def_property("enskim", [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.enskim, std::end(p.enskim));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.enskim[i] = data[i];
+                                    }
+                                })
+        //int eskimlld    [MAX_DPP_PHA_CHANNEL_SIZE]; // LLD    energy skimming
+        .def_property("eskimlld",[](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.eskimlld, std::end(p.eskimlld));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.eskimlld[i] = data[i];
+                                    }
+                                })
+        //int eskimuld    [MAX_DPP_PHA_CHANNEL_SIZE]; // ULD    energy skimming
+        .def_property("eskimuld",[](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.eskimuld, std::end(p.eskimuld));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.eskimuld[i] = data[i];
+                                    }
+                                })
+        //int blrclip     [MAX_DPP_PHA_CHANNEL_SIZE]; // Enable baseline restorer clipping
+        .def_property("blrclip",[](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.blrclip, std::end(p.blrclip));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.blrclip[i] = data[i];
+                                    }
+                                })
+        //int dcomp       [MAX_DPP_PHA_CHANNEL_SIZE]; // tt_filter compensation
+        .def_property("dcomp", [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.dcomp, std::end(p.dcomp));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.dcomp[i] = data[i];
+                                    }
+                                })
+        //int trapbsl     [MAX_DPP_PHA_CHANNEL_SIZE]; // trapezoid baseline adjuster
+        .def_property("trapbsl", [](const CAEN_DGTZ_DPP_PHA_Params_t &p) {
+                                std::vector<int> data(p.trapbsl, std::end(p.trapbsl));
+                                return data;
+                                },
+                                [](CAEN_DGTZ_DPP_PHA_Params_t &p, std::vector<int> data) {
+                                for (int i=0; i<data.size(); i++)
+                                    {
+                                        p.trapbsl[i] = data[i];
+                                    }
+                                });
+
+    /*
+    typedef struct
+    {
+        int M           [MAX_DPP_PHA_CHANNEL_SIZE]; // Signal Decay Time Constant
+        int m           [MAX_DPP_PHA_CHANNEL_SIZE]; // Trapezoid Flat Top
+        int k           [MAX_DPP_PHA_CHANNEL_SIZE]; // Trapezoid Rise Time
+        int ftd         [MAX_DPP_PHA_CHANNEL_SIZE]; //
+        int a           [MAX_DPP_PHA_CHANNEL_SIZE]; // Trigger Filter smoothing factor
+        int b           [MAX_DPP_PHA_CHANNEL_SIZE]; // Input Signal Rise time
+        int thr         [MAX_DPP_PHA_CHANNEL_SIZE]; // Trigger Threshold
+        int nsbl        [MAX_DPP_PHA_CHANNEL_SIZE]; // Number of Samples for Baseline Mean
+        int nspk        [MAX_DPP_PHA_CHANNEL_SIZE]; // Number of Samples for Peak Mean Calculation
+        int pkho        [MAX_DPP_PHA_CHANNEL_SIZE]; // Peak Hold Off
+        int blho        [MAX_DPP_PHA_CHANNEL_SIZE]; // Base Line Hold Off
+        int otrej       [MAX_DPP_PHA_CHANNEL_SIZE]; // 
+        int trgho       [MAX_DPP_PHA_CHANNEL_SIZE]; // Trigger Hold Off
+        int twwdt       [MAX_DPP_PHA_CHANNEL_SIZE]; // 
+        int trgwin      [MAX_DPP_PHA_CHANNEL_SIZE]; //
+        int dgain       [MAX_DPP_PHA_CHANNEL_SIZE]; // Digital Probe Gain
+        float enf       [MAX_DPP_PHA_CHANNEL_SIZE]; // Energy Nomralization Factor
+        int decimation  [MAX_DPP_PHA_CHANNEL_SIZE]; // Decimation of Input Signal
+        int enskim      [MAX_DPP_PHA_CHANNEL_SIZE]; // Enable energy skimming
+        int eskimlld    [MAX_DPP_PHA_CHANNEL_SIZE]; // LLD    energy skimming
+        int eskimuld    [MAX_DPP_PHA_CHANNEL_SIZE]; // ULD    energy skimming
+        int blrclip     [MAX_DPP_PHA_CHANNEL_SIZE]; // Enable baseline restorer clipping
+        int dcomp       [MAX_DPP_PHA_CHANNEL_SIZE]; // tt_filter compensation
+        int trapbsl     [MAX_DPP_PHA_CHANNEL_SIZE]; // trapezoid baseline adjuster
+    } CAEN_DGTZ_DPP_PHA_Params_t;
+    */
+    
+    
 
     // all the stuff from the original library
     py::class_<CAEN_DGTZ_DPP_PHA_Event_t>(m, "DPPEvent")
@@ -89,20 +399,46 @@ PYBIND11_MODULE(pyCaenN6725, m) {
     // FIXME: the commented methods need setters/getters
     py::class_<CAEN_DGTZ_BoardInfo_t>(m, "BoardInfo")
         .def(py::init())
-        .def_readwrite("model_name",&CAEN_DGTZ_BoardInfo_t::ModelName)
+        //.def_readwrite("model_name",&CAEN_DGTZ_BoardInfo_t::ModelName)
+        .def("get_model_name",
+                [](const CAEN_DGTZ_BoardInfo_t &b) {
+                return std::string(b.ModelName);
+                })
+        .def("__repr__",
+                [](const CAEN_DGTZ_BoardInfo_t &b) {
+                return "<example.Pet named '" + std::string(b.ModelName) + "'>";
+                })
         .def_readwrite("model", &CAEN_DGTZ_BoardInfo_t::Model)
         .def_readwrite("channels", &CAEN_DGTZ_BoardInfo_t::Channels)
         .def_readwrite("form_factor",&CAEN_DGTZ_BoardInfo_t::FormFactor)
         .def_readwrite("family_code",&CAEN_DGTZ_BoardInfo_t::FamilyCode)
 //        .def_readwrite("roc_firmware_rel",&CAEN_DGTZ_BoardInfo_t::ROC_FirmwareRel)
 //        .def_readwrite("amc_firmware_rel",&CAEN_DGTZ_BoardInfo_t::AMC_FirmwareRel)
+        .def("get_model_roc_firmware_rel",
+                [](const CAEN_DGTZ_BoardInfo_t &b) {
+                return std::string(b.ROC_FirmwareRel);
+                })
+        .def("get_amc_firmware_rel",
+                [](const CAEN_DGTZ_BoardInfo_t &b) {
+                return std::string(b.AMC_FirmwareRel);
+                })
         .def_readwrite("serial_number",&CAEN_DGTZ_BoardInfo_t::SerialNumber)
+
+        // FIXME mezzanine is an array of arrays I think
+        //.def("get_mezzanine_ser_num",
+        //        [](const CAEN_DGTZ_BoardInfo_t &b) {
+        //        return std::string(b.MezzanineSerNum);
+        //        })
 //        .def_readwrite("mezzanine_ser_num",&CAEN_DGTZ_BoardInfo_t::MezzanineSerNum)       //used only for x743 boards
         .def_readwrite("pcb_revisiion",&CAEN_DGTZ_BoardInfo_t::PCB_Revision)
         .def_readwrite("adc_bits",&CAEN_DGTZ_BoardInfo_t::ADC_NBits)
         .def_readwrite("sam_correction_data_loaded",&CAEN_DGTZ_BoardInfo_t::SAMCorrectionDataLoaded)        //used only for x743 boards
         .def_readwrite("comm_handle",&CAEN_DGTZ_BoardInfo_t::CommHandle)
-        .def_readwrite("vme_handle",&CAEN_DGTZ_BoardInfo_t::VMEHandle);
+        .def_readwrite("vme_handle",&CAEN_DGTZ_BoardInfo_t::VMEHandle)
+        .def("get_license",
+                [](const CAEN_DGTZ_BoardInfo_t &b) {
+                return std::string(b.License);
+                });
 //        .def_readwrite("licencse",&CAEN_DGTZ_BoardInfo_t::License);
 ////} CAEN_DGTZ_BoardInfo_t;
 //
@@ -117,6 +453,7 @@ PYBIND11_MODULE(pyCaenN6725, m) {
         .value("CH5", CHANNEL::CH5)
         .value("CH6", CHANNEL::CH6)
         .value("CH7", CHANNEL::CH7)
+        .value("ALL", CHANNEL::ALL)
         .export_values();
 
     py::class_<DigitizerParams_t>(m, "DigitizerParams")
@@ -127,7 +464,7 @@ PYBIND11_MODULE(pyCaenN6725, m) {
         .def_readwrite("ChannelMask", &DigitizerParams_t::ChannelMask)
         .def_readwrite("EventAggr", &DigitizerParams_t::EventAggr)
         .def_readwrite("PulsePolarity", &DigitizerParams_t::PulsePolarity)
-        .def_readwrite("AcqMode", &DigitizerParams_t::AcqMode)
+        .def_readwrite("DPPAcqMode", &DigitizerParams_t::AcqMode)
         .def_readwrite("IOlev", &DigitizerParams_t::IOlev)
         .def_readwrite("DPPParams", &DigitizerParams_t::DPPParams);
 
@@ -157,6 +494,7 @@ PYBIND11_MODULE(pyCaenN6725, m) {
         //.def("getName", &Pet::getName);
 
     py::class_<CaenN6725>(m, "CaenN6725")
+        .def(py::init<DigitizerParams_t>())
         .def(py::init())
         .def("get_time", &CaenN6725::get_time)
         .def("get_last_error", &CaenN6725::get_last_error)
