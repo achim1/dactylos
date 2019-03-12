@@ -1,0 +1,395 @@
+#! /usr/bin/env python3
+
+import pyCaenN6725 as cn
+
+import hjson
+
+try:
+    import ROOT
+except ImportError:
+    print ("Can not locate pyroot, can not save results to root histograms")
+
+
+# FIXME
+# some global variables
+NCHANNELS = 8
+NBINS = 16834 # 14-bit digitizer
+
+def setup_root_histos():
+    """
+    The necessary schmagoigl
+    """
+    histos = []
+    for i in range(NCHANNELS):
+        h = ROOT.TH1D()
+        h.SetName("ehistch" + str(i))
+        h.SetTitle("DigitizerChannel Ch" + str(i))
+        h.SetBins(NBINS, 0, NBINS-1)
+        histos.append(h)
+    return histos
+
+
+#def readout_loop(digitizer,n_acquired, histos):
+#    """
+#    A single acquisition cycle
+#    """
+#    events = digitizer.read_data();
+#    nevents = digitizer.get_n_events();
+#    print (events)
+#    print (nevents)
+#    #if (events.size() != 0)
+#    #{
+#    #  for (unsigned int ch=0; ch<digitizer->get_nchannels(); ch++)
+#    #    {
+#    #     n_acquired[ch] += nevents[ch];
+#    #     for (int ev=0; ev<nevents[ch]; ev++)
+#    #         {
+#    #             auto energy = events[ch][ev].Energy;
+#    #             histos.at(ch)->Fill(energy);
+#    #         }
+#    #    }
+#    #}
+
+def extract_digitizer_parameters(config):
+    """
+    Extract the general configuration parameters
+    for the digitizer from a config file 
+    read by json
+    """
+
+    pars = cn.DigitizerParams()
+    # the enums we fix for now
+    pars.LinkType = cn.ConnectionType.USB
+    pars.IOlev = cn.IOLevel.NIM
+    pars.PulsePolarity = cn.PulsePolarity.Positive
+    pars.DPPAcqMode = cn.DPPAcqMode.Mixed
+    pars.ChannelMask = cn.CHANNEL.ALL
+
+    pars.VMEBaseAddress = config['VMEBaseAddress']
+    pars.RecordLength = config['RecordLength']
+    pars.EventAggr = config['EventAggr']
+    return pars
+
+def extract_ppa_pha_parameters(config):
+    """
+    Extract the config parameters for the DPP-PHA
+    algorithm from a config file 
+    read by json
+    """
+    AVAILABLE_CHANNELS = 8
+    pars = cn.DPPPHAParams()
+    pars.thr        = [config['trigger-threshold']]              *AVAILABLE_CHANNELS
+    pars.k          = [config['trapezoid-rise-time']]            *AVAILABLE_CHANNELS
+    pars.m          = [config['trapezoid-flat-top']]             *AVAILABLE_CHANNELS
+    pars.M          = [config['decay-time-constant']]            *AVAILABLE_CHANNELS
+    pars.ftd        = [config['flat-top-delay']]                 *AVAILABLE_CHANNELS
+    pars.a          = [config['trigger-filter-smoothing-factor']]*AVAILABLE_CHANNELS  
+    pars.b          = [config['input-signal-rise-time']]         *AVAILABLE_CHANNELS  
+    pars.trgho      = [config['trigger-hold-off']]               *AVAILABLE_CHANNELS  
+    pars.nsbl       = [config['n-samples']]                      *AVAILABLE_CHANNELS  
+    pars.nspk       = [config['peak-mean']]                      *AVAILABLE_CHANNELS  
+    pars.pkho       = [config['peak-holdoff']]                   *AVAILABLE_CHANNELS 
+    pars.blho       = [config['baseline-holdoff']]               *AVAILABLE_CHANNELS
+    pars.enf        = [config['energy-normalization-factor']]    *AVAILABLE_CHANNELS
+    pars.decimation = [config['decimation']]                     *AVAILABLE_CHANNELS
+    pars.dgain      = [config['decimation-gain']]                *AVAILABLE_CHANNELS
+    pars.otrej      = [config['otrej']]                          *AVAILABLE_CHANNELS
+    pars.trgwin     = [config['trigger-window']]                 *AVAILABLE_CHANNELS
+    pars.twwdt      = [config['rise-time-validation-window']]    *AVAILABLE_CHANNELS
+    return pars
+
+def default_parameter_factory():
+    pars = cn.DigitizerParams()
+    pars.LinkType = cn.ConnectionType.USB
+    pars.VMEBaseAddress = 0
+    pars.IOlev = cn.IOLevel.NIM
+    pars.DPPAcqMode = cn.DPPAcqMode.Mixed
+    pars.RecordLength = 2000
+    pars.ChannelMask = cn.CHANNEL.ALL
+    pars.EventAggr = 0
+    pars.PulsePolarity = cn.PulsePolarity.Positive
+    return pars
+
+def default_ppa_parameter_factory():
+    pars = cn.DPPPHAParams()
+    pars.thr        = [10]*8
+    pars.k          = [4000]*8
+    pars.m          = [990]*8
+    pars.M          = [10000]*8
+    pars.ftd        = [800]*8
+    pars.a          = [16]*8    
+    pars.b          = [48]*8    
+    pars.trgho      = [4992]*8  
+    pars.nsbl       = [5]*8     
+    pars.nspk       = [2]*8     
+    pars.pkho       = [1992]*8 
+    pars.blho       = [500]*8 
+    pars.enf        = [1]*8  
+    pars.decimation = [0]*8  
+    pars.dgain      = [0]*8  
+    pars.otrej      = [0]*8  
+    pars.trgwin     = [0]*8  
+    pars.twwdt      = [100]*8 
+    return pars
+
+
+#pars.DPPAcqMode
+#digi = cn.CaenN6725(pars)
+if __name__ == '__main__':
+
+    import argparse
+    import time
+    import sys
+    import serial
+    import numpy as np
+
+    from tqdm import tqdm,trange
+
+    import pyCaenN6725 as cn
+    from clhvcontrol import CAENN1471HV
+    from risingsun.chamber import SunChamber
+    from risingsun.chamber import PrologixUsbGPIBController
+
+    parser = argparse.ArgumentParser(description='Take data for Si(Li) detectors')
+    parser.add_argument('--config-file',
+                        dest='configfile', type=str,
+                        default='',
+                        help='Specify a config file with all the parameters.')
+
+    parser.add_argument('--debug', dest='debug',
+                        default=False, action='store_true',
+                        help='Set the loglevel to 10, that is debug')
+
+    subparsers = parser.add_subparsers(title="subcommands",\
+                                       help='Available subcommands',\
+                                       dest="commands")
+
+    run_parser = subparsers.add_parser('run',
+                                       help='data-taking related options')
+    run_parser.add_argument("--run-time",
+                            default="-1",
+                            type=int,
+                            help="take data for [run-time] seconds")
+
+    run_parser.add_argument("--n-events",
+                            default="-1",
+                            type=int,
+                            help="take [n-events] per channel seconds")
+
+    run_parser.add_argument("--output-file",
+                            default="",
+                            type=str,
+                            help="Save the energy histogram to a rootfile")
+
+    run_parser.add_argument("--for-realz",
+                            default=False,
+                            action='store_true',
+                            help="Turn on hv and chamber")
+
+    monitor_parser = subparsers.add_parser('monitor',
+                                           help='read out monitoring parmaters')
+    monitor_parser.add_argument('--digitizer-temp',
+                                default=False,
+                                action='store_true',
+                                help='display the temperatures for the digitizer')
+    monitor_parser.add_argument('--chamber-temp',
+                                default=False,
+                                action='store_true',
+                                help='display SUNEC13 temperatures')
+    
+    calibration_parser = subparsers.add_parser('calibrate',
+                                               help='Perform calibration tasks')
+    calibration_parser.add_argument('--digitizer-temperature-calibration',
+                                    default=False,
+                                    action='store_true',
+                                    help='perform digitizer temperature calibration')
+
+
+
+    args = parser.parse_args()
+
+    # get the configuration
+    config = hjson.load(open(args.configfile))
+
+    # get the active channels
+    active_digitizer_channels = config['CaenN6725']['active-channels']
+
+    # as an example, for now just take data with the digitzer
+    digi_pars = extract_digitizer_parameters(config['CaenN6725'])
+    ppa_pars  = extract_ppa_pha_parameters(config['CaenN6725']['dpp-pha-params'])
+
+    if args.commands == 'calibrate':
+        if args.digitizer_temperature_calibration:
+            digitizer = cn.CaenN6725(digi_pars)
+            print (f'Connected to digitizer model {digitizer.get_board_info().get_model_name()}')
+            for ch, val in enumerate(digitizer.get_temperatures()):
+                print (f'Chan: {ch} -  {val}\N{DEGREE SIGN}C')
+            print ("Will calibrate the digitizer")
+            digitizer.calibrate()
+            del digitizer 
+            sys.exit(0)    
+
+
+    if args.commands == "run":
+
+        if args.for_realz:
+            # prepare the run, turn on chamber and hv
+            loglevel = 30
+            if args.debug:
+                loglevel = 10
+    
+            # chamber first
+            try:
+                sunec = SunChamber(PrologixUsbGPIBController(),publish=config['SunEC13']['publish-temps'], port=['SunEC13']['port'])
+            except (FileNotFoundError, serial.serialutil.SerialException):
+                print (f'Can not open SunEC13 chamber at port {config["SunEC13"]["port"]}')
+                sys.exit(1)
+
+
+
+            try:
+                hv = CAENN1471HV(port=config['CaenN1471']['port'], loglevel=loglevel, time_delay=0.5)
+            except (FileNotFoundError, serial.serialutil.SerialException):
+                print (f'Can not open HV at port {config["CaenN1471"]["port"]}')
+                sys.exit(1)
+            hv_active_channels = config['CaenN1471']['active-channels']
+            print ('Configuring channels....')
+            for i,ch in enumerate(hv_active_channels):
+                hv.channels[ch].voltage_as_set = config['CaenN1471']['target_voltages'][i]
+                hv.channels[ch].ramp_up        = config['CaenN1471']['ramp-rate']
+                hv.channels[ch].ramp_down      = config['CaenN1471']['ramp-rate']
+            
+            print ('Turning on HV in 5 seconds')
+            for k in trange(5):
+                time.sleep(1)
+            print ('Turning on HV NOW!!')
+            hv.channels[ch].activate()
+
+            # wait till we have the voltage
+            # use the ramp_up as tolerance
+            tolerance = np.array([config['CaenN1471']['ramp-rate']]*len(hv_active_channels))
+            delta_hv  = np.array([np.inf]*len(hv_active_channels))
+            while (delta_hv > tolerance).any():
+                for i,ch in enumerate(hv_active_channels):
+                    set_volts = hv.channels[ch].voltage_as_set
+                    is_volts = hv.channels[ch].voltage_as_is
+                    delta_hv[ch] = abs(set_volts - is_volts)
+                    print (f'Chann {ch}: Set voltage {set_volts}, currently {is_volts}') 
+                    time.sleep(2)
+
+            print (f'Waiting 10 seconds....')
+            for k in trange(10):
+                time.sleep(1)
+            
+
+
+        if args.output_file:
+            print (f'Will write to file {args.output_file}')
+            histos = setup_root_histos()
+    
+        if args.n_events > 0:
+            print (f'Will acquire {args.n_events} per active channel')
+            print (f'Got {active_digitizer_channels} as active channels')
+            to_acquire = [0]*NCHANNELS
+            n_acquired = [0]*NCHANNELS
+            for ch in active_digitizer_channels:
+                to_acquire[ch] = args.n_events
+
+            digitizer = cn.CaenN6725(digi_pars)
+            print (f'Connected to digitizer model {digitizer.get_board_info().get_model_name()}')
+            digitizer.configure_channels(ppa_pars)
+            digitizer.allocate_memory()
+            digitizer.start_acquisition()
+
+            with tqdm(total=args.n_events*len(active_digitizer_channels)) as pbar:
+                while ((n_acquired[0] <= to_acquire[0]) and
+                       (n_acquired[1] <= to_acquire[1]) and
+                       (n_acquired[2] <= to_acquire[2]) and
+                       (n_acquired[3] <= to_acquire[3]) and
+                       (n_acquired[4] <= to_acquire[4]) and
+                       (n_acquired[5] <= to_acquire[5]) and
+                       (n_acquired[6] <= to_acquire[6]) and
+                       (n_acquired[7] <= to_acquire[7])):
+                    events = digitizer.read_data()
+                    energies = [[ev.energy for ev in ch] for ch in events]   
+                    if args.output_file:
+                        [histos[nch].Fill(energy) for nch, ch in enumerate(energies) for energy in ch]
+                    for i, nev in enumerate([len(ch) for ch in events]):                
+                        n_acquired[i] += nev
+                        pbar.update(nev)
+            digitizer.end_acquisition()            
+            print (f"Acquired {n_acquired} events")
+
+        elif args.run_time > 0:
+            print (f'Will run digitizer for {args.run_time} seconds and acquire all data')
+            digitizer = cn.CaenN6725(digi_pars)
+            print (f'Connected to digitizer model {digitizer.get_board_info().get_model_name()}')
+            digitizer.configure_channels(ppa_pars)
+            digitizer.allocate_memory()
+            digitizer.start_acquisition()
+            time_delta = 0
+            time_delta_previous = 0
+            currentTime = digitizer.get_time() # time in millisec
+            n_acquired = [0]*NCHANNELS
+            with tqdm(total=1000*args.run_time) as pbar: 
+                while (time_delta < 1000*args.run_time):
+                    events = digitizer.read_data()
+                    energies = [[ev.energy for ev in ch] for ch in events]   
+                    if args.output_file:
+                        [histos[nch].Fill(energy) for nch, ch in enumerate(energies) for energy in ch]
+                    #readout_loop(digitizer, n_acquired, histos);
+                    newTime = digitizer.get_time()
+                    time_delta += newTime - currentTime
+                    currentTime = newTime
+                    for ch, nev in enumerate(digitizer.get_n_events()):
+                        n_acquired[ch] += nev
+                    
+                    pbar.update(time_delta - time_delta_previous)
+                    time_delta_previous = time_delta
+            #for i in range(10):                                   
+            #    ev = digi.read_data()
+            #    print (digi.get_n_events())
+            #    if ev:
+            #        print ([k.energy for k in ev[0]])
+            #    time.sleep(1)
+            digitizer.end_acquisition()
+            print (f"Acquried {n_acquired} events")
+            # write the rootfile and exit
+
+        if args.output_file:            
+            output = ROOT.TFile(args.output_file,"RECREATE")
+            [h.Write() for h in histos]
+            output.Write()
+            output.Close()
+        sys.exit(0)
+
+
+    if args.commands == "monitor":
+        if args.digitizer_temp:
+            digitizer = cn.CaenN6725(default_parameter_factory())
+            print (f'Connected to digitizer model {digitizer.get_board_info().get_model_name()}')
+            for ch, val in enumerate(digitizer.get_temperatures()):
+                print (f'Chan: {ch} -  {val}\N{DEGREE SIGN}C')
+            del digitizer 
+            sys.exit(0)    
+
+    print (args)
+
+    #digitizer = cn.CaenN6725(digi_pars)
+    #digitzer.configure_channels(ppa_pars)
+    #digitizer.allocate_memory()
+    #digitizer.start_acqsuisition()
+    #for i in range(10):                                   
+    #    ev = digi.read_data()
+    #    print (digi.get_n_events())
+    #    if ev:
+    #        print ([k.energy for k in ev[0]])
+    #    time.sleep(1)
+    #digitzer.end_acquisition()
+    ##print (config)
+
+
+
+
+
+

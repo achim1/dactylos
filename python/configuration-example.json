@@ -1,0 +1,48 @@
+// example configuration file 
+// for CRaneLab
+
+{
+    "SunEC13"     : {
+                      "target-temp"         : -45,
+                      "tolerance"           : 5,
+                      "cooldown-rate"       : 5,
+                      "port"                : "/dev/ttyUSB0",
+                      // publish the monitored temperatures to a network socket
+                      "publish-temps"       : 0
+    },
+    "CaenN1471" : {
+                      "port"                : "/dev/caen1471", 
+                      // a  [4] here means all channels 
+                      "active-channels"     : [0,1,2,3],
+                      "target-voltages"     : [250,250,250,250],
+                      "ramp-rate"           : 5
+                    },
+    "CaenN6725"   : {
+                      "VMEBaseAddress"      : 0,
+                      "RecordLength"        : 2000,
+                      "EventAggr"           : 0,
+                      //"active-channel     s": [0,1,2,3,4,5,6,7],
+                      "active-channels"     : [0],
+                      "dpp-pha-params"      : {
+                                                 "trigger-threshold"                   : 10, 
+                                                 "trapezoid-rise-time"                 : 4000,            
+                                                 "trapezoid-flat-top"                  : 990,             
+                                                 "decay-time-constant"                 : 10000,            
+                                                 "flat-top-delay"                      : 800,
+                                                 "trigger-filter-smoothing-factor"     : 16,
+                                                 "input-signal-rise-time"              : 48,
+                                                 "trigger-hold-off"                    : 4992,                
+                                                 "n-samples"                           : 5, 
+                                                 "peak-mean"                           : 2, 
+                                                 "peak-holdoff"                        : 4992,
+                                                 "baseline-holdoff"                    : 500,
+                                                 "energy-normalization-factor"         : 1.0,
+                                                 "decimation"                          : 0,
+                                                 "decimation-gain"                     : 0,
+                                                 "otrej"                               : 0,
+                                                 "trigger-window"                      : 0,
+                                                 "rise-time-validation-window"         : 100
+                      }
+                    }
+   
+}
