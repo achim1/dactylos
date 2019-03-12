@@ -153,9 +153,14 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
 
 /***************************************************************/
 
-uint32_t* CaenN6725::get_n_events()
+std::vector<int> CaenN6725::get_n_events()
 {
-    return num_events_;
+    std::vector<int> n_events({});
+    for (uint ch=0; ch<get_nchannels(); ch++)
+        {
+            n_events.push_back(num_events_[ch]);
+        }
+    return n_events;
 }
 
 /***************************************************************/

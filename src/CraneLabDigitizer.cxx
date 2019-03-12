@@ -69,6 +69,7 @@ void readout_loop(CaenN6725* digitizer,std::vector<int> &n_acquired, HistogramSe
          for (int ev=0; ev<nevents[ch]; ev++)
              {
                  auto energy = events[ch][ev].Energy;
+                 INFO(energy);
                  histos.at(ch)->Fill(energy);
              }
         }

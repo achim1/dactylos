@@ -116,7 +116,7 @@ class CaenN6725 {
         std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> read_data();
 
         // get the number of events acquired per read_data call
-        uint32_t* get_n_events();
+        std::vector<int> get_n_events();
 
     private:
         // is it configured"
