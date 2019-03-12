@@ -26,7 +26,7 @@ setup(name='hvcontrol',
               ],
       keywords=["serial", "control",\
                 "CAEN N1471ET", "voltage", "iv curve"],
-      packages=['hvcontrol'],
-      scripts=["bin/hvcontrol"],
+      packages=['clhvcontrol'],
+      #scripts=["bin/hvcontrol"],
       #package_data={'gui': ['risingsun.mplstyle']}
       )

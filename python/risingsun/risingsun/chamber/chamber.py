@@ -133,7 +133,7 @@ class  SunChamber(object):
         return resp
         
     # a bunch of setters/getters
-    temperatur_as_is = setget(SUNEC13Commands.SETTEMP)
+    temperatur_as_set = setget(SUNEC13Commands.SETTEMP)
 
 
     @property
