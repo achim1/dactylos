@@ -356,7 +356,14 @@ if __name__ == '__main__':
                 while (time_delta < 1000*args.run_time):
                     events = digitizer.read_data()
                     energies = [[ev.energy for ev in ch] for ch in events]   
-                    if not energies: continue
+                    if not energies:
+                         newTime = digitizer.get_time()
+                         time_delta += newTime - currentTime
+                         currentTime = newTime
+                         pbar.update(time_delta - time_delta_previous)
+                         time_delta_previous = time_delta
+                         continue
+
                     #print (energies)
                     if args.output_file:
                         [histos[nch].Fill(energy) for nch, ch in enumerate(energies) for energy in ch]
@@ -369,7 +376,10 @@ if __name__ == '__main__':
                     
                     pbar.update(time_delta - time_delta_previous)
                     time_delta_previous = time_delta
-                avg_energy += np.array([sum(k) for k in energies])
+                try:
+                    avg_energy += np.array([sum(k) for k in energies])
+                except Exception as e:
+                    print ("Can not calculate average energy!")
             #for i in range(10):                                   
             #    ev = digi.read_data()
             #    print (digi.get_n_events())
