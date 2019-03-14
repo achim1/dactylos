@@ -28,6 +28,13 @@ enum CHANNEL : uint32_t
 
 /************************************************************************/
 
+enum DynamicRange : uint32_t
+{
+    VPP2  = 0,
+    VPP05 = 1
+}; 
+
+/************************************************************************/
 
 // configure the DPP_PHA algorithm
 struct ChannelParams_t
@@ -117,6 +124,22 @@ class CaenN6725 {
 
         // get the number of events acquired per read_data call
         std::vector<int> get_n_events();
+
+        // set baseline offset for channel 0-7
+        // channel: one of 0-7
+        // set in DAC values (16bit DAC)
+        void set_baseline_offset(int channel, int offset);
+
+        // get baseline offset in DAC values
+        uint32_t get_baseline_offset(int channel);
+
+        void set_input_dynamic_range(DynamicRange range);
+
+        // returns a 32 bit per channel but only LSB of these is relevant
+        // 0 -> 2 Vpp
+        // 1 ->0.5 Vpp 
+        std::vector<uint32_t> get_input_dynamic_range();
+        
 
     private:
         // is it configured"

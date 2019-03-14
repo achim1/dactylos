@@ -213,6 +213,18 @@ if __name__ == '__main__':
 
     # get the active channels
     active_digitizer_channels = config['CaenN6725']['active-channels']
+    
+    # baseline offset for active digitizier channels
+    digitizer_baseline_offset = config['CaenN6725']['baseline-offset']
+    assert len(digitizer_baseline_offset) == len(active_digitizer_channels), "The number of active channels does not match the number of baseline offsets give!"
+
+    # dynamic range 
+    digitizer_dynamic_range = config['CaenN6725']['dynamic-range']
+    assert (digitizer_dynamic_range == "2VPP") or (digitizer_dynamic_range == "05VPP"), "Dynamic range has to be either 2VPP (2 volt peak-peak) or 05VPP (0.5 volt peak-peak"
+    if digitizer_dynamic_range == "2VPP":
+        digitizer_dynamic_range = cn.DynamicRange.VPP2
+    if digitizer_dynamic_range == "05VPP":
+        digitizer_dynamic_range = cn.DynamicRange.VPP05
 
     # as an example, for now just take data with the digitzer
     digi_pars = extract_digitizer_parameters(config['CaenN6725'])
@@ -221,7 +233,8 @@ if __name__ == '__main__':
     if args.commands == 'calibrate':
         if args.digitizer_temperature_calibration:
             digitizer = cn.CaenN6725(digi_pars)
-            print (f'Connected to digitizer model {digitizer.get_board_info().get_model_name()}')
+            bf = digitizer.get_board_info()
+            print (f'Connected to digitizer model {bf.get_model_name()}, roc firmware {bf.get_model_roc_firmware_rel()},  amc firmware {bf.get_amc_firmware_rel()}')
             for ch, val in enumerate(digitizer.get_temperatures()):
                 print (f'Chan: {ch} -  {val}\N{DEGREE SIGN}C')
             print ("Will calibrate the digitizer")
@@ -287,18 +300,29 @@ if __name__ == '__main__':
             print (f'Will write to file {args.output_file}')
             histos = setup_root_histos()
     
+        digitizer = cn.CaenN6725(digi_pars)
+        print (f'Connected to digitizer model {digitizer.get_board_info().get_model_name()}')
+
+        # set input dynmaic range for all channels
+        digitizer.set_input_dynamic_range(digitizer_dynamic_range)
+
+        # set baseline offset
+        for i,ch in enumerate(active_digitizer_channels):
+            digitizer.set_baseline_offset(ch,digitizer_baseline_offset[i])
+
+        digitizer.configure_channels(ppa_pars)
+        digitizer.allocate_memory()
+    
+        n_acquired = [0]*NCHANNELS
+        avg_energy = np.zeros(NCHANNELS)
+
         if args.n_events > 0:
             print (f'Will acquire {args.n_events} per active channel')
             print (f'Got {active_digitizer_channels} as active channels')
             to_acquire = [0]*NCHANNELS
-            n_acquired = [0]*NCHANNELS
             for ch in active_digitizer_channels:
                 to_acquire[ch] = args.n_events
 
-            digitizer = cn.CaenN6725(digi_pars)
-            print (f'Connected to digitizer model {digitizer.get_board_info().get_model_name()}')
-            digitizer.configure_channels(ppa_pars)
-            digitizer.allocate_memory()
             digitizer.start_acquisition()
 
             with tqdm(total=args.n_events*len(active_digitizer_channels)) as pbar:
@@ -317,24 +341,23 @@ if __name__ == '__main__':
                     for i, nev in enumerate([len(ch) for ch in events]):                
                         n_acquired[i] += nev
                         pbar.update(nev)
+                    avg_energy += np.array([sum(k) for k in energies])
             digitizer.end_acquisition()            
             print (f"Acquired {n_acquired} events")
 
         elif args.run_time > 0:
             print (f'Will run digitizer for {args.run_time} seconds and acquire all data')
-            digitizer = cn.CaenN6725(digi_pars)
-            print (f'Connected to digitizer model {digitizer.get_board_info().get_model_name()}')
-            digitizer.configure_channels(ppa_pars)
-            digitizer.allocate_memory()
+            print (f'Warning, in this mode there is no active channels')
             digitizer.start_acquisition()
             time_delta = 0
             time_delta_previous = 0
             currentTime = digitizer.get_time() # time in millisec
-            n_acquired = [0]*NCHANNELS
             with tqdm(total=1000*args.run_time) as pbar: 
                 while (time_delta < 1000*args.run_time):
                     events = digitizer.read_data()
                     energies = [[ev.energy for ev in ch] for ch in events]   
+                    if not energies: continue
+                    print (energies)
                     if args.output_file:
                         [histos[nch].Fill(energy) for nch, ch in enumerate(energies) for energy in ch]
                     #readout_loop(digitizer, n_acquired, histos);
@@ -346,6 +369,7 @@ if __name__ == '__main__':
                     
                     pbar.update(time_delta - time_delta_previous)
                     time_delta_previous = time_delta
+                avg_energy += np.array([sum(k) for k in energies])
             #for i in range(10):                                   
             #    ev = digi.read_data()
             #    print (digi.get_n_events())
@@ -353,9 +377,12 @@ if __name__ == '__main__':
             #        print ([k.energy for k in ev[0]])
             #    time.sleep(1)
             digitizer.end_acquisition()
-            print (f"Acquried {n_acquired} events")
-            # write the rootfile and exit
 
+        print (f"Acquried {n_acquired} events")
+        avg_energy /= n_acquired
+        print (f"Average energy {avg_energy}")
+
+        # write the rootfile and exit
         if args.output_file:            
             output = ROOT.TFile(args.output_file,"RECREATE")
             [h.Write() for h in histos]

@@ -17,6 +17,11 @@ std::string to_string(char c_string[])
 PYBIND11_MODULE(pyCaenN6725, m) {
     m.doc() = "Pybindings for CaenN6725 digitizer library";
 
+    py::enum_<DynamicRange>(m, "DynamicRange")
+        .value("VPP2", DynamicRange::VPP2)
+        .value("VPP05", DynamicRange::VPP05)
+        .export_values();
+
     py::enum_<CAEN_DGTZ_PulsePolarity_t>(m, "PulsePolarity")
         .value("Positive", CAEN_DGTZ_PulsePolarity_t::CAEN_DGTZ_PulsePolarityPositive)
         .value("Negative", CAEN_DGTZ_PulsePolarity_t::CAEN_DGTZ_PulsePolarityNegative)
@@ -406,7 +411,7 @@ PYBIND11_MODULE(pyCaenN6725, m) {
                 })
         .def("__repr__",
                 [](const CAEN_DGTZ_BoardInfo_t &b) {
-                return "<example.Pet named '" + std::string(b.ModelName) + "'>";
+                return "<Caen digitizer model name  '" + std::string(b.ModelName) + "'>";
                 })
         .def_readwrite("model", &CAEN_DGTZ_BoardInfo_t::Model)
         .def_readwrite("channels", &CAEN_DGTZ_BoardInfo_t::Channels)
@@ -489,23 +494,24 @@ PYBIND11_MODULE(pyCaenN6725, m) {
         .def_readwrite("otrej", &ChannelParams_t::otrej)
         .def_readwrite("enable_rise_time_discrimination", &ChannelParams_t::enable_rise_time_discrimination)
         .def_readwrite("rise_time_validation_window", &ChannelParams_t::rise_time_validation_window);
-        //.def(py::init<const std::string &>())
-        //.def("setName", &Pet::setName)
-        //.def("getName", &Pet::getName);
 
     py::class_<CaenN6725>(m, "CaenN6725")
         .def(py::init<DigitizerParams_t>())
         .def(py::init())
-        .def("get_time", &CaenN6725::get_time)
-        .def("get_last_error", &CaenN6725::get_last_error)
-        .def("get_board_info", &CaenN6725::get_board_info)
-        .def("allocate_memory", &CaenN6725::allocate_memory)
-        .def("start_acquisition", &CaenN6725::start_acquisition)
-        .def("end_acquisition", &CaenN6725::end_acquisition)
-        .def("get_nchannels", &CaenN6725::get_nchannels)
-        .def("get_temperatures", &CaenN6725::get_temperatures)
-        .def("configure_channels", &CaenN6725::configure_channels)
-        .def("calibrate", &CaenN6725::calibrate)
-        .def("read_data", &CaenN6725::read_data)
-        .def("get_n_events", &CaenN6725::get_n_events);
+        .def("get_time",            &CaenN6725::get_time)
+        .def("get_last_error",      &CaenN6725::get_last_error)
+        .def("get_board_info",      &CaenN6725::get_board_info)
+        .def("allocate_memory",     &CaenN6725::allocate_memory)
+        .def("start_acquisition",   &CaenN6725::start_acquisition)
+        .def("end_acquisition",     &CaenN6725::end_acquisition)
+        .def("get_nchannels",       &CaenN6725::get_nchannels)
+        .def("get_temperatures",    &CaenN6725::get_temperatures)
+        .def("configure_channels",  &CaenN6725::configure_channels)
+        .def("calibrate",           &CaenN6725::calibrate)
+        .def("read_data",           &CaenN6725::read_data)
+        .def("get_n_events",        &CaenN6725::get_n_events)
+        .def("set_baseline_offset", &CaenN6725::set_baseline_offset)
+        .def("get_baseline_offset", &CaenN6725::get_baseline_offset)
+        .def("set_input_dynamic_range", &CaenN6725::set_input_dynamic_range)
+        .def("get_input_dynamic_range", &CaenN6725::get_input_dynamic_range);
 };

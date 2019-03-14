@@ -20,6 +20,7 @@ CaenN6725::CaenN6725()
     current_error_ = CAEN_DGTZ_Reset(handle_);
     if (current_error_ !=0 ) throw std::runtime_error("Can not reset digitizer err code:" + std::to_string(current_error_));
 
+    // FIXME: WHat is this doing?
     current_error_ = CAEN_DGTZ_WriteRegister(handle_, 0x8000, 0x01000114);  // Channel Control Reg (indiv trg, seq readout) ??
     if (current_error_ !=0 ) throw std::runtime_error("Can not write register err code:" + std::to_string(current_error_));
 
@@ -215,6 +216,41 @@ long CaenN6725::get_time() const
     return time_ms;
 };
 
+/*******************************************************************/
+
+void CaenN6725::set_input_dynamic_range(DynamicRange range)
+{
+    // 32 bit mask, but only bit0 caries information
+    // settings for bit 0
+    // 0 = 2Vpp
+    // 1 = 0.5Vpp
+    //uint32_t drange = -1;
+    //if (range == DynamicRange::VPP2)
+    //    {uint32_t drange = 0;}
+    //if (range == DynamicRange::VPP05)
+    //    {uint32_t drange = 1}
+    //if (range == -1)
+    //    {throw std::runtime_error("Can not understand input dynamic range value!");}    
+    current_error_ = CAEN_DGTZ_WriteRegister(handle_,0x8028, (uint32_t) range);
+    if (current_error_ != 0) throw std::runtime_error("Problems setting dynamic range, err code " + std::to_string(current_error_));
+}
+
+/*******************************************************************/
+
+std::vector<uint32_t>CaenN6725::get_input_dynamic_range()
+{
+    uint32_t drange;
+    std::vector<uint32_t> channel_registers({0x1028, 0x1128, 0x1228, 0x1328, 0x1428, 0x1528, 0x1628, 0x1728});
+    std::vector<uint32_t> dranges;
+    for (auto ch : channel_registers)
+        {
+            current_error_ = CAEN_DGTZ_ReadRegister(handle_, ch, &drange);
+            if (current_error_ != 0) throw std::runtime_error("Can not get  dynamic range for ch address " + std::to_string(ch) + " err code " + std::to_string(current_error_));
+            dranges.push_back(drange);
+         }
+    return dranges;
+}
+
 
 /*******************************************************************/
 
@@ -241,6 +277,35 @@ void CaenN6725::calibrate()
     current_error_ = CAENDGTZ_API CAEN_DGTZ_Calibrate(handle_);
     if (current_error_ != 0) throw std::runtime_error("Issue during calibration err code: " + std::to_string(current_error_));
 
+}
+
+/*******************************************************************/
+
+void CaenN6725::set_baseline_offset(int channel, int offset)
+{
+    // from the manual
+    /*
+    This function sets the 16-bit DAC that adds a DC offset to the input signal to adapt it to the dynamic range of the ADC.
+By default, the DAC is set to middle scale (0x7FFF) which corresponds to a DC offset of -Vpp/2, where Vpp is the voltage
+range (peak to peak) of the ADC. This means that the input signal can range from -Vpp/2 to +Vpp/2. If the DAC is set to
+0x0000, then no DC offset is added, and the range of the input signal goes from -Vpp to 0. Conversely, when the DAC is
+set to 0xFFFF, the DC offset is –Vpp and the range goes from 0 to +Vpp. The DC offset can be set on channel basis except
+for the x740 in which it is set on group basis; in this case, you must use the Set / GetGroupDCOffset functions.
+    */
+    // offset has to be in DAC values!
+    current_error_ = CAEN_DGTZ_SetChannelDCOffset(handle_,channel, offset);
+    if (current_error_ != 0) throw std::runtime_error("Can not set baseline offset for ch " + std::to_string(channel) + " err code: " + std::to_string(current_error_));
+}
+
+/*******************************************************************/
+
+uint32_t CaenN6725::get_baseline_offset(int channel)
+{
+    // offset has to be in DAC values!
+    uint32_t offset;
+    current_error_ = CAEN_DGTZ_GetChannelDCOffset(handle_,channel, &offset);
+    if (current_error_ != 0) throw std::runtime_error("Can not get baseline offset for ch " + std::to_string(channel) + " err code: " + std::to_string(current_error_));
+    return offset;
 }
 
 /*******************************************************************/
