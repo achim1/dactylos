@@ -357,7 +357,7 @@ if __name__ == '__main__':
                     events = digitizer.read_data()
                     energies = [[ev.energy for ev in ch] for ch in events]   
                     if not energies: continue
-                    print (energies)
+                    #print (energies)
                     if args.output_file:
                         [histos[nch].Fill(energy) for nch, ch in enumerate(energies) for energy in ch]
                     #readout_loop(digitizer, n_acquired, histos);
