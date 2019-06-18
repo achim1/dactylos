@@ -1,6 +1,6 @@
 from setuptools import setup
 
-from risingsun import __version__
+from clhvcontrol import __version__
 
 setup(name='hvcontrol',
       version=__version__,
