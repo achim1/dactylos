@@ -22,8 +22,10 @@ class SUNEC13Commands:
     HOFF    = 'HOFF' # heater on
     CON     = 'CON' # cooler on
     COFF    = 'COFF'
-    TEMP3   = "C3"
-    TEMP4   = "C4"
+    TEMP0   = 'C1'
+    TEMP1   = 'C2'
+    TEMP2   = "C3"
+    TEMP3   = "C4"
     SETTEMP = "SET"
     WAIT    = "WAIT" # wait time
     RATE    = "RATE" # temperature ramping time deg/minute
@@ -133,7 +135,8 @@ class  SunChamber(object):
         return resp
         
     # a bunch of setters/getters
-    temperatur_as_set = setget(SUNEC13Commands.SETTEMP)
+    temperature_as_set = setget(SUNEC13Commands.SETTEMP)
+    rate_as_set = setget(SUNEC13Commands.RATE)
 
 
     @property
@@ -158,7 +161,7 @@ class  SunChamber(object):
     def activate_cooler(self):
         self.chamber.write(SUNEC13Commands.CON)
 
-    def deactivate_heater(self):
+    def deactivate_cooler(self):
         self.chamber.write(SUNEC13Commands.COFF)
 
     def get_status(self):
@@ -214,11 +217,15 @@ class  SunChamber(object):
         Channel 0,1
         """
         if channel == 0:
-            temp = self.chamber.query(SUNEC13Commands.querify(SUNEC13Commands.TEMP3))
+            temp = self.chamber.query(SUNEC13Commands.querify(SUNEC13Commands.TEMP0))
         elif channel == 1:
-            temp = self.chamber.query(SUNEC13Commands.querify(SUNEC13Commands.TEMP4))
+            temp = self.chamber.query(SUNEC13Commands.querify(SUNEC13Commands.TEMP1))
+        elif channel == 2:
+            temp = self.chamber.query(SUNEC13Commands.querify(SUNEC13Commands.TEMP2))
+        elif channel == 3:
+            temp = self.chamber.query(SUNEC13Commands.querify(SUNEC13Commands.TEMP3))
         else:
-            raise ValueError("Channel has to be either 0 or 1!")
+            raise ValueError("Channel has to be either 0,1,2 or 3!")
         print ("Got channel temp of {}".format(temp))
         
         try:
