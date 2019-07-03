@@ -200,6 +200,36 @@ class  SunChamber(object):
         command = f"OUT0:{channel},0\r\n" # read the value into I0 variable
         self.chamber.write(command)
 
+    def open_dry_nitrogen_valve(self):
+        """
+        The dry nitrogen valve needs to be opened during the warm up
+        process to avoid humidity
+        """
+        self._activate_bitio_channel(4)
+
+    def close_dry_nitrogen_valve(self):
+        self._deactivate_bitio_channel(4)
+
+
+    def cooldown(self, target_temperature=-45, rate=3):
+        """
+        A shortcut function to cool down the chamber to -45 deg 
+        with about 3 deg per minute
+
+        """
+        if (target_temperature > 0):
+            raise ValueError("Cooldown function is meant to be used with temperatures < 0, because of the dry nitrogen valve which will NOT be opened by this function! Interior of the chamber might get too humid...")
+        self.rate_as_set = rate
+        self.temperature_as_set = target_temperature
+        current_temperature = self.get_temperature()
+        start = time.monotonic()
+        while current_temperature > (target_temperature + 2):
+            now = time.monotonic() - start
+            print ("Current temperature is {} C after {:4.2f} sec cooldown".format(current_temperature, now))
+            time.sleep(5)
+
+        return None
+
     @staticmethod
     def print_status(status): 
         print ("SUN EC13 chamber reporting status....")
