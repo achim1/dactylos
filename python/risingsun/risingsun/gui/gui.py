@@ -113,20 +113,29 @@ class SunChamberMonitoringGraphical(object):
         for channel, line_plot in enumerate([self.chamber_temp, self.user_temp]):
 
             secs, fields = line_plot.get_data()
-            if len(secs) >= self.maxpoints:
-                self.logger.debug("Restricting line to {} points".format(self.maxpoints))
-                index = 1
-            secs = np.append(secs[index:], sec)
 
             field = None
             try:
                 field = self.chamber.get_temperature(channel=channel)
             except Exception as e:
                 self.logger.warning("Can not acquire data for chanel {}! {}".format(channel, e))
-                return 
+                return
+             
             if field is not None:
                 fields = np.append(fields[index:], field)
-    
+            if not np.isfinite(field):
+                print (field)
+                # update the plot
+                self.ax.set_xlim(xmin=xmin, xmax=xmax)
+                self.ax.set_ylim(ymin=datamin, ymax=datamax)
+                line_plot.set_ydata(fields)
+                line_plot.set_xdata(secs)
+                return
+
+            if len(secs) >= self.maxpoints:
+                self.logger.debug("Restricting line to {} points".format(self.maxpoints))
+                index = 1
+            secs = np.append(secs[index:], sec)
             chamber_temps.append(field)
             datamin = min(fields)
             datamax = max(fields)
