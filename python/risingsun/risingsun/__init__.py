@@ -100,8 +100,9 @@ def install_styles(style_default=STYLE_BASEFILE_STD):
    """
 
     mpl_styledir = _join(mpl_configdir(),"stylelib/")
-    assert _exists(style_default), "STYLEFILE {} missing... indicates a problem with some paths or corrupt packege.\
+    if not _exists(_join(mpl_styledir, _split(style_default)[1])):
+        assert _exists(style_default), "STYLEFILE {} missing... indicates a problem with some paths or corrupt packege.\
                                     Check source code location".format(style_default)
-    _copy(style_default, _join(mpl_styledir, _split(style_default)[1]))
+        _copy(style_default, _join(mpl_styledir, _split(style_default)[1]))
 
 install_styles()

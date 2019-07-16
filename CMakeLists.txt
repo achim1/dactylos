@@ -9,6 +9,12 @@
 ## Set project name
 project(CraneLab C CXX)
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+
+# make sure we use python 3
+set(PYBIND11_PYTHON_VERSION 3.6)
+#set(PYTHON_INCLUDE_DIRS "/usr/include/python3.6")
+#set(PYTHON_LIBRARIES "/usr/lib/python3.6/config-3.6m-x86_64-linux-gnu/libpython3.6.so")
+
 #
 # You need to tell CMake where to find the ROOT installation.
 # For ROOT built with CMake.
