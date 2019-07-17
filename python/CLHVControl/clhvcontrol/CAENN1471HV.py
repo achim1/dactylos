@@ -92,6 +92,13 @@ class Channel(object):
         command = "$BD:{:02d},CMD:SET,CH:{},PAR:ON".format(self.board.board, self.channel)
         self.board._send(command)
         self.board._listen()
+        # wait till it is ramped-up
+        rate = self.ramp_up
+        delta_v = np.array(self.voltage_as_set) - np.array(self.voltage_as_is)
+        wait = int(delta_v/rate)
+        for k in tqdm.tqdm(range(wait)):
+            time.sleep(1)
+        
 
     def take_iv_curve(self, voltages, time_interval=1):
         """
@@ -105,13 +112,21 @@ class Channel(object):
             time_interval (float): time [in sec] between measurments
 
         """
+        command = "$BD:{:02d},CMD:SET,CH:{},PAR:ON".format(self.board.board, self.channel)
+
+
         measured_voltages = []
         measured_currents = []
         for volt in tqdm.tqdm(voltages):
-            self.voltage_as_set = volt
-            measured_voltages.append(self.voltage_as_is)
-            measured_currents.append(self.current_as_is)
-            time.sleep(time_interval)
+            try:
+                self.voltage_as_set = volt
+                self.board._send(command)
+                measured_voltages.append(self.voltage_as_is)
+                measured_currents.append(self.current_as_is)
+                time.sleep(time_interval)
+            except Exception as e:
+                print (e)
+                time.sleep(2*time_interval)
 
         measured_voltages = np.array(measured_voltages)
         measured_currents = np.array(measured_currents)
@@ -124,6 +139,11 @@ class Channel(object):
         command = "$BD:{:02d},CMD:SET,CH:{},PAR:OFF".format(self.board.board, self.channel)
         self.board._send(command)
         self.board._listen()
+        rate = self.ramp_down
+        delta_v =  np.array(self.voltage_as_is)
+        wait = int(delta_v/rate)
+        for k in tqdm.tqdm(range(wait)):
+            time.sleep(1)
 
     @property
     def status(self):

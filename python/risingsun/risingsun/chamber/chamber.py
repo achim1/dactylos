@@ -256,12 +256,12 @@ class  SunChamber(object):
             temp = self.chamber.query(SUNEC13Commands.querify(SUNEC13Commands.TEMP3))
         else:
             raise ValueError("Channel has to be either 0,1,2 or 3!")
-        print ("Got channel temp of {}".format(temp))
+        #print ("Got channel temp of {}".format(temp))
         
         try:
             temp = float(temp)
         except ValueError:
-            print ("Problems digesting {}".format(temp))
+            #print ("Problems digesting {}".format(temp))
             temp = np.nan
 
         if self.publish and (self._socket is None):
