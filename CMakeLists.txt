@@ -48,7 +48,6 @@ find_package(Boost 1.54 REQUIRED program_options timer)
 # build defintions
 add_definitions(-DUSE_BOOST_PROGRAM_OPTIONS)
 add_definitions(-DUSE_BOOST_TIMER)
-add_definitions(-DUSE_AIXLOG)
 
 # set the path to the hdfwriter project
 #set(HDFWRITER_PATH $ENV{HOME}/gaps/projects/build-hdfwriter)
