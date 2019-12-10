@@ -13,7 +13,7 @@ CaenN6725::CaenN6725()
 {
     // make this specific for our case
     // third 0 is VMEBaseAddress, which must be 0 for direct USB connections
-    current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 0, 0, 0, &handle_);
+    current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 1, 0, 0, &handle_);
     if (current_error_ !=0 ) throw std::runtime_error("Can not open digitizer err code: " + std::to_string(current_error_));
 
     /* Reset the digitizer */
@@ -127,6 +127,9 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
 {
     std::vector<CAEN_DGTZ_DPP_PHA_Event_t> channel_events;
     std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> thisevents;
+    int waveform_size;
+    int16_t *waveform_trace;
+
     current_error_ = CAEN_DGTZ_ReadData(handle_, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer_, &buffer_size_);
     if (current_error_ != 0) 
         {
@@ -144,6 +147,19 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
             for (int ev=0;ev<num_events_[ch];ev++)
                 {
                     channel_events.push_back(events_[ch][ev]);
+                    if (decode_waveforms_)
+                        {
+                            CAEN_DGTZ_DecodeDPPWaveforms(handle_, &events_[ch][ev], waveform_);
+                        waveform_size = (int) waveform_->Ns; // number of samples
+                        waveform_trace = waveform_->Trace1;
+                        SaveWaveform(0, ch, 1, waveform_size, waveform_trace);
+
+                        //waveform_->Trace2;
+                        //waveform_->DTrace1;
+                        //waveform_->DTrace2;
+
+
+                        }
                 }
             thisevents.push_back(channel_events);
             //thisevents[ch] = events_[ch];
@@ -215,6 +231,13 @@ long CaenN6725::get_time() const
 #endif
     return time_ms;
 };
+
+/*******************************************************************/
+
+void CaenN6725::enable_waveform_decoding()
+{
+  decode_waveforms_ = true;
+}
 
 /*******************************************************************/
 
@@ -337,4 +360,22 @@ CaenN6725::~CaenN6725()
 
 /*******************************************************************/
 
+int CaenN6725::SaveWaveform(int b, int ch, int trace, int size, int16_t *WaveData)
+{
+    /*
+    This function saves the waveform in a textfile as a sequence of number     representing the wave height
+    */
+    FILE *fh;
+    int i;
+    char filename[20];
+
+    sprintf(filename, "Waveform_%d_%d_%d.txt", b, ch, trace);
+    fh = fopen(filename, "w");
+    if (fh == NULL)
+        return -1;
+    for(i=0; i<size; i++)
+        fprintf(fh, "%d\n", WaveData[i]); //&((1<<MAXNBITS)-1)
+    fclose(fh);
+    return 0;
+}
 

@@ -499,6 +499,7 @@ PYBIND11_MODULE(pyCaenN6725, m) {
         .def(py::init<DigitizerParams_t>())
         .def(py::init())
         .def("get_time",            &CaenN6725::get_time)
+        .def("enable_waveform_decoding", &CaenN6725::enable_waveform_decoding)
         .def("get_last_error",      &CaenN6725::get_last_error)
         .def("get_board_info",      &CaenN6725::get_board_info)
         .def("allocate_memory",     &CaenN6725::allocate_memory)

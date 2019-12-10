@@ -89,6 +89,8 @@ class CaenN6725 {
         // helper function to 
         long get_time() const;
 
+        void enable_waveform_decoding();
+
         // return the current error state
         CAEN_DGTZ_ErrorCode get_last_error() const;
         CAEN_DGTZ_BoardInfo_t get_board_info();
@@ -142,6 +144,9 @@ class CaenN6725 {
         
 
     private:
+
+        int SaveWaveform(int b, int ch, int trace, int size, int16_t *WaveData);
+
         // is it configured"
         bool configured_ = false;
 
@@ -177,5 +182,7 @@ class CaenN6725 {
 
         uint32_t                        num_events_[max_n_channels_];
 };
+        bool                            decode_waveforms_;
+
 
 #endif
