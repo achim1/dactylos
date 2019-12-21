@@ -1,9 +1,8 @@
-#! /usr/bin/env python3
+#! /usr/bin/python3
 
 import pyCaenN6725 as cn
 
 import hjson
-
 try:
     import ROOT
 except ImportError:
@@ -171,6 +170,10 @@ if __name__ == '__main__':
                             type=int,
                             help="take data for [run-time] seconds")
 
+    run_parser.add_argument("--save-traces",
+                            default=False,
+                            action="store_true",
+                            help="Save the traces as textfiles")
     run_parser.add_argument("--n-events",
                             default="-1",
                             type=int,
@@ -296,6 +299,7 @@ if __name__ == '__main__':
             
 
 
+
         if args.output_file:
             print (f'Will write to file {args.output_file}')
             histos = setup_root_histos()
@@ -315,6 +319,9 @@ if __name__ == '__main__':
     
         n_acquired = [0]*NCHANNELS
         avg_energy = np.zeros(NCHANNELS)
+
+        if args.save_traces:
+            digitizer.enable_waveform_decoding()
 
         if args.n_events > 0:
             print (f'Will acquire {args.n_events} per active channel')
