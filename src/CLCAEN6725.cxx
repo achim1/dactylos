@@ -165,7 +165,7 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
                         {
                             CAEN_DGTZ_DecodeDPPWaveforms(handle_, &events_[ch][ev], waveform_);
                         waveform_size = (int) waveform_->Ns; // number of samples
-                        waveform_trace = waveform_->Trace1;
+                        waveform_trace = waveform_->Trace2;
                         SaveWaveform(0, ch, traceId, waveform_size, waveform_trace);
                         ++traceId;
                         //waveform_->Trace2;
