@@ -14,9 +14,17 @@ CaenN6725::CaenN6725()
     // make this specific for our case
     // third 0 is VMEBaseAddress, which must be 0 for direct USB connections
     current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 0, 0, 0, &handle_);
-    if (current_error_ !=0 )
-        {std::cout << "Can not find digitizer at USB bus 0, trying 1..." << std::endl;}
-    current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 1, 0, 0, &handle_);
+    if (current_error_ == -1)
+        {
+            std::cout << "Can not find digitizer at USB bus 0, trying others" << std::endl;
+            for (int busnr=1; busnr<20; busnr++)
+            //while (current_error_ !=0 )
+                {
+                 std::cout << "Trying ..." << busnr << std::endl;
+                 current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 1, 0, 0, &handle_);
+                 if (current_error_ == 0)  break;
+                }
+        }
     if (current_error_ !=0 ) throw std::runtime_error("Can not open digitizer err code: " + std::to_string(current_error_));
 
     /* Reset the digitizer */
