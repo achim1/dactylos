@@ -7,6 +7,9 @@
 
 #include "gaps/GOptionParser.hh"
 
+#include <fstream>
+using std::ofstream;
+
 /***************************************************************/
 
 CaenN6725::CaenN6725()
@@ -58,6 +61,11 @@ CaenN6725::CaenN6725()
 
     current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, DIGITAL_TRACE_1, CAEN_DGTZ_DPP_DIGITALPROBE_Peaking);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP virtual probe trace 2 err ode: " + std::to_string(current_error_));
+    //if (decode_waveforms_)
+    //    {
+            outfile_.open("Waveforms_all_new.txt");
+
+    //    }
 
 };
 
@@ -166,6 +174,10 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
             return thisevents;
         }
 
+
+    ofstream outdata;
+
+
     uint traceId(0);
     for (int ch=0;ch<get_nchannels();ch++)
         {
@@ -175,10 +187,13 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
                     channel_events.push_back(events_[ch][ev]);
                     if (decode_waveforms_)
                         {
+                            if (events_[ch][ev].Energy == 0)
+                                {continue;}
                             CAEN_DGTZ_DecodeDPPWaveforms(handle_, &events_[ch][ev], waveform_);
                         waveform_size = (int) waveform_->Ns; // number of samples
                         waveform_trace = waveform_->Trace2;
-                        SaveWaveform(0, ch, traceId, waveform_size, waveform_trace);
+                        //SaveWaveform(0, ch, traceId, waveform_size, waveform_trace);
+                        SaveWaveform(waveform_size, waveform_trace);
                         ++traceId;
                         //waveform_->Trace2;
                         //waveform_->DTrace1;
@@ -385,6 +400,16 @@ CaenN6725::~CaenN6725()
 };
 
 /*******************************************************************/
+int CaenN6725::SaveWaveform(int size, int16_t *WaveData)
+{
+    for(int i=0; i<size; i++)
+    //    fprintf(fh, "%d\s", WaveData[i]); //&((1<<MAXNBITS)-1)
+        outfile_ << WaveData[i] << " ";
+    outfile_ << "\n";
+    //fprintf(fh, "\n");
+    //fclose(fh);
+    return 0;
+}
 
 int CaenN6725::SaveWaveform(int b, int ch, int trace, int size, int16_t *WaveData)
 {
@@ -400,7 +425,7 @@ int CaenN6725::SaveWaveform(int b, int ch, int trace, int size, int16_t *WaveDat
     if (fh == NULL)
         return -1;
     for(i=0; i<size; i++)
-        fprintf(fh, "%d\n", WaveData[i]); //&((1<<MAXNBITS)-1)
+        fprintf(fh, "%d ", WaveData[i]); //&((1<<MAXNBITS)-1)
     fclose(fh);
     return 0;
 }
