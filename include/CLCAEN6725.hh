@@ -8,7 +8,12 @@
 #include <CAENDigitizerType.h>
 #include <CAENDigitizer.h>
 #include <fstream>
+
+#include "TFile.h"
+#include "TTree.h"
+
 using std::ofstream;
+
 /************************************************************************/
 
 // channels are encoded with an 8 bit mask
@@ -187,5 +192,11 @@ class CaenN6725 {
 };
         bool                            decode_waveforms_;
 
+
+        // save data to a rootfle
+        TFile* root_file_     = nullptr;
+        std::vector<double> energy_ch_      = {};
+        std::vector<std::vector<int16_t>> waveform_ch_  = {};
+        std::vector<TTree*> channel_trees_ = {};
 
 #endif

@@ -66,7 +66,17 @@ CaenN6725::CaenN6725()
             outfile_.open("Waveforms_all_new.txt");
 
     //    }
-
+    root_file_   = new TFile("digitizer_output.root", "RECREATE");
+    energy_ch_.reserve(8);
+    waveform_ch_.reserve(8);
+    std::string ch_name = "ch";
+    for (int k=0;k<8;k++)
+        {
+            ch_name = std::string("ch") + std::to_string(k);           
+            channel_trees_.push_back(new TTree(ch_name.c_str(), ch_name.c_str()));
+            channel_trees_[k]->Branch("energy", &energy_ch_[k]);
+            channel_trees_[k]->Branch("waveform", &waveform_ch_[k]);
+        } 
 };
 
 /***************************************************************/
@@ -176,29 +186,46 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
 
 
     ofstream outdata;
-
-
+    root_file_->cd();
+    std::vector<int16_t> thiswf;
+    //thiswf.reserve(8)
     uint traceId(0);
     for (int ch=0;ch<get_nchannels();ch++)
         {
             channel_events = {};
+            waveform_ch_.clear();
+            for (int k=0;k<8;k++)
+                {waveform_ch_.push_back(std::vector<int16_t>{});}
             for (int ev=0;ev<num_events_[ch];ev++)
                 {
                     channel_events.push_back(events_[ch][ev]);
+                    
+
                     if (decode_waveforms_)
                         {
-                            if (events_[ch][ev].Energy == 0)
-                                {continue;}
+                            //if (events_[ch][ev].Energy == 0)
+                            //    {continue;}
                             CAEN_DGTZ_DecodeDPPWaveforms(handle_, &events_[ch][ev], waveform_);
+                        energy_ch_[ch] = events_[ch][ev].Energy;
                         waveform_size = (int) waveform_->Ns; // number of samples
                         waveform_trace = waveform_->Trace2;
                         //SaveWaveform(0, ch, traceId, waveform_size, waveform_trace);
-                        SaveWaveform(waveform_size, waveform_trace);
+                        //SaveWaveform(waveform_size, waveform_trace);
+                        thiswf = {};
+                        int end_wf = sizeof(waveform_trace)/sizeof(waveform_trace[0]);
+                        thiswf.reserve(waveform_size);    
+                        //for(int i=0; i<waveform_size; i++)
+                        //    {thiswf.push_back(waveform_trace[i]);}
+                        //for (int16_t i : *waveform_trace)
+                        //    {thiswf.push_back(i);}
+                        thiswf = std::vector<int16_t>(waveform_trace, waveform_trace + waveform_size);
+                        waveform_ch_.at(ch) = thiswf;
+                        channel_trees_[ch]->Fill();
+                        channel_trees_[ch]->Write();
                         ++traceId;
                         //waveform_->Trace2;
                         //waveform_->DTrace1;
                         //waveform_->DTrace2;
-
 
                         }
                 }
@@ -377,11 +404,15 @@ uint32_t CaenN6725::get_baseline_offset(int channel)
 // FIXME: pro;er close function
 CaenN6725::~CaenN6725()
 {
+    std::cout << "Closing digitizer..." << std::endl;
     CAEN_DGTZ_SWStopAcquisition(handle_);
     CAEN_DGTZ_FreeReadoutBuffer(&buffer_);
     //CAEN_DGTZ_FreeDPPEvents(handle_, &events_);
     //CAEN_DGTZ_FreeDPPWaveforms(handle_, waveform_);
     CAEN_DGTZ_CloseDigitizer(handle_);
+    //root_file_->Write();
+    root_file_->Close();
+    //delete root_file_;
     //    for (ch = 0; ch < MaxNChannels; ch++)
     //        if (EHisto[b][ch] != NULL)
     //            free(EHisto[b][ch]);
