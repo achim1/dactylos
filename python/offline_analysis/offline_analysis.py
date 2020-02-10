@@ -10,6 +10,9 @@ import argparse
 import concurrent.futures
 import scipy.integrate as integrate
 
+
+from scipy.signal import sosfilt
+
 import matplotlib
 #matplotlib.use('Agg')
 
@@ -23,7 +26,7 @@ import matplotlib.colors as colors
 import cmocean as cmo
 CMAP = cmo.cm.solar
 
-
+from shapers import shaper
 SHAPINGTIMES = [0.5, 1, 2, 4, 5, 8, 12, 15, 20, 30]
 SHAPINGTIMES = [0.1, 0.2,0.5, 1, 2, 4]
 
@@ -70,26 +73,30 @@ def do_shaping(tail, t, peaktime, order, decay_time, dt,\
             sos = shaper("gaussian",order,peaktime,dt=dt,pz=1./decay_time)
             y = sosfilt(sos,tail) 
 
-        except:
-            return 0,0
+        except Exception as e:
+            print (e)
+            return 0,fig
         save_plot = False
         if plot_waveforms:
-             if fig is None:
-                save_plot = True
-                fig = p.figure()
-                ax = fig.gca()
-                ax.plot(1e6*t, 1e3*tail, lw=0.9, color=palette[0],alpha=0.7, label='waveform')
-                ax.set_ylabel("voltage [mV]")
-                ax.set_xlabel("time [$\mu$s]")
-                #ax.set_ylabel("digitizer bin [14bit]")
-                #ax.set_xlabel(r"record length [?] (might be $\propto$ ns)")
-             ax = fig.gca()
-             ax.plot(1e6*t, 1e3*y, lw=1.5, label=f'shaper output pt {peaktime} mic sec')
-             #ax.legend()              
-             if save_plot:
-                fig.savefig(f"wf_{batch_id}_{event_id}_{peaktime}.png")
-                p.close()
-                fig= None
+            if fig is None:
+               save_plot = True
+               fig = p.figure()
+               ax = fig.gca()
+               ax.plot(1e6*t, 1e3*tail, lw=0.9, color=palette[0],alpha=0.7, label='waveform')
+               ax.set_ylabel("voltage [mV]")
+               ax.set_xlabel("time [$\mu$s]")
+               #ax.set_ylabel("digitizer bin [14bit]")
+               #ax.set_xlabel(r"record length [?] (might be $\propto$ ns)")
+            else:
+               ax = fig.gca()
+
+            ax.plot(1e6*t, 1e3*y, lw=1.5, label=f'shaper output pt {peaktime} mic sec')
+            #ax.legend()              
+            if save_plot:
+               fig.savefig(f"wf_{batch_id}_{event_id}_{peaktime}.png")
+               p.close()
+               fig= None
+
         return 1e3*max(y),  fig
 
 
@@ -98,7 +105,9 @@ def do_work(argpacket):
     energies = dict([(k, []) for k,__ in enumerate(SHAPINGTIMES)])
     baselines = dict([(k, []) for k,__ in enumerate(SHAPINGTIMES)])
     charges = dict([(k, []) for k,__ in enumerate(SHAPINGTIMES)])
-    
+    #print (f"Found argpacket {batch_id}, {plot_waveforms}") 
+
+    f = open("specialwaveforms_{batch_id}.dat", "w")
     for event_id,data in enumerate(waveformdata):
         baseline, tail = baseline_correction(data, nsamples=200)
         tail = bins_to_volts(tail)
@@ -109,14 +118,13 @@ def do_work(argpacket):
             ax.plot(1e6*t, 1e3*tail, lw=0.9, color=palette[0],alpha=0.7, label='waveform')
             ax.set_ylabel("voltage [mV]")
             ax.set_xlabel("time [$\mu$s]")
-
         else:
             fig = None
+        
         for k,ptime in enumerate(SHAPINGTIMES):
             ptime *= 1e-6
             
-            # shaping
-            
+            # shaping    
             energy,  fig = do_shaping(tail, t, ptime, order, decay_time, dt,\
                                       plot_waveforms=plot_waveforms,
                                       batch_id=batch_id,
@@ -128,11 +136,15 @@ def do_work(argpacket):
             energies[k].append(energy)
             baselines[k].append(baseline)
             charges[k].append(charge)
+            if energy > 4:
+                f.write(f"{batch_id} {event_id} {energy}\n")
+        #print (fig)
         if fig is not None:
             fig.savefig(f"wf_{batch_id}_{event_id}.png")
             p.close(fig)
             del fig
         gc.collect()
+    f.close()
     return energies, baselines, charges
 
 
@@ -195,7 +207,7 @@ if __name__ == '__main__':
 
     njobs = 10
     if args.plot_waveforms:
-        njobs = 6 # reduce number of jobs to save memory
+        njobs = 8 # reduce number of jobs to save memory
     print (args.infiles)
     print (njobs)
     sampling = 4e-9
@@ -219,10 +231,22 @@ if __name__ == '__main__':
 
     print (energydata)
     energydata = energydata[energydata > 0]
-    bins = np.linspace(0,80,30)
-    h = d.factory.hist1d(energydata, bins)
-    h.line()
-    p.savefig("energy-histo.png")
+    ebins = np.linspace(0,10,100)
+    print (f"We see {len(energydata)} energies")
+    #h = d.factory.hist1d(energydata, bins)
+    #h.line()
+    mod, fig = vis.gaussian_model_fit(energydata,\
+                                      startparams=(3, 0.2),\
+                                      fig=None,\
+                                      norm=False,\
+                                      bins=ebins,\
+                                      xlabel='shaper peak value [mv]')
+    ax = fig.gca()
+    ax.set_yscale("symlog")
+    fig.savefig("energy-histo.png")
+    p.close(fig)
+    #sys.exit(0)
+
     event = 0
 
     if args.nevents > 0:
@@ -242,17 +266,15 @@ if __name__ == '__main__':
                 charges[k].extend(result[2][k])
 
     # binning
-    ebins = np.linspace(0,10, 80)
+    ebins_zoomin = np.linspace(0,10, 80)
     cbins = np.linspace(0,0.00001, 80)
     ebins = np.linspace(0,100,80)
 
     resolutions = [] 
+
+    xrayevents, allevents = [],[]
     for k,ptime in enumerate(SHAPINGTIMES):
         
-        fig = p.figure()
-        baselinehist = d.factory.hist1d(baselines[k], 80)
-        baselinehist.line()
-        fig.savefig(f"baselines_ptime{ptime}.png")
         
         mod, fig = vis.gaussian_model_fit(energies[k],\
                                           startparams=(3, 0.2),\
@@ -263,7 +285,29 @@ if __name__ == '__main__':
         ax = fig.gca()
         vis.plotting.adjust_minor_ticks(ax)
         fig.savefig(f"energies_ptime{ptime}gauss.png")
+        
+        energies_to_fit = np.asarray(energies[k])
+        mod, fig = vis.gaussian_model_fit(energies_to_fit,\
+                                          startparams=(energies_to_fit.mean(), energies_to_fit.std(), max(energies_to_fit)),\
+                                          norm=False,\
+                                          fig=None,\
+                                          bins=ebins_zoomin,\
+                                          xlabel='shaper peak value [mv]')
+
+        thisenergies = np.asarray(energies[k])
+        xrayevents.append(len(thisenergies[thisenergies > 4]))
+        allevents.append(len(energies[k]))
+        
+
+
+        #print (dir(mod))
+        ax = fig.gca()
+        vis.plotting.adjust_minor_ticks(ax)
+        #ax.set_yscale("symlog")
+        ax.set_yscale("log")
+        fig.savefig(f"energies_ptime{ptime}gausszoomin.png")
         resolutions.append(fwhm(mod.best_fit_params[1]))
+
 
         fig = distribution2d((charges[k], energies[k]),(cbins,ebins),\
                               cmap=CMAP,
@@ -274,7 +318,17 @@ if __name__ == '__main__':
         fig.savefig(f"charge_energy_{ptime}.png")             
         p.close(fig)
 
-    # charges are always the same for different shapers
+    # charges and baselines are always the same for different shapers
+    fig = p.figure()
+    baselines_for_plot = np.asarray(baselines[0])
+    baselines_for_plot = bins_to_volts(baselines_for_plot)
+    mod, fig = vis.gaussian_model_fit(baselines_for_plot,\
+                                      startparams=(baselines_for_plot.mean(), baselines_for_plot.std()),\
+                                      fig=None,\
+                                      bins=80,\
+                                      xlabel='baseline [mV]')
+    fig.savefig(f"baselines.png")
+
     fig = p.figure()
     charge_for_plot = np.asarray(charges[0])*1e5
     mod, fig = vis.gaussian_model_fit(charge_for_plot,\
@@ -292,3 +346,8 @@ if __name__ == '__main__':
     ax.set_xscale("log")
     fig.savefig("resolutions.png")
 
+    for i,ptime in enumerate(SHAPINGTIMES):
+        xray = xrayevents[i]
+        allev = allevents[i]
+        print (f"We have {xray} of {allev} for peaking time {ptime}")
+        
