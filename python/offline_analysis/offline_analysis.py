@@ -198,17 +198,20 @@ if __name__ == '__main__':
     parser.add_argument('-n','--nevents', dest='nevents',
                         default=-1,type=int, 
                         help='only digest n events')
+    parser.add_argument('-j','--jobs', dest='njobs',
+                        default=4,type=int, 
+                        help='number of jobs to use')
     parser.add_argument('--plot-waveforms', dest='plot_waveforms',
                         default=False, action='store_true',
                         help='plot the individual waveforms as png')
 
     args = parser.parse_args()
-
-    njobs = 14
-    if args.plot_waveforms:
-        njobs = 8 # reduce number of jobs to save memory
-    print (args.infiles)
-    print (njobs)
+    loglevel = 20
+    if args.debug:
+        loglevel = 10
+    logger = hep.logger.get_logger(loglevel)
+    logger.info(f"Using {args.njobs} cores!")
+    logger.info(f"Will run over the following files {args.infiles}")
     sampling = 4e-9
 
     firstfile = up.open(args.infiles[0]) 
@@ -254,10 +257,10 @@ if __name__ == '__main__':
     energies = dict([(k, []) for k,__ in enumerate(SHAPINGTIMES)])
     baselines = dict([(k, []) for k,__ in enumerate(SHAPINGTIMES)])
     charges = dict([(k, []) for k,__ in enumerate(SHAPINGTIMES)])
-    split_data = np.array_split(waveformdata,njobs)
+    split_data = np.array_split(waveformdata,args.njobs)
     #do_work = worker_factor(args.plot_waveforms)
     worker_args = [(batch_id, args.plot_waveforms, split_data[batch_id]) for batch_id in range(len(split_data))]
-    with concurrent.futures.ProcessPoolExecutor(max_workers=njobs) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=args.njobs) as executor:
         for data, result in tqdm.tqdm(zip(worker_args, executor.map(do_work, worker_args)), total=len(split_data)):
             for k, __ in enumerate(SHAPINGTIMES):
                 energies[k].extend(result[0][k])
