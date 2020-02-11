@@ -10,7 +10,6 @@ import argparse
 import concurrent.futures
 import scipy.integrate as integrate
 
-
 from scipy.signal import sosfilt
 
 import matplotlib
@@ -205,7 +204,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    njobs = 10
+    njobs = 14
     if args.plot_waveforms:
         njobs = 8 # reduce number of jobs to save memory
     print (args.infiles)
@@ -277,8 +276,9 @@ if __name__ == '__main__':
         
         
         mod, fig = vis.gaussian_model_fit(energies[k],\
-                                          startparams=(3, 0.2),\
+                                          startparams=(4, 2),\
                                           fig=None,\
+                                          fitrange=((2,6), (0,5)),\
                                           bins=ebins,\
                                           xlabel='shaper peak value [mv]')
         #print (dir(mod))
@@ -290,6 +290,7 @@ if __name__ == '__main__':
         mod, fig = vis.gaussian_model_fit(energies_to_fit,\
                                           startparams=(energies_to_fit.mean(), energies_to_fit.std(), max(energies_to_fit)),\
                                           norm=False,\
+                                          fitrange=((3,8), (0.7,5), (0, max(energies_to_fit)*2)),\
                                           fig=None,\
                                           bins=ebins_zoomin,\
                                           xlabel='shaper peak value [mv]')
@@ -303,9 +304,11 @@ if __name__ == '__main__':
         #print (dir(mod))
         ax = fig.gca()
         vis.plotting.adjust_minor_ticks(ax)
-        #ax.set_yscale("symlog")
-        ax.set_yscale("log")
+        ax.set_yscale("symlog")
+        #ax.set_yscale("log")
         fig.savefig(f"energies_ptime{ptime}gausszoomin.png")
+        print ("==============================best fit============")
+        print (mod.best_fit_params)
         resolutions.append(fwhm(mod.best_fit_params[1]))
 
 
@@ -349,5 +352,6 @@ if __name__ == '__main__':
     for i,ptime in enumerate(SHAPINGTIMES):
         xray = xrayevents[i]
         allev = allevents[i]
-        print (f"We have {xray} of {allev} for peaking time {ptime}")
+        resolution = resolutions[i]
+        print (f"We have {xray} of {allev} for peaking time {ptime} with resolution {resolution}")
         
