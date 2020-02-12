@@ -9,6 +9,7 @@ import uproot as up
 import argparse
 import concurrent.futures
 import scipy.integrate as integrate
+import os
 
 from scipy.signal import sosfilt
 
@@ -59,16 +60,9 @@ def baseline_correction(input, nsamples=2000):
     #print (f"Baseline calculation gives us {baseline}")
     return baseline,(input - baseline)
 
-
-def shape_it(t, tail, peaktime, order, decay_time, dt):
-    sos = shaper("gaussian",order,peaktime,dt=dt,pz=1./decay_time)
-    y = sosfilt(sos,tail) 
-    return y  
-
 def do_shaping(tail, t, peaktime, order, decay_time, dt,\
                plot_waveforms=False,fig=None, batch_id=0, event_id=0):
         try:
-            #y = shape_it(t, tail,peaktime, order, decay_time, dt)
             sos = shaper("gaussian",order,peaktime,dt=dt,pz=1./decay_time)
             y = sosfilt(sos,tail) 
 
@@ -106,7 +100,7 @@ def do_work(argpacket):
     charges = dict([(k, []) for k,__ in enumerate(SHAPINGTIMES)])
     #print (f"Found argpacket {batch_id}, {plot_waveforms}") 
 
-    f = open("specialwaveforms_{batch_id}.dat", "w")
+    f = open(f"specialwaveforms_{batch_id}.dat", "w")
     for event_id,data in enumerate(waveformdata):
         baseline, tail = baseline_correction(data, nsamples=200)
         tail = bins_to_volts(tail)
@@ -198,6 +192,9 @@ if __name__ == '__main__':
     parser.add_argument('-n','--nevents', dest='nevents',
                         default=-1,type=int, 
                         help='only digest n events')
+    parser.add_argument('-o','--outdir', dest='outdir',
+                        default=".",type=str, 
+                        help='save plots in a directory named "outdir"')
     parser.add_argument('-j','--jobs', dest='njobs',
                         default=4,type=int, 
                         help='number of jobs to use')
@@ -218,13 +215,25 @@ if __name__ == '__main__':
     waveformdata = firstfile.get("ch0").get("waveform").array()
     energydata = firstfile.get("ch0").get("energy").array() 
     t = np.array([sampling*i for i,__ in enumerate(waveformdata[0])])
+    waveformdata = np.array([np.array(k) for k in waveformdata])
+    #test = np.array([len(k) for k in waveformdata])
+    #print (set(test))
+    #print (waveformdata)
+    #print (type(waveformdata))
+    print (waveformdata.shape)
+    #raise
+    thisdata = None
     for filename in tqdm.tqdm(args.infiles[1:],total=len(args.infiles[1:])):   
         f = up.open(filename)
-        waveformdata = np.vstack((waveformdata, f.get("ch0").get("waveform").array()))   
+        thisdata = f.get("ch0").get("waveform").array()
+        thisdata = np.array([np.array(k) for k in thisdata])
+        print (thisdata.shape)
+        waveformdata = np.vstack((waveformdata, thisdata))   
         energydata = np.hstack((energydata,  f.get("ch0").get("energy").array()))
 
+    del thisdata
     #t = np.linspace(0, len(testwf), sampling) 
-
+    gc.collect()
     peaktime = 4E-6 #four microseconds
     order = 4 #fourth order filter
     decay_time = 80E-6 # 100 microsecond preamp tail pulse decay time
@@ -237,15 +246,22 @@ if __name__ == '__main__':
     print (f"We see {len(energydata)} energies")
     #h = d.factory.hist1d(energydata, bins)
     #h.line()
+
+    if args.outdir != ".":
+        logger.info("Will create director {args.outdir}")
+        try:
+            os.mkdir(args.outdir)
+        except Exception as e:
+            logger.warn(f"Will overwrite plots in {args.outdir}")
     mod, fig = vis.gaussian_model_fit(energydata,\
                                       startparams=(3, 0.2),\
                                       fig=None,\
-                                      norm=False,\
+                                      norm=True,\
                                       bins=ebins,\
                                       xlabel='shaper peak value [mv]')
     ax = fig.gca()
     ax.set_yscale("symlog")
-    fig.savefig("energy-histo.png")
+    fig.savefig(os.path.join(args.outdir,"energy-histo.png"))
     p.close(fig)
     #sys.exit(0)
 
@@ -257,7 +273,7 @@ if __name__ == '__main__':
     energies = dict([(k, []) for k,__ in enumerate(SHAPINGTIMES)])
     baselines = dict([(k, []) for k,__ in enumerate(SHAPINGTIMES)])
     charges = dict([(k, []) for k,__ in enumerate(SHAPINGTIMES)])
-    split_data = np.array_split(waveformdata,args.njobs)
+    split_data = np.array_split(waveformdata,args.njobs*4)
     #do_work = worker_factor(args.plot_waveforms)
     worker_args = [(batch_id, args.plot_waveforms, split_data[batch_id]) for batch_id in range(len(split_data))]
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.njobs) as executor:
@@ -269,7 +285,7 @@ if __name__ == '__main__':
 
     # binning
     ebins_zoomin = np.linspace(0,10, 80)
-    cbins = np.linspace(0,0.00001, 80)
+    cbins = np.linspace(0,1e-8, 80)
     ebins = np.linspace(0,100,80)
 
     resolutions = [] 
@@ -278,42 +294,51 @@ if __name__ == '__main__':
     for k,ptime in enumerate(SHAPINGTIMES):
         
         
-        mod, fig = vis.gaussian_model_fit(energies[k],\
-                                          startparams=(4, 2),\
-                                          fig=None,\
-                                          fitrange=((2,6), (0,5)),\
-                                          bins=ebins,\
-                                          xlabel='shaper peak value [mv]')
+        mod, fig = vis.gaussian_fwhm_fit(energies[k],\
+                                         startparams=(4, 2, max(energies[k])/2),\
+                                         fig=None,\
+                                         fitrange=((2,6), (1,5), (0, max(energies[k]))),\
+                                         bins=ebins,\
+                                         xlabel='shaper peak value [mv]')
         #print (dir(mod))
         ax = fig.gca()
         vis.plotting.adjust_minor_ticks(ax)
-        fig.savefig(f"energies_ptime{ptime}gauss.png")
+        fig.savefig(os.path.join(args.outdir,f"energies_ptime{ptime}gauss.png"))
         
         energies_to_fit = np.asarray(energies[k])
-        mod, fig = vis.gaussian_model_fit(energies_to_fit,\
-                                          startparams=(energies_to_fit.mean(), energies_to_fit.std(), max(energies_to_fit)),\
-                                          norm=False,\
-                                          fitrange=((3,8), (0.7,5), (0, max(energies_to_fit)*2)),\
-                                          fig=None,\
-                                          bins=ebins_zoomin,\
-                                          xlabel='shaper peak value [mv]')
+        
+        #construct limits
+        #the maximum is between 3 and 6
+        temph = d.factory.hist1d(energies_to_fit, ebins_zoomin)
+        peak  = max(temph.bincontent[np.logical_and(temph.bincenters > 3, temph.bincenters < 6)])
+        peakloc = np.where(temph.bincontent == peak)
+        peakloc = temph.bincenters[peakloc]
+        print (peakloc)
+        peakloc = peakloc[0]
+
+        mod, fig = vis.gaussian_fwhm_fit(energies_to_fit,\
+                                         #startparams=(energies_to_fit.mean(), energies_to_fit.std(), max(energies_to_fit)),\
+                                         startparams=(peakloc,1.5, peak),\
+                                         #startparams=(5, 0.8),\
+                                         fitrange=((peakloc - (0.2*peakloc),peakloc + 0.2*peakloc), (0,2.5), (peak - 0.1*peak, peak + 0.1*peak)),\
+                                         fig=None,\
+                                         bins=ebins_zoomin,\
+                                         xlabel='shaper peak value [mv]')
 
         thisenergies = np.asarray(energies[k])
         xrayevents.append(len(thisenergies[thisenergies > 4]))
         allevents.append(len(energies[k]))
-        
-
 
         #print (dir(mod))
         ax = fig.gca()
         vis.plotting.adjust_minor_ticks(ax)
         ax.set_yscale("symlog")
         #ax.set_yscale("log")
-        fig.savefig(f"energies_ptime{ptime}gausszoomin.png")
+        fig.savefig(os.path.join(args.outdir,f"energies_ptime{ptime}gausszoomin.png"))
         print ("==============================best fit============")
         print (mod.best_fit_params)
-        resolutions.append(fwhm(mod.best_fit_params[1]))
-
+        #resolutions.append(fwhm(mod.best_fit_params[1]))
+        resolutions.append(mod.best_fit_params[1])
 
         fig = distribution2d((charges[k], energies[k]),(cbins,ebins),\
                               cmap=CMAP,
@@ -321,7 +346,7 @@ if __name__ == '__main__':
                               norm=False)
         ax = fig.gca()
         vis.plotting.adjust_minor_ticks(ax)
-        fig.savefig(f"charge_energy_{ptime}.png")             
+        fig.savefig(os.path.join(args.outdir,f"charge_energy_{ptime}.png"))             
         p.close(fig)
 
     # charges and baselines are always the same for different shapers
@@ -333,24 +358,24 @@ if __name__ == '__main__':
                                       fig=None,\
                                       bins=80,\
                                       xlabel='baseline [mV]')
-    fig.savefig(f"baselines.png")
+    fig.savefig(os.path.join(args.outdir,f"baselines.png"))
 
     fig = p.figure()
-    charge_for_plot = np.asarray(charges[0])*1e5
+    charge_for_plot = np.asarray(charges[0])*1e6
     mod, fig = vis.gaussian_model_fit(charge_for_plot,\
-                                          startparams=(0.1, 0.02),\
-                                          fig=None,\
-                                          bins=1e5*cbins,\
-                                          xlabel='charge x 1e5 [a.u.]')
+                                      startparams=(0.1, 0.02),\
+                                      fig=None,\
+                                      bins=1e7*cbins,\
+                                      xlabel='charge x 1e6 [a.u.]')
     ax = fig.gca()
     vis.plotting.adjust_minor_ticks(ax)
-    fig.savefig(f"charges.png")
+    fig.savefig(os.path.join(args.outdir,f"charges.png"))
 
     fig = p.figure()
     ax = fig.gca()
     ax.scatter(SHAPINGTIMES, resolutions)
     ax.set_xscale("log")
-    fig.savefig("resolutions.png")
+    fig.savefig(os.path.join(args.outdir,"resolutions.png"))
 
     for i,ptime in enumerate(SHAPINGTIMES):
         xray = xrayevents[i]
