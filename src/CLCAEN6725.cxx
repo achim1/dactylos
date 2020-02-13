@@ -423,15 +423,4 @@ CaenN6725::~CaenN6725()
     //CAEN_DGTZ_FreeDPPWaveforms(handle[0], Waveform);
 };
 
-/*******************************************************************/
-int CaenN6725::SaveWaveform(int size, int16_t *WaveData)
-{
-    for(int i=0; i<size; i++)
-    //    fprintf(fh, "%d\s", WaveData[i]); //&((1<<MAXNBITS)-1)
-        outfile_ << WaveData[i] << " ";
-    outfile_ << "\n";
-    //fprintf(fh, "\n");
-    //fclose(fh);
-    return 0;
-}
 

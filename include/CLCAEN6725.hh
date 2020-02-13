@@ -12,7 +12,6 @@
 #include "TFile.h"
 #include "TTree.h"
 
-using std::ofstream;
 
 /************************************************************************/
 
@@ -150,12 +149,8 @@ class CaenN6725 {
 
     private:
 
-        int SaveWaveform(int size, int16_t *WaveData);
-
-
         // is it configured"
         bool configured_ = false;
-        ofstream outfile_;
         // actual number of connected boards
         const int MAXNB_ = 1;
         // NB: the following define MUST specify the ACTUAL max allowed number of board's channels
