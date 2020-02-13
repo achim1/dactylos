@@ -152,8 +152,6 @@ class CaenN6725 {
 
         int SaveWaveform(int size, int16_t *WaveData);
 
-        int SaveWaveform(int b, int ch, int trace, int size, int16_t *WaveData);
-        int SaveWaveform(int b, int ch, int trace, int size, uint8_t *WaveData);
 
         // is it configured"
         bool configured_ = false;
