@@ -5,7 +5,7 @@
 
 #include "CLCAEN6725.hh"
 
-#include "gaps/GOptionParser.hh"
+#include "gaps/GProgressBar.hh"
 
 #include <fstream>
 
@@ -60,17 +60,6 @@ CaenN6725::CaenN6725()
 
     current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, DIGITAL_TRACE_1, CAEN_DGTZ_DPP_DIGITALPROBE_Peaking);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP virtual probe trace 2 err ode: " + std::to_string(current_error_));
-    root_file_   = new TFile("digitizer_output.root", "RECREATE");
-    energy_ch_.reserve(8);
-    waveform_ch_.reserve(8);
-    std::string ch_name = "ch";
-    for (int k=0;k<8;k++)
-        {
-            ch_name = std::string("ch") + std::to_string(k);           
-            channel_trees_.push_back(new TTree(ch_name.c_str(), ch_name.c_str()));
-            channel_trees_[k]->Branch("energy", &energy_ch_[k]);
-            channel_trees_[k]->Branch("waveform", &waveform_ch_[k]);
-        } 
 };
 
 /***************************************************************/
@@ -86,6 +75,9 @@ CaenN6725::CaenN6725(DigitizerParams_t params) : CaenN6725()
     // Set the number of samples for each waveform
     current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set record length err code: " + std::to_string(current_error_));
+
+    // also set the record length internally
+    recordlength_ = params.RecordLength;
 
     // Set the I/O level (CAEN_DGTZ_IOLevel_NIM or CAEN_DGTZ_IOLevel_TTL)
     current_error_ = CAEN_DGTZ_SetIOLevel(handle_, params.IOlev);
@@ -192,19 +184,16 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
             for (int ev=0;ev<num_events_[ch];ev++)
                 {
                     channel_events.push_back(events_[ch][ev]);
+                    energy_ch_[ch] = events_[ch][ev].Energy;
                     
-
                     if (decode_waveforms_)
                         {
-                            //if (events_[ch][ev].Energy == 0)
-                            //    {continue;}
                             CAEN_DGTZ_DecodeDPPWaveforms(handle_, &events_[ch][ev], waveform_);
-                        energy_ch_[ch] = events_[ch][ev].Energy;
-                        waveform_size = (int) waveform_->Ns; // number of samples
-                        waveform_trace = waveform_->Trace2;
-                        thiswf = {};
-                        int end_wf = sizeof(waveform_trace)/sizeof(waveform_trace[0]);
-                        thiswf.reserve(waveform_size);    
+                            waveform_size = (int) waveform_->Ns; // number of samples
+                            waveform_trace = waveform_->Trace2;
+                            thiswf = {};
+                            int end_wf = sizeof(waveform_trace)/sizeof(waveform_trace[0]);
+                            thiswf.reserve(waveform_size);    
                         //for(int i=0; i<waveform_size; i++)
                         //    {thiswf.push_back(waveform_trace[i]);}
                         //for (int16_t i : *waveform_trace)
@@ -221,7 +210,7 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
                         }
                 }
             channel_trees_[ch]->Write();
-            
+            n_events_acq_[ch] += num_events_[ch]; 
             thisevents.push_back(channel_events);
             //thisevents[ch] = events_[ch];
         }
@@ -243,9 +232,82 @@ std::vector<int> CaenN6725::get_n_events()
 
 /***************************************************************/
 
+std::vector<long> CaenN6725::get_n_events_tot()
+{
+    return n_events_acq_;
+}
+
+
+/***************************************************************/
+
+void CaenN6725::fast_readout_()
+{
+    for (int k = 0; k<get_nchannels(); k++)
+        {num_events_[k] = 0;}
+
+    std::vector<CAEN_DGTZ_DPP_PHA_Event_t> channel_events;
+    int waveform_size;
+    int16_t *waveform_trace;
+    //uint8_t *waveform_trace;
+    current_error_ = CAEN_DGTZ_ReadData(handle_, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer_, &buffer_size_);
+    if (current_error_ != 0) 
+        {
+            std::cout << "error while getting data" << current_error_ << std::endl;
+            return;
+        }
+    if (buffer_size_ == 0)
+        {
+            return;
+        }
+    //if (current_error_ != 0) throw std::runtime_error("Error while reading data from the digitizer, err code " + std::to_string(current_error_));
+    current_error_ =  CAEN_DGTZ_GetDPPEvents(handle_, buffer_, buffer_size_, (void**)(events_),num_events_);
+    if (current_error_ != 0)
+        {
+            std::cout << "error while getting data" << current_error_ << std::endl;
+            return;
+        }
+    root_file_->cd();
+    std::vector<int16_t> thiswf = {};
+    uint traceId(0);
+    waveform_ch_.clear();
+    waveform_ch_.reserve(get_nchannels());
+
+    channel_events = {};
+    channel_events.reserve(get_nchannels());
+
+    for (int ch=0;ch<get_nchannels();ch++)
+      {
+        for (int ev=0;ev<num_events_[ch];ev++)
+          {
+            channel_events.push_back(events_[ch][ev]);
+            energy_ch_[ch] = events_[ch][ev].Energy;
+
+            if (decode_waveforms_)
+              {
+                  CAEN_DGTZ_DecodeDPPWaveforms(handle_, &events_[ch][ev], waveform_);
+                  waveform_size = (int) waveform_->Ns; // number of samples
+                  waveform_trace = waveform_->Trace2;
+                  thiswf = std::vector<int16_t>(waveform_trace, waveform_trace + waveform_size);
+                  waveform_ch_.at(ch) = thiswf;
+                  channel_trees_[ch]->Fill();
+                  ++traceId;
+              //waveform_->Trace2;
+              //waveform_->DTrace1;
+              //waveform_->DTrace2;
+              }
+          }
+        channel_trees_[ch]->Write();
+        n_events_acq_[ch] += num_events_[ch];
+      }
+    return;
+}
+
+/***************************************************************/
+
 void CaenN6725::end_acquisition()
 {
     CAEN_DGTZ_SWStopAcquisition(handle_);
+    root_file_->Close();
 }
 
 /***************************************************************/
@@ -352,6 +414,21 @@ void CaenN6725::start_acquisition()
 {
     current_error_ = CAEN_DGTZ_SWStartAcquisition(handle_);
     if (current_error_ != 0) throw std::runtime_error("Problems configuring all channels, err code " + std::to_string(current_error_));
+    root_file_   = new TFile(rootfile_name_.c_str(), "RECREATE");
+    if (!root_file_) throw std::runtime_error("Problems with root file " + rootfile_name_);
+    energy_ch_.reserve(8);
+    waveform_ch_.reserve(8);
+    std::string ch_name = "ch";
+    for (int k=0;k<8;k++)
+        {
+            ch_name = std::string("ch") + std::to_string(k);           
+            channel_trees_.push_back(new TTree(ch_name.c_str(), ch_name.c_str()));
+            channel_trees_[k]->Branch("energy", &energy_ch_[k]);
+            if (decode_waveforms_)
+                {channel_trees_[k]->Branch("waveform", &waveform_ch_[k]);}
+        } 
+    n_events_acq_ = std::vector<long>(get_nchannels(), 0);
+
 }
 
 /*******************************************************************/
@@ -394,6 +471,40 @@ uint32_t CaenN6725::get_baseline_offset(int channel)
 
 /*******************************************************************/
 
+void CaenN6725::continuous_readout(unsigned int seconds)
+{
+    long now_time = get_time();
+    long last_time = now_time;
+    long delta_t = 0;
+    GProgressBar progress(seconds);
+    int progress_step = 0;
+
+    while (delta_t < 1000*seconds)
+        {
+            fast_readout_();
+            now_time = get_time();
+            delta_t +=  now_time  - last_time;
+            last_time = now_time;
+            progress_step += delta_t;
+            if (progress_step > 5000)
+                {
+                    for (int j=0; j<5;j++)
+                        {++progress;}
+                }
+        }
+}
+
+
+/*******************************************************************/
+
+void CaenN6725::set_rootfilename(std::string fname)
+{
+    rootfile_name_ = fname;
+
+}
+
+/*******************************************************************/
+
 // FIXME: pro;er close function
 CaenN6725::~CaenN6725()
 {
@@ -404,7 +515,6 @@ CaenN6725::~CaenN6725()
     //CAEN_DGTZ_FreeDPPWaveforms(handle_, waveform_);
     CAEN_DGTZ_CloseDigitizer(handle_);
     //root_file_->Write();
-    root_file_->Close();
     //delete root_file_;
     //    for (ch = 0; ch < MaxNChannels; ch++)
     //        if (EHisto[b][ch] != NULL)

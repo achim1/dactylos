@@ -28,26 +28,6 @@ def setup_root_histos():
     return histos
 
 
-#def readout_loop(digitizer,n_acquired, histos):
-#    """
-#    A single acquisition cycle
-#    """
-#    events = digitizer.read_data();
-#    nevents = digitizer.get_n_events();
-#    print (events)
-#    print (nevents)
-#    #if (events.size() != 0)
-#    #{
-#    #  for (unsigned int ch=0; ch<digitizer->get_nchannels(); ch++)
-#    #    {
-#    #     n_acquired[ch] += nevents[ch];
-#    #     for (int ev=0; ev<nevents[ch]; ev++)
-#    #         {
-#    #             auto energy = events[ch][ev].Energy;
-#    #             histos.at(ch)->Fill(energy);
-#    #         }
-#    #    }
-#    #}
 
 def extract_digitizer_parameters(config):
     """
@@ -131,6 +111,75 @@ def default_ppa_parameter_factory():
     pars.twwdt      = [100]*8 
     return pars
 
+def setup_digitizer(configfile):
+    """
+    For the interactive use in an ipython notebook
+
+    """
+
+    # get the configuration
+    config = hjson.load(configfile)
+
+    # get the active channels
+    active_digitizer_channels = config['CaenN6725']['active-channels']
+    
+    # baseline offset for active digitizier channels
+    digitizer_baseline_offset = config['CaenN6725']['baseline-offset']
+    assert len(digitizer_baseline_offset) == len(active_digitizer_channels), "The number of active channels does not match the number of baseline offsets give!"
+
+    # dynamic range 
+    digitizer_dynamic_range = config['CaenN6725']['dynamic-range']
+    assert (digitizer_dynamic_range == "2VPP") or (digitizer_dynamic_range == "05VPP"), "Dynamic range has to be either 2VPP (2 volt peak-peak) or 05VPP (0.5 volt peak-peak"
+    if digitizer_dynamic_range == "2VPP":
+        digitizer_dynamic_range = cn.DynamicRange.VPP2
+    if digitizer_dynamic_range == "05VPP":
+        digitizer_dynamic_range = cn.DynamicRange.VPP05
+
+    # as an example, for now just take data with the digitzer
+    digi_pars = extract_digitizer_parameters(config['CaenN6725'])
+    ppa_pars  = extract_ppa_pha_parameters(config['CaenN6725']['dpp-pha-params'])
+
+    digitizer = cn.CaenN6725(digi_pars)
+    bf = digitizer.get_board_info()
+    print (f'Connected to digitizer model {bf.get_model_name()}, roc firmware {bf.get_model_roc_firmware_rel()},  amc firmware {bf.get_amc_firmware_rel()}')
+    for ch, val in enumerate(digitizer.get_temperatures()):
+        print (f'Chan: {ch} -  {val}\N{DEGREE SIGN}C')
+    print ("Will calibrate the digitizer")
+    digitizer.calibrate()
+
+    # set input dynmaic range for all channels
+    digitizer.set_input_dynamic_range(digitizer_dynamic_range)
+
+    # set baseline offset
+    for i,ch in enumerate(active_digitizer_channels):
+        digitizer.set_baseline_offset(ch,digitizer_baseline_offset[i])
+
+    digitizer.configure_channels(ppa_pars)
+    digitizer.allocate_memory()
+    return digitizer
+
+def run_digitizer(digitizer,\
+                  seconds,\
+                  filename=None,\
+                  read_waveforms=False):
+    """
+    For the interactive use in an ipython notebook
+
+    Args:
+        digitizer (CaenN1471) : a pre configured digitizer instance
+        seconds   (int)       : runtime in seconds
+        filename  (str)       : filename of the output root file
+        read_waveforms (bool) : sawe waveform data to the output root file
+    """
+    if read_waveforms:
+        digitizer.enable_waveform_decoding()
+    if filename is not None:
+        digitizer.set_rootfilename(filename)
+
+    # run calibration before readout
+    digitizer.calibrate()
+    digitizer.continous_readout(seconds)
+    return
 
 #pars.DPPAcqMode
 #digi = cn.CaenN6725(pars)
@@ -169,11 +218,14 @@ if __name__ == '__main__':
                             default="-1",
                             type=int,
                             help="take data for [run-time] seconds")
-
     run_parser.add_argument("--save-traces",
                             default=False,
                             action="store_true",
                             help="Save the traces as textfiles")
+    #run_parser.add_argument("--fast",
+    #                        default=False,
+    #                        action="store_true",
+    #                        help="Now shenanigans. Just hurry up. Will only write a root file with energies/waveforms which then you have to histogram yourself.")
     run_parser.add_argument("--n-events",
                             default="-1",
                             type=int,
@@ -359,6 +411,7 @@ if __name__ == '__main__':
             time_delta = 0
             time_delta_previous = 0
             currentTime = digitizer.get_time() # time in millisec
+            
             with tqdm(total=1000*args.run_time) as pbar: 
                 while (time_delta < 1000*args.run_time):
                     events = digitizer.read_data()
@@ -378,22 +431,16 @@ if __name__ == '__main__':
                     newTime = digitizer.get_time()
                     time_delta += newTime - currentTime
                     currentTime = newTime
-                    for ch, nev in enumerate(digitizer.get_n_events()):
-                        n_acquired[ch] += nev
-                    
+                    #for ch, nev in enumerate(digitizer.get_n_events()):
+                    #    n_acquired[ch] += nev
                     pbar.update(time_delta - time_delta_previous)
                     time_delta_previous = time_delta
                 try:
                     avg_energy += np.array([sum(k) for k in energies])
                 except Exception as e:
                     print ("Can not calculate average energy!")
-            #for i in range(10):                                   
-            #    ev = digi.read_data()
-            #    print (digi.get_n_events())
-            #    if ev:
-            #        print ([k.energy for k in ev[0]])
-            #    time.sleep(1)
             digitizer.end_acquisition()
+            n_acquired = digitizer.get_n_events_tot();
 
         print (f"Acquried {n_acquired} events")
         avg_energy /= n_acquired

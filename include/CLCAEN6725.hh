@@ -130,6 +130,9 @@ class CaenN6725 {
 
         // get the number of events acquired per read_data call
         std::vector<int> get_n_events();
+        
+        // get the number of events acquired per acquisition call
+        std::vector<long> get_n_events_tot();
 
         // set baseline offset for channel 0-7
         // channel: one of 0-7
@@ -145,9 +148,28 @@ class CaenN6725 {
         // 0 -> 2 Vpp
         // 1 ->0.5 Vpp 
         std::vector<uint32_t> get_input_dynamic_range();
-        
+
+        // read out the digitizer continuously
+        // @param seconds : read out time
+        void continuous_readout(unsigned int seconds);        
+    
+        // the name of the file containing waveforms + energy
+        void set_rootfilename(std::string fname);
+       
 
     private:
+        // internal readout method, use read_data
+        // if you want to interface with the individual 
+        // data. This method is used by continuous_readout
+        // and in the end only will save data to disk
+        void fast_readout_();
+        
+        // number of acquired events per acquistion interval
+        // [start acqusitizion , stop acquisitioin
+        std::vector<long> n_events_acq_ = {};
+
+        // length of the waveforms
+        int recordlength_;
 
         // is it configured"
         bool configured_ = false;
@@ -187,6 +209,7 @@ class CaenN6725 {
 
 
         // save data to a rootfle
+        std::string rootfile_name_ = "digitizer_output.root";
         TFile* root_file_     = nullptr;
         std::vector<double> energy_ch_      = {};
         std::vector<std::vector<int16_t>> waveform_ch_  = {};
