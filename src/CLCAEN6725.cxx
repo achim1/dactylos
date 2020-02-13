@@ -221,7 +221,7 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
                         thiswf = std::vector<int16_t>(waveform_trace, waveform_trace + waveform_size);
                         waveform_ch_.at(ch) = thiswf;
                         channel_trees_[ch]->Fill();
-                        channel_trees_[ch]->Write();
+                        //channel_trees_[ch]->Write();
                         ++traceId;
                         //waveform_->Trace2;
                         //waveform_->DTrace1;
@@ -229,6 +229,8 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
 
                         }
                 }
+            channel_trees_[ch]->Write();
+            
             thisevents.push_back(channel_events);
             //thisevents[ch] = events_[ch];
         }
