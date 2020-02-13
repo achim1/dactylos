@@ -201,6 +201,9 @@ if __name__ == '__main__':
     parser.add_argument('--plot-waveforms', dest='plot_waveforms',
                         default=False, action='store_true',
                         help='plot the individual waveforms as png')
+    parser.add_argument('--digitizer-energy-only', dest='digitizer_energy_only',
+                        default=False, action='store_true',
+                        help='Only produce the plot of the energy as calculated by the digitizer')
 
     args = parser.parse_args()
     loglevel = 20
@@ -212,23 +215,25 @@ if __name__ == '__main__':
     sampling = 4e-9
 
     firstfile = up.open(args.infiles[0]) 
-    waveformdata = firstfile.get("ch0").get("waveform").array()
+    if not args.digitizer_energy_only:
+        waveformdata = firstfile.get("ch0").get("waveform").array()
+        waveformdata = np.array([np.array(k) for k in waveformdata])
+        t = np.array([sampling*i for i,__ in enumerate(waveformdata[0])])
     energydata = firstfile.get("ch0").get("energy").array() 
-    t = np.array([sampling*i for i,__ in enumerate(waveformdata[0])])
-    waveformdata = np.array([np.array(k) for k in waveformdata])
     #test = np.array([len(k) for k in waveformdata])
     #print (set(test))
     #print (waveformdata)
     #print (type(waveformdata))
-    print (waveformdata.shape)
+    #print (waveformdata.shape)
     #raise
     thisdata = None
     for filename in tqdm.tqdm(args.infiles[1:],total=len(args.infiles[1:])):   
         f = up.open(filename)
-        thisdata = f.get("ch0").get("waveform").array()
-        thisdata = np.array([np.array(k) for k in thisdata])
-        print (thisdata.shape)
-        waveformdata = np.vstack((waveformdata, thisdata))   
+        if not args.digitizer_energy_only:
+            thisdata = f.get("ch0").get("waveform").array()
+            thisdata = np.array([np.array(k) for k in thisdata])
+            print (thisdata.shape)
+            waveformdata = np.vstack((waveformdata, thisdata))   
         energydata = np.hstack((energydata,  f.get("ch0").get("energy").array()))
 
     del thisdata
@@ -242,7 +247,7 @@ if __name__ == '__main__':
 
     print (energydata)
     energydata = energydata[energydata > 0]
-    ebins = np.linspace(0,10,100)
+    ebins = np.linspace(0,100,100)
     print (f"We see {len(energydata)} energies")
     #h = d.factory.hist1d(energydata, bins)
     #h.line()
@@ -258,12 +263,25 @@ if __name__ == '__main__':
                                       fig=None,\
                                       norm=True,\
                                       bins=ebins,\
-                                      xlabel='shaper peak value [mv]')
+                                      xlabel='digitizer energy [a.u.]')
     ax = fig.gca()
     ax.set_yscale("symlog")
-    fig.savefig(os.path.join(args.outdir,"energy-histo.png"))
+    fig.savefig(os.path.join(args.outdir,"energy_digitizer.png"))
+    p.close(fig)
+    ebins_digi_zoomin = np.linspace(0,10,100)
+    mod, fig = vis.gaussian_model_fit(energydata,\
+                                      startparams=(3, 0.2),\
+                                      fig=None,\
+                                      norm=True,\
+                                      bins=ebins_digi_zoomin,\
+                                      xlabel='digitizer energy [a.u]')
+    ax = fig.gca()
+    ax.set_yscale("symlog")
+    fig.savefig(os.path.join(args.outdir,"energy_digitizer_zoomin.png"))
     p.close(fig)
     #sys.exit(0)
+    if args.digitizer_energy_only:
+        sys.exit(0)
 
     event = 0
 

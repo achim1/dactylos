@@ -202,8 +202,6 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
                         energy_ch_[ch] = events_[ch][ev].Energy;
                         waveform_size = (int) waveform_->Ns; // number of samples
                         waveform_trace = waveform_->Trace2;
-                        //SaveWaveform(0, ch, traceId, waveform_size, waveform_trace);
-                        //SaveWaveform(waveform_size, waveform_trace);
                         thiswf = {};
                         int end_wf = sizeof(waveform_trace)/sizeof(waveform_trace[0]);
                         thiswf.reserve(waveform_size);    
@@ -214,7 +212,7 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
                         thiswf = std::vector<int16_t>(waveform_trace, waveform_trace + waveform_size);
                         waveform_ch_.at(ch) = thiswf;
                         channel_trees_[ch]->Fill();
-                        channel_trees_[ch]->Write();
+                        //channel_trees_[ch]->Write();
                         ++traceId;
                         //waveform_->Trace2;
                         //waveform_->DTrace1;
@@ -222,6 +220,8 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
 
                         }
                 }
+            channel_trees_[ch]->Write();
+            
             thisevents.push_back(channel_events);
             //thisevents[ch] = events_[ch];
         }
@@ -434,43 +434,4 @@ int CaenN6725::SaveWaveform(int size, int16_t *WaveData)
     //fclose(fh);
     return 0;
 }
-
-int CaenN6725::SaveWaveform(int b, int ch, int trace, int size, int16_t *WaveData)
-{
-    /*
-    This function saves the waveform in a textfile as a sequence of number     representing the wave height
-    */
-    FILE *fh;
-    int i;
-    char filename[2000];
-
-    sprintf(filename, "Waveform_%d_%d_%d.txt", b, ch, trace);
-    fh = fopen(filename, "w");
-    if (fh == NULL)
-        return -1;
-    for(i=0; i<size; i++)
-        fprintf(fh, "%d ", WaveData[i]); //&((1<<MAXNBITS)-1)
-    fclose(fh);
-    return 0;
-}
-
-int CaenN6725::SaveWaveform(int b, int ch, int trace, int size, uint8_t *WaveData)
-{
-    /*
-    This function saves the waveform in a textfile as a sequence of number     representing the wave height
-    */
-    FILE *fh;
-    int i;
-    char filename[2000];
-
-    sprintf(filename, "Waveform_%d_%d_%d.txt", b, ch, trace);
-    fh = fopen(filename, "w");
-    if (fh == NULL)
-        return -1;
-    for(i=0; i<size; i++)
-        fprintf(fh, "%d\n", WaveData[i]); //&((1<<MAXNBITS)-1)
-    fclose(fh);
-    return 0;
-}
-
 
