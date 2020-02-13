@@ -8,7 +8,6 @@
 #include "gaps/GOptionParser.hh"
 
 #include <fstream>
-using std::ofstream;
 
 /***************************************************************/
 
@@ -61,11 +60,6 @@ CaenN6725::CaenN6725()
 
     current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, DIGITAL_TRACE_1, CAEN_DGTZ_DPP_DIGITALPROBE_Peaking);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP virtual probe trace 2 err ode: " + std::to_string(current_error_));
-    //if (decode_waveforms_)
-    //    {
-            outfile_.open("Waveforms_all_new.txt");
-
-    //    }
     root_file_   = new TFile("digitizer_output.root", "RECREATE");
     energy_ch_.reserve(8);
     waveform_ch_.reserve(8);
@@ -185,7 +179,6 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
         }
 
 
-    ofstream outdata;
     root_file_->cd();
     std::vector<int16_t> thiswf;
     //thiswf.reserve(8)
