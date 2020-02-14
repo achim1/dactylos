@@ -271,8 +271,11 @@ void CaenN6725::fast_readout_()
     uint traceId(0);
     waveform_ch_.clear();
     waveform_ch_.reserve(get_nchannels());
-
-    channel_events = {};
+    //waveform_ch_ = std::vector<std::vector<int16_t>>({}, get_nchannels();
+    for (int k=0; k<get_nchannels(); k++)
+        {waveform_ch_.push_back({});}
+    //channel_events(0, get_nchannels());
+    channel_events.clear();
     channel_events.reserve(get_nchannels());
 
     for (int ch=0;ch<get_nchannels();ch++)
@@ -473,23 +476,25 @@ uint32_t CaenN6725::get_baseline_offset(int channel)
 
 void CaenN6725::continuous_readout(unsigned int seconds)
 {
-    long now_time = get_time();
+    long now_time = get_time()/1000;
     long last_time = now_time;
     long delta_t = 0;
-    GProgressBar progress(seconds);
+    //GProgressBar progress(seconds);
     int progress_step = 0;
-
-    while (delta_t < 1000*seconds)
+    int last_progress_step = 0;
+    std::cout << "Starting readout" << std::endl;
+    while (delta_t < seconds)
         {
             fast_readout_();
-            now_time = get_time();
+            now_time = get_time()/1000;
             delta_t +=  now_time  - last_time;
             last_time = now_time;
             progress_step += delta_t;
-            if (progress_step > 5000)
+            if (progress_step - last_progress_step > 5)
                 {
-                    for (int j=0; j<5;j++)
-                        {++progress;}
+                    //for (int j=0; j<5;j++)
+                    //    {++progress;}
+                    last_progress_step = progress_step;
                 }
         }
 }

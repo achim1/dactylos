@@ -178,7 +178,9 @@ def run_digitizer(digitizer,\
 
     # run calibration before readout
     digitizer.calibrate()
-    digitizer.continous_readout(seconds)
+    digitizer.start_acquisition()
+    digitizer.continuous_readout(seconds)
+    digitizer.end_acquisition()
     return
 
 #pars.DPPAcqMode
