@@ -419,8 +419,13 @@ void CaenN6725::start_acquisition()
     if (current_error_ != 0) throw std::runtime_error("Problems configuring all channels, err code " + std::to_string(current_error_));
     root_file_   = new TFile(rootfile_name_.c_str(), "RECREATE");
     if (!root_file_) throw std::runtime_error("Problems with root file " + rootfile_name_);
+    channel_trees_.clear();
+    energy_ch_.clear();
+    waveform_ch_.clear();
+
     energy_ch_.reserve(8);
     waveform_ch_.reserve(8);
+    channel_trees_.reserve(8);
     std::string ch_name = "ch";
     for (int k=0;k<8;k++)
         {
