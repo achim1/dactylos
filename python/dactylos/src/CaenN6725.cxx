@@ -1,6 +1,7 @@
 #include <stdexcept>
 #include <fstream>
 #include <iostream>
+#include <cmath>
 
 #include <CAENDigitizerType.h>
 #include <CAENDigitizer.h>
@@ -95,9 +96,6 @@ CaenN6725::CaenN6725(DigitizerParams_t params) : CaenN6725()
 
     for(unsigned int i=0; i<max_n_channels_; i++) {
         if (params.ChannelMask & (1<<i)) {
-            // Set a DC offset to the input signal to adapt it to digitizer's dynamic range
-            current_error_ = CAEN_DGTZ_SetChannelDCOffset(handle_, i, 0x8000);
-            if (current_error_ !=0 ) throw std::runtime_error("Can not set channel dc offset err code:" + std::to_string(current_error_));
 
             // Set the Pre-Trigger size (in samples)
             current_error_ = CAEN_DGTZ_SetDPPPreTriggerSize(handle_, i, 1000);
@@ -125,6 +123,24 @@ CAEN_DGTZ_BoardInfo_t CaenN6725::get_board_info()
     if (current_error_ != 0) throw std::runtime_error("Error while getting board infoe, err code " + std::to_string(current_error_));
     return board_info_;
 }
+
+
+/***************************************************************/
+
+void CaenN6725::set_channel_dc_offset(int channel, int offset)
+{
+    // Set a DC offset to the input signal to adapt it to digitizer's dynamic range
+    // from the manual:
+    // This function sets the 16-bit DAC that adds a DC offset to the input signal to adapt it to the dynamic range of the ADC.
+    // By default, the DAC is set to middle scale (0x7FFF) which corresponds to a DC offset of -Vpp/2, where Vpp is the voltage
+    // range (peak to peak) of the ADC. This means that the input signal can range from -Vpp/2 to +Vpp/2. If the DAC is set to
+    // 0x0000, then no DC offset is added, and the range of the input signal goes from -Vpp to 0. Conversely, when the DAC is
+    // set to 0xFFFF, the DC offset is –Vpp and the range goes from 0 to +Vpp. The DC offset can be set on channel basis except
+    // for the x740 in which it is set on group basis; in this case, you must use the Set / GetGroupDCOffset functions.
+    current_error_ = CAEN_DGTZ_SetChannelDCOffset(handle_, channel, 0x8000);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set channel dc offset err code:" + std::to_string(current_error_));
+}
+
 
 
 /***************************************************************/
@@ -405,10 +421,12 @@ std::vector<uint32_t>CaenN6725::get_input_dynamic_range()
 
 /*******************************************************************/
 
-void CaenN6725::configure_channels(CAEN_DGTZ_DPP_PHA_Params_t* params)
+void CaenN6725::configure_channel(unsigned int channel,CAEN_DGTZ_DPP_PHA_Params_t* params)
 {
     // channel mask 0xff means all channels ( 8bit set)
-    current_error_ = CAEN_DGTZ_SetDPPParameters(handle_, active_channels_, params);
+    if (channel > 7) throw std::runtime_error("Channel has to be < 8");
+    unsigned int channelmask = pow(2, channel);
+    current_error_ = CAEN_DGTZ_SetDPPParameters(handle_, channelmask, params);
     if (current_error_ != 0) throw std::runtime_error("Problems configuring channel, err code " + std::to_string(current_error_));
 };
 
@@ -450,27 +468,10 @@ void CaenN6725::calibrate()
 
 }
 
-/*******************************************************************/
-
-void CaenN6725::set_baseline_offset(int channel, int offset)
-{
-    // from the manual
-    /*
-    This function sets the 16-bit DAC that adds a DC offset to the input signal to adapt it to the dynamic range of the ADC.
-By default, the DAC is set to middle scale (0x7FFF) which corresponds to a DC offset of -Vpp/2, where Vpp is the voltage
-range (peak to peak) of the ADC. This means that the input signal can range from -Vpp/2 to +Vpp/2. If the DAC is set to
-0x0000, then no DC offset is added, and the range of the input signal goes from -Vpp to 0. Conversely, when the DAC is
-set to 0xFFFF, the DC offset is –Vpp and the range goes from 0 to +Vpp. The DC offset can be set on channel basis except
-for the x740 in which it is set on group basis; in this case, you must use the Set / GetGroupDCOffset functions.
-    */
-    // offset has to be in DAC values!
-    current_error_ = CAEN_DGTZ_SetChannelDCOffset(handle_,channel, offset);
-    if (current_error_ != 0) throw std::runtime_error("Can not set baseline offset for ch " + std::to_string(channel) + " err code: " + std::to_string(current_error_));
-}
 
 /*******************************************************************/
 
-uint32_t CaenN6725::get_baseline_offset(int channel)
+uint32_t CaenN6725::get_channel_dc_offset(int channel)
 {
     // offset has to be in DAC values!
     uint32_t offset;

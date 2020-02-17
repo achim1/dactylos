@@ -43,25 +43,25 @@ enum DynamicRange : uint32_t
 // configure the DPP_PHA algorithm
 struct ChannelParams_t
 {
-        uint32_t trigger_threshold; //100 (number of bins y axis)
-        uint32_t trapezoidal_rise_time; //4 microsec // shaping time
-        uint32_t trapezoidal_flat_top; //1 microsec
-        uint32_t input_decay_time; //10microsec
-        uint32_t flat_top_delay; //80 per cent of trapezoid flat top
-        uint32_t input_signal_rise_time; // 50ns
-        // different for detector set to 80microsec, for muon 100
-        uint32_t trigger_filter_smoothing_factor; //16
-        uint32_t trigger_hold_off; // to avoid pile up the longer the better 5microsec 
-        uint32_t nsamples_baseline;// 5        
-        uint32_t peak_mean; //2 
-        uint32_t peak_holdoff; //5 microsec
-        uint32_t baseline_holdoff;// - unknown
-        float    energy_normalization;// 1.0
-        uint32_t decimation;// 0
-        uint32_t decimation_gain;// 0 
-        uint32_t otrej; //unknown
-        uint32_t enable_rise_time_discrimination;//
-        uint32_t rise_time_validation_window;
+    uint32_t trigger_threshold; //100 (number of bins y axis)
+    uint32_t trapezoidal_rise_time; //4 microsec // shaping time
+    uint32_t trapezoidal_flat_top; //1 microsec
+    uint32_t input_decay_time; //10microsec
+    uint32_t flat_top_delay; //80 per cent of trapezoid flat top
+    uint32_t input_signal_rise_time; // 50ns
+    // different for detector set to 80microsec, for muon 100
+    uint32_t trigger_filter_smoothing_factor; //16
+    uint32_t trigger_hold_off; // to avoid pile up the longer the better 5microsec 
+    uint32_t nsamples_baseline;// 5        
+    uint32_t peak_mean; //2 
+    uint32_t peak_holdoff; //5 microsec
+    uint32_t baseline_holdoff;// - unknown
+    float    energy_normalization;// 1.0
+    uint32_t decimation;// 0
+    uint32_t decimation_gain;// 0 
+    uint32_t otrej; //unknown
+    uint32_t enable_rise_time_discrimination;//
+    uint32_t rise_time_validation_window;
 };
 
 
@@ -93,6 +93,10 @@ class CaenN6725 {
         // helper function to 
         long get_time() const;
 
+        // set the 16bit dac value for the DC offset
+        void set_channel_dc_offset(int channel, int offset);
+        uint32_t  get_channel_dc_offset(int channel);
+
         void enable_waveform_decoding();
 
         // return the current error state
@@ -117,9 +121,8 @@ class CaenN6725 {
         // the current temperatures
         std::vector<int> get_temperatures() const;
 
-        // set the parameters for the DPP-PHA algorithm for
-        // ALL ACTIVE channels (see channel mask in DigitizerParams_t)
-        void configure_channels(CAEN_DGTZ_DPP_PHA_Params_t* params);
+        // set the parameters for the DPP-PHA algorithm for a specific channel
+        void configure_channel(unsigned int channel, CAEN_DGTZ_DPP_PHA_Params_t* params);
 
         // temperature calibrabion
         void calibrate();
@@ -134,13 +137,6 @@ class CaenN6725 {
         // get the number of events acquired per acquisition call
         std::vector<long> get_n_events_tot();
 
-        // set baseline offset for channel 0-7
-        // channel: one of 0-7
-        // set in DAC values (16bit DAC)
-        void set_baseline_offset(int channel, int offset);
-
-        // get baseline offset in DAC values
-        uint32_t get_baseline_offset(int channel);
 
         void set_input_dynamic_range(DynamicRange range);
 

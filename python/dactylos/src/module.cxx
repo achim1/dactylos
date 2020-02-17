@@ -52,7 +52,6 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .export_values(); 
 
 
-
     py::class_<CAEN_DGTZ_DPP_PHA_Params_t>(m, "DPPPHAParams")
         .def(py::init())
         //int M           [MAX_DPP_PHA_CHANNEL_SIZE]; // Signal Decay Time Constant
@@ -320,6 +319,33 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
                                     }
                                 });
 
+    //py::class_<CAEN_DGTZ_DPP_PHA_Params_t>(m, "DPPPHAParams")
+    //    .def(py::init())
+    //    .def_readwrite("M",      &CAEN_DGTZ_DPP_PHA_Params_t::M) 
+    //    .def_readwrite("m",      &CAEN_DGTZ_DPP_PHA_Params_t::m) 
+    //    .def_readwrite("k",      &CAEN_DGTZ_DPP_PHA_Params_t::k) 
+    //    .def_readwrite("ftd",    &CAEN_DGTZ_DPP_PHA_Params_t::ftd) 
+    //    .def_readwrite("a",      &CAEN_DGTZ_DPP_PHA_Params_t::a) 
+    //    .def_readwrite("b",      &CAEN_DGTZ_DPP_PHA_Params_t::b) 
+    //    .def_readwrite("thr",    &CAEN_DGTZ_DPP_PHA_Params_t::thr) 
+    //    .def_readwrite("nsbl",   &CAEN_DGTZ_DPP_PHA_Params_t::nsbl) 
+    //    .def_readwrite("nspk",   &CAEN_DGTZ_DPP_PHA_Params_t::nspk) 
+    //    .def_readwrite("pkho",   &CAEN_DGTZ_DPP_PHA_Params_t::pkho) 
+    //    .def_readwrite("blho",   &CAEN_DGTZ_DPP_PHA_Params_t::blho) 
+    //    .def_readwrite("otrej",  &CAEN_DGTZ_DPP_PHA_Params_t::otrej) 
+    //    .def_readwrite("trgho",  &CAEN_DGTZ_DPP_PHA_Params_t::trgho) 
+    //    .def_readwrite("twwdt",  &CAEN_DGTZ_DPP_PHA_Params_t::twwdt) 
+    //    .def_readwrite("trgwin", &CAEN_DGTZ_DPP_PHA_Params_t::trgwin) 
+    //    .def_readwrite("dgain",  &CAEN_DGTZ_DPP_PHA_Params_t::dgain) 
+    //    .def_readwrite("enf",    &CAEN_DGTZ_DPP_PHA_Params_t::enf) 
+    //    .def_readwrite("decimation", &CAEN_DGTZ_DPP_PHA_Params_t::decimation) 
+    //    .def_readwrite("enskim",     &CAEN_DGTZ_DPP_PHA_Params_t::enskim) 
+    //    .def_readwrite("eskimlld",&CAEN_DGTZ_DPP_PHA_Params_t::eskimlld) 
+    //    .def_readwrite("eskimuld",&CAEN_DGTZ_DPP_PHA_Params_t::eskimuld) 
+    //    .def_readwrite("blrclip", &CAEN_DGTZ_DPP_PHA_Params_t::blrclip) 
+    //    .def_readwrite("dcomp",   &CAEN_DGTZ_DPP_PHA_Params_t::dcomp) 
+    //    .def_readwrite("trapbsl", &CAEN_DGTZ_DPP_PHA_Params_t::trapbsl); 
+
     /*
     typedef struct
     {
@@ -507,15 +533,15 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .def("end_acquisition",     &CaenN6725::end_acquisition)
         .def("get_nchannels",       &CaenN6725::get_nchannels)
         .def("get_temperatures",    &CaenN6725::get_temperatures)
-        .def("configure_channels",  &CaenN6725::configure_channels)
+        .def("configure_channel",   &CaenN6725::configure_channel)
         .def("calibrate",           &CaenN6725::calibrate)
         .def("read_data",           &CaenN6725::read_data)
-        .def("continuous_readout", &CaenN6725::continuous_readout)
-        .def("set_rootfilename", &CaenN6725::set_rootfilename)
+        .def("continuous_readout",  &CaenN6725::continuous_readout)
+        .def("set_rootfilename",    &CaenN6725::set_rootfilename)
+        .def("set_channel_dc_offset", &CaenN6725::set_channel_dc_offset)
+        .def("get_channel_dc_offset", &CaenN6725::get_channel_dc_offset)
         .def("get_n_events",        &CaenN6725::get_n_events)
         .def("get_n_events_tot",        &CaenN6725::get_n_events_tot)
-        .def("set_baseline_offset", &CaenN6725::set_baseline_offset)
-        .def("get_baseline_offset", &CaenN6725::get_baseline_offset)
         .def("set_input_dynamic_range", &CaenN6725::set_input_dynamic_range)
         .def("get_input_dynamic_range", &CaenN6725::get_input_dynamic_range);
 };

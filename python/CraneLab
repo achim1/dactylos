@@ -175,12 +175,13 @@ def run_digitizer(digitizer,\
         digitizer.enable_waveform_decoding()
     if filename is not None:
         digitizer.set_rootfilename(filename)
-
     # run calibration before readout
     digitizer.calibrate()
     digitizer.start_acquisition()
+    print ("Starting run") 
     digitizer.continuous_readout(seconds)
     digitizer.end_acquisition()
+    print (f"We saw {digitizer.get_n_events_tot()} events!")
     return
 
 #pars.DPPAcqMode

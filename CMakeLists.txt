@@ -8,7 +8,7 @@
 
 ## Set project name
 project(CraneLab C CXX)
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 # make sure we use python 3
 set(PYBIND11_PYTHON_VERSION 3.6)

@@ -15,6 +15,17 @@ class CaenN6725(object):
         self.configfile = configfile
         self.setup()
 
+    @staticmethod
+    def baseline_offset_percent_to_val(percent):
+        """
+        Convert the value of the baseline offset from 
+        percentage to something the digitizer can understand
+        """
+        val = int(((2**16)/100)*percent)
+        print (f"Calculated dc offset of {val}")
+        return val
+
+
     def setup(self):
         config = open(self.configfile)
         # get the configuration
@@ -34,27 +45,32 @@ class CaenN6725(object):
             digitizer_dynamic_range = _cn.DynamicRange.VPP2
         if digitizer_dynamic_range == "05VPP":
             digitizer_dynamic_range = _cn.DynamicRange.VPP05
+        
+        
 
         # as an example, for now just take data with the digitzer
         digi_pars = self.extract_digitizer_parameters(config['CaenN6725'])
-        ppa_pars  = self.extract_ppa_pha_parameters(config['CaenN6725']['dpp-pha-params'])
-
+    
         self.digitizer = _cn.CaenN6725(digi_pars)
         bf = self.digitizer.get_board_info()
         print (f'Connected to digitizer model {bf.get_model_name()}, roc firmware {bf.get_model_roc_firmware_rel()},  amc firmware {bf.get_amc_firmware_rel()}')
-        for ch, val in enumerate(self.digitizer.get_temperatures()):
-            print (f'Chan: {ch} -  {val}\N{DEGREE SIGN}C')
-        print ("Will calibrate the digitizer")
-        self.digitizer.calibrate()
 
         # set input dynmaic range for all channels
         self.digitizer.set_input_dynamic_range(digitizer_dynamic_range)
 
         # set baseline offset
+        # baseline offset has to go extra, for some reason CAEN treats this separatly
         for i,ch in enumerate(active_digitizer_channels):
-            self.digitizer.set_baseline_offset(ch,digitizer_baseline_offset[i])
+            offset = self.baseline_offset_percent_to_val(digitizer_baseline_offset[i]) 
+            self.digitizer.set_channel_dc_offset(ch,offset)
+            # configure each channel individually
+            dpp_params = self.extract_dpp_pha_parameters(ch, config['CaenN6725'], offset) 
+            self.digitizer.configure_channel(ch, dpp_params)
 
-        self.digitizer.configure_channels(ppa_pars)
+        for ch, val in enumerate(self.digitizer.get_temperatures()):
+            print (f'Chan: {ch} -  {val}\N{DEGREE SIGN}C')
+        print ("Will calibrate the digitizer")
+        self.digitizer.calibrate()
         self.digitizer.allocate_memory()
         return 
 
@@ -82,33 +98,64 @@ class CaenN6725(object):
         return pars
 
     @staticmethod
-    def extract_ppa_pha_parameters(config):
+    def extract_dpp_pha_parameters(channel, config,\
+                                   dc_offset,
+                                   dynamic_range=[-0.5, 0.5]):
         """
         Extract the config parameters for the DPP-PHA
         algorithm from a config file 
         read by json
+        
+        Args:
+            channel (int)    : channel number (0-7)
+            config (dict)    : parsed config file
+            dc_offset (list) : the set channel dc offset. This is necessary to calculate the trigger leve
+                               the channel_dc need to be given in digitizer bins
+        Keyword Args:
+            dynamic_range (tuple) : V_pp dynamic range [min, max] in Volt
+
         """
-        AVAILABLE_CHANNELS = 8
         pars = _cn.DPPPHAParams()
-        pars.thr        = [config['trigger-threshold']]              *AVAILABLE_CHANNELS
-        pars.k          = [config['trapezoid-rise-time']]            *AVAILABLE_CHANNELS
-        pars.m          = [config['trapezoid-flat-top']]             *AVAILABLE_CHANNELS
-        pars.M          = [config['decay-time-constant']]            *AVAILABLE_CHANNELS
-        pars.ftd        = [config['flat-top-delay']]                 *AVAILABLE_CHANNELS
-        pars.a          = [config['trigger-filter-smoothing-factor']]*AVAILABLE_CHANNELS
-        pars.b          = [config['input-signal-rise-time']]         *AVAILABLE_CHANNELS
-        pars.trgho      = [config['trigger-hold-off']]               *AVAILABLE_CHANNELS
-        pars.nsbl       = [config['n-samples']]                      *AVAILABLE_CHANNELS
-        pars.nspk       = [config['peak-mean']]                      *AVAILABLE_CHANNELS
-        pars.pkho       = [config['peak-holdoff']]                   *AVAILABLE_CHANNELS
-        pars.blho       = [config['baseline-holdoff']]               *AVAILABLE_CHANNELS
-        pars.enf        = [config['energy-normalization-factor']]    *AVAILABLE_CHANNELS
-        pars.decimation = [config['decimation']]                     *AVAILABLE_CHANNELS
-        pars.dgain      = [config['decimation-gain']]                *AVAILABLE_CHANNELS
-        pars.otrej      = [config['otrej']]                          *AVAILABLE_CHANNELS
-        pars.trgwin     = [config['trigger-window']]                 *AVAILABLE_CHANNELS
-        pars.twwdt      = [config['rise-time-validation-window']]    *AVAILABLE_CHANNELS
+        nchan = 8
+        channel_key     = "ch" + str(channel)
+        print (config[channel_key]['trigger-threshold'])
+        trigger_threshold = config[channel_key]['trigger-threshold'] #in minivolts, neeed to convert to bin
+        # resolution is 14 bit
+        fsr = dynamic_range[1] - dynamic_range[0]
+        lsb = fsr/2**14
+        trigger_threshold = 1e-3*trigger_threshold # convert to volt
+        trigger_threshold = int(trigger_threshold/lsb)
+        print(f"Calculated value for {trigger_threshold}")
+        print(f"Found a dc offset of {dc_offset}")
+        #trigger_threshold += dc_offset/4 
+        trigger_threshold = int(trigger_threshold)
+        print(f"This means we have a trigger threshold after applying the dc offset of {trigger_threshold}")
+
+        pars.thr        = [trigger_threshold                                    ]*nchan 
+        pars.k          = [config[channel_key]['trapezoid-rise-time']           ]*nchan 
+        pars.m          = [config[channel_key]['trapezoid-flat-top']            ]*nchan 
+        pars.M          = [config[channel_key]['decay-time-constant']           ]*nchan 
+        pars.ftd        = [config[channel_key]['flat-top-delay']                ]*nchan 
+        pars.a          = [config[channel_key]['trigger-filter-smoothing-factor']]*nchan
+        pars.b          = [config[channel_key]['input-signal-rise-time']        ]*nchan 
+        pars.trgho      = [config[channel_key]['trigger-hold-off']              ]*nchan 
+        pars.nsbl       = [config[channel_key]['n-samples']                     ]*nchan 
+        pars.nspk       = [config[channel_key]['peak-mean']                     ]*nchan 
+        pars.pkho       = [config[channel_key]['peak-holdoff']                  ]*nchan 
+        pars.blho       = [config[channel_key]['baseline-holdoff']              ]*nchan
+        pars.enf        = [config[channel_key]['energy-normalization-factor']   ]*nchan 
+        pars.decimation = [config[channel_key]['decimation']                    ]*nchan 
+        pars.dgain      = [config[channel_key]['decimation-gain']               ]*nchan 
+        pars.otrej      = [config[channel_key]['otrej']                         ]*nchan 
+        pars.trgwin     = [config[channel_key]['trigger-window']                ]*nchan 
+        pars.twwdt      = [config[channel_key]['rise-time-validation-window']   ]*nchan
         return pars
+
+    @staticmethod
+    def convert_waveform_to_volt(input):
+        """
+        """
+        pass
  
     def run_digitizer(self,\
                       seconds,\
