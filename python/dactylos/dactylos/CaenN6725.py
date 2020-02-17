@@ -71,8 +71,11 @@ class CaenN6725(object):
         pars.IOlev         = _cn.IOLevel.NIM
         pars.PulsePolarity = _cn.PulsePolarity.Positive
         pars.DPPAcqMode    = _cn.DPPAcqMode.Mixed
-        pars.ChannelMask   = _cn.CHANNEL.ALL
-    
+        active_channels    = config['active-channels']
+        channelmask        = 0
+        for ch in active_channels:
+            channelmask += (1 << ch)
+        pars.ChannelMask = channelmask
         pars.VMEBaseAddress = config['VMEBaseAddress']
         pars.RecordLength = config['RecordLength']
         pars.EventAggr = config['EventAggr']
