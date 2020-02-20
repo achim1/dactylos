@@ -39,6 +39,51 @@ enum DynamicRange : uint32_t
 }; 
 
 /************************************************************************/
+// FIXME: I do not really understand how to handle the different options for
+// the virtual/digital probes, since there is an option for the probe for the
+// trace1 (virtualprobe1) in the library, but the otheres to not work, so we create 
+// them here
+// to be consistent, define one for DPPVirtualProbe1 as well
+enum class DPPVirtualProbe1 : long
+{
+    Input            = CAEN_DGTZ_DPP_VIRTUALPROBE_Input,
+    Delta            = CAEN_DGTZ_DPP_VIRTUALPROBE_Delta,
+    Delta2           = CAEN_DGTZ_DPP_VIRTUALPROBE_Delta2,
+    Trapezoid        = CAEN_DGTZ_DPP_VIRTUALPROBE_Trapezoid
+};
+
+enum class DPPVirtualProbe2 : long
+{
+    Input            = CAEN_DGTZ_DPP_VIRTUALPROBE_Input,
+    TrapezoidReduced = CAEN_DGTZ_DPP_VIRTUALPROBE_TrapezoidReduced,
+    Baseline         = CAEN_DGTZ_DPP_VIRTUALPROBE_Baseline,
+    Threshold        = CAEN_DGTZ_DPP_VIRTUALPROBE_Threshold,
+    None             = CAEN_DGTZ_DPP_VIRTUALPROBE_None
+};
+
+enum class DPPDigitalProbe1 : long
+{
+    TRGWin            = CAEN_DGTZ_DPP_DIGITALPROBE_TRGWin,
+    Armed             = CAEN_DGTZ_DPP_DIGITALPROBE_Armed,
+    PkRun             = CAEN_DGTZ_DPP_DIGITALPROBE_PkRun,
+    Peaking           = CAEN_DGTZ_DPP_DIGITALPROBE_Peaking,
+    CoincWin          = CAEN_DGTZ_DPP_DIGITALPROBE_CoincWin,
+    TRGHoldoff        = CAEN_DGTZ_DPP_DIGITALPROBE_TRGHoldoff,
+    ACQVeto           = CAEN_DGTZ_DPP_DIGITALPROBE_ACQVeto,
+    BFMVeto           = CAEN_DGTZ_DPP_DIGITALPROBE_BFMVeto,
+    ExtTRG            = CAEN_DGTZ_DPP_DIGITALPROBE_ExtTRG,
+    Busy              = CAEN_DGTZ_DPP_DIGITALPROBE_Busy,
+    PrgVeto           = CAEN_DGTZ_DPP_DIGITALPROBE_PrgVeto,
+    PileUp            = CAEN_DGTZ_DPP_DIGITALPROBE_PileUp,
+    BLFreeze          = CAEN_DGTZ_DPP_DIGITALPROBE_BLFreeze
+};
+
+enum class DPPDigitalProbe2 : long
+{
+    Trigger          = CAEN_DGTZ_DPP_DIGITALPROBE_Trigger
+};
+
+/************************************************************************/
 
 // configure the DPP_PHA algorithm
 struct ChannelParams_t
@@ -90,6 +135,10 @@ class CaenN6725 {
         CaenN6725(DigitizerParams_t pars);
         ~CaenN6725();
 
+        // show the supported probes, that is settings for the 
+        // waveform fields (what will trace1/trace2/dtrace1/dtrace2 be?
+        void show_supported_probes();
+
         // helper function to 
         long get_time() const;
 
@@ -137,7 +186,10 @@ class CaenN6725 {
         // get the number of events acquired per acquisition call
         std::vector<long> get_n_events_tot();
 
-
+        // the input dynamic range is the peak-to-peak voltage
+        // the digitizer is able to measure. the 14 bits are 
+        // distributed over -vpp to +vpp
+        // it is either -0.5 to 0.5 or -1 to 1 Volt
         void set_input_dynamic_range(DynamicRange range);
 
         // returns a 32 bit per channel but only LSB of these is relevant
@@ -152,6 +204,25 @@ class CaenN6725 {
         // the name of the file containing waveforms + energy
         void set_rootfilename(std::string fname);
        
+        // replaces the upper functions. If the virtual/digital probes 
+        // are set, the traces will contain the respective values, 
+        // depending on the setting of the probes
+        std::vector<int16_t> get_analog_trace1();
+        std::vector<int16_t> get_analog_trace2();
+        std::vector<uint8_t> get_digital_trace1();
+        std::vector<uint8_t> get_digital_trace2();
+        
+
+
+        // set the virtualprobes for traces 1 and 2
+        // this defines what will be stored in the waveform field 
+        // of the dpp event
+        // note that if both probes are used, the individual samplingrate is cut in half
+        void set_virtualprobe1(DPPVirtualProbe1 vprobe1);
+        void set_virtualprobe2(DPPVirtualProbe2 vprobe2);
+        void set_digitalprobe1(DPPDigitalProbe1 vprobe1);
+        void set_digitalprobe2(DPPDigitalProbe2 vprobe2);
+
 
     private:
         // internal readout method, use read_data
@@ -166,6 +237,13 @@ class CaenN6725 {
 
         // length of the waveforms
         int recordlength_;
+
+        // fill the internal field for the traces
+        void fill_analog_trace1_();
+        void fill_analog_trace2_();
+        void fill_digital_trace1_();
+        void fill_digital_trace2_();
+
 
         // is it configured"
         bool configured_ = false;
@@ -193,22 +271,26 @@ class CaenN6725 {
         uint32_t                        buffer_size_;
         char*                           buffer_ = nullptr; // readout buffer
         CAEN_DGTZ_DPP_PHA_Event_t*      events_[max_n_channels_];  // events buffer
-        CAEN_DGTZ_DPP_PHA_Waveforms_t*  waveform_=nullptr;     // waveforms buffer
-        //BoardInfo_t                     board_info_;
+        CAEN_DGTZ_DPP_PHA_Waveforms_t*  waveform_ = nullptr;     // waveforms buffer
         CAEN_DGTZ_BoardInfo_t           board_info_;
-        // channel mask (8bit)
         uint32_t                        active_channels_;
-
         uint32_t                        num_events_[max_n_channels_];
 };
         bool                            decode_waveforms_;
 
 
         // save data to a rootfle
-        std::string rootfile_name_ = "digitizer_output.root";
-        TFile* root_file_     = nullptr;
-        std::vector<double> energy_ch_      = {};
-        std::vector<std::vector<int16_t>> waveform_ch_  = {};
-        std::vector<TTree*> channel_trees_ = {};
+        std::string                        rootfile_name_  = "digitizer_output.root";
+        TFile*                             root_file_      = nullptr;
+        std::vector<double>                energy_ch_      = {};
+        std::vector<std::vector<int16_t>>  waveform_ch_    = {};
+        std::vector<TTree*>                channel_trees_  = {};
+
+        // hold a single waveform. The values the actual fields are holding
+        // depend on the setting for the analog and digital probes
+        std::vector<int16_t> analog_trace1_;  // in case the analog_trace holds something else than the raw waveform, negative values are possible, e.g. for the fast timing filter
+        std::vector<int16_t> analog_trace2_;
+        std::vector<uint8_t> digital_trace1_;
+        std::vector<uint8_t> digital_trace2_;
 
 #endif

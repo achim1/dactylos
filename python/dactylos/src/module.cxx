@@ -52,6 +52,7 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .export_values(); 
 
 
+
     py::class_<CAEN_DGTZ_DPP_PHA_Params_t>(m, "DPPPHAParams")
         .def(py::init())
         //int M           [MAX_DPP_PHA_CHANNEL_SIZE]; // Signal Decay Time Constant
@@ -521,6 +522,42 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .def_readwrite("enable_rise_time_discrimination", &ChannelParams_t::enable_rise_time_discrimination)
         .def_readwrite("rise_time_validation_window", &ChannelParams_t::rise_time_validation_window);
 
+    // own enums to help with the virtual/digital probes
+    py::enum_<DPPVirtualProbe1>(m, "DPPVirtualProbe1")
+        .value("Input",     DPPVirtualProbe1::Input)
+        .value("Delta",     DPPVirtualProbe1::Delta)
+        .value("Delta2",    DPPVirtualProbe1::Delta2)
+        .value("Trapezoid", DPPVirtualProbe1::Trapezoid)
+        .export_values();
+
+    py::enum_<DPPVirtualProbe2>(m, "DPPVirtualProbe2")
+        .value("Input",            DPPVirtualProbe2::Input)
+        .value("TrapezoidReduced", DPPVirtualProbe2::TrapezoidReduced)
+        .value("Baseline",         DPPVirtualProbe2::Baseline)
+        .value("Threshold",        DPPVirtualProbe2::Threshold)
+        .value("None",             DPPVirtualProbe2::None)
+        .export_values();
+
+    py::enum_<DPPDigitalProbe1>(m, "DPPDigitalProbe1")
+        .value("TRGWin",     DPPDigitalProbe1::TRGWin)
+        .value("Armed",      DPPDigitalProbe1::Armed)
+        .value("PkRun",      DPPDigitalProbe1::PkRun)
+        .value("Peaking",    DPPDigitalProbe1::Peaking)
+        .value("CoincWin",   DPPDigitalProbe1::CoincWin)
+        .value("TRGHoldoff", DPPDigitalProbe1::TRGHoldoff)
+        .value("ACQVeto",    DPPDigitalProbe1::ACQVeto)
+        .value("BFMVeto",    DPPDigitalProbe1::BFMVeto)
+        .value("ExtTRG",     DPPDigitalProbe1::ExtTRG)
+        .value("Busy",       DPPDigitalProbe1::Busy)
+        .value("PrgVeto",    DPPDigitalProbe1::PrgVeto)
+        .value("PileUp",     DPPDigitalProbe1::PileUp)
+        .value("BLFreeze",   DPPDigitalProbe1::BLFreeze)
+        .export_values();
+
+    py::enum_<DPPDigitalProbe2>(m, "DPPDigitalProbe2")
+        .value("Trigger", DPPDigitalProbe2::Trigger)
+        .export_values();
+
     py::class_<CaenN6725>(m, "CaenN6725")
         .def(py::init<DigitizerParams_t>())
         .def(py::init())
@@ -536,6 +573,14 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .def("configure_channel",   &CaenN6725::configure_channel)
         .def("calibrate",           &CaenN6725::calibrate)
         .def("read_data",           &CaenN6725::read_data)
+        .def("get_analog_trace1",   &CaenN6725::get_analog_trace1)
+        .def("get_analog_trace2",   &CaenN6725::get_analog_trace2)
+        .def("get_digital_trace1",  &CaenN6725::get_digital_trace1)
+        .def("get_digital_trace2",  &CaenN6725::get_digital_trace2)
+        .def("set_vprobe1",         &CaenN6725::set_virtualprobe1)
+        .def("set_vprobe2",         &CaenN6725::set_virtualprobe2)
+        .def("set_dprobe1",         &CaenN6725::set_digitalprobe1)
+        .def("set_dprobe2",         &CaenN6725::set_digitalprobe2)
         .def("continuous_readout",  &CaenN6725::continuous_readout)
         .def("set_rootfilename",    &CaenN6725::set_rootfilename)
         .def("set_channel_dc_offset", &CaenN6725::set_channel_dc_offset)
