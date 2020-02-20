@@ -212,8 +212,6 @@ inline void CaenN6725::fill_analog_trace2_()
     int waveform_size_t2 = (int) waveform_->Ns; // number of samples
     int16_t *waveform_trace2 = waveform_->Trace2;
     analog_trace2_ = std::vector<int16_t>(waveform_trace2, waveform_trace2 + waveform_size_t2);
-    for (auto k: analog_trace2_)
-        { std::cout << k << std::endl;}
 }
 
 /***************************************************************/
@@ -315,6 +313,10 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
             // nothing to readout
             current_error_ = CAEN_DGTZ_ReadRegister(handle_, 0x8104, &acqstatus);
         }
+    //if (! ( acqstatus && (1 << 4))) // the 3rd bit is the acquisition status
+    //    {
+    //        return; // no channel in full status
+    //    }
 
 
     for (int k = 0; k<get_nchannels(); k++)

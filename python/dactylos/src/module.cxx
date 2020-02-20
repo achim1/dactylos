@@ -535,7 +535,7 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .value("TrapezoidReduced", DPPVirtualProbe2::TrapezoidReduced)
         .value("Baseline",         DPPVirtualProbe2::Baseline)
         .value("Threshold",        DPPVirtualProbe2::Threshold)
-        .value("None",             DPPVirtualProbe2::None)
+        .value("NONE",             DPPVirtualProbe2::None)
         .export_values();
 
     py::enum_<DPPDigitalProbe1>(m, "DPPDigitalProbe1")

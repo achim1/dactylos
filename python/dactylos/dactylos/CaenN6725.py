@@ -24,6 +24,38 @@ class CaenN6725(object):
         configfile (str) : Path to a .json configfile. See example config file
                            in this package
     """
+    vprobe1_to_str = {\
+    _cn.DPPVirtualProbe1.Input  : 'Input',\
+    _cn.DPPVirtualProbe1.Delta  : 'Delta',\
+    _cn.DPPVirtualProbe1.Delta2 : 'Delta2',\
+    _cn.DPPVirtualProbe1.Trapezoid : 'Trapezoid'}
+
+    vprobe2_to_str = {\
+    _cn.DPPVirtualProbe2.Input             : 'Input',\
+    _cn.DPPVirtualProbe2.TrapezoidReduced  : 'TrapezoidReduced',\
+    _cn.DPPVirtualProbe2.Baseline          : 'Baseline',\
+    _cn.DPPVirtualProbe2.Threshold         : 'Threshold',\
+    _cn.DPPVirtualProbe2.NONE              : 'None'}
+
+    dprobe1_to_str = {\
+    _cn.DPPDigitalProbe1.TRGWin            :  'TRGWin',\
+    _cn.DPPDigitalProbe1.Armed             :  'Armed',\
+    _cn.DPPDigitalProbe1.PkRun             :  'PkRun',\
+    _cn.DPPDigitalProbe1.Peaking           :  'Peaking',\
+    _cn.DPPDigitalProbe1.CoincWin          :  'CoincWin',\
+    _cn.DPPDigitalProbe1.TRGHoldoff        :  'TRGHoldoff',\
+    _cn.DPPDigitalProbe1.ACQVeto           :  'ACQVeto',\
+    _cn.DPPDigitalProbe1.BFMVeto           :  'BFMVeto',\
+    _cn.DPPDigitalProbe1.ExtTRG            :  'ExtTRG',\
+    _cn.DPPDigitalProbe1.Busy              :  'Busy',\
+    _cn.DPPDigitalProbe1.PrgVeto           :  'PrgVeto',\
+    _cn.DPPDigitalProbe1.PileUp            :  'PileUp',\
+    _cn.DPPDigitalProbe1.BLFreeze          :  'BLFreeze'}
+    
+    dprobe2_to_str = {\
+    _cn.DPPDigitalProbe2.Trigger           :  'Trigger'}
+
+
     def __init__(self, configfile):
         self.digitizer = None
         self.recordlength = None
@@ -258,7 +290,7 @@ class CaenN6725(object):
         """
         time_since_running = 0
         self.digitizer.enable_waveform_decoding()
-        canvas = YStackedCanvas(subplot_yheights=(0.2, 0.7),
+        canvas = YStackedCanvas(subplot_yheights=(0.1, 0.1, 0.2, 0.5),
                                 padding=(0.15, 0.05, 0.0, 0.1 ),\
                                 space_between_plots=0,\
                                 figsize="auto",\
@@ -271,18 +303,25 @@ class CaenN6725(object):
         #ax.set_xlim(left=min(xs), right=max(xs))
 
         # trace 1 of the scope is the fast timing filter
-        trace1_axes = canvas.select_axes(0)
-        trace2_axes = canvas.select_axes(1)
-        for ax in [trace1_axes, trace2_axes]:
-            ax.set_xlabel("Time [$\mu$s]")
-            ax.set_xlim(left=min(xs), right=max(xs))
+        trace1_axes  = canvas.select_axes(0)
+        trace2_axes  = canvas.select_axes(1)
+        dtrace1_axes = canvas.select_axes(2)
+        dtrace2_axes = canvas.select_axes(3)
+        all_axes = trace1_axes, trace2_axes, dtrace1_axes, dtrace2_axes
 
+        for ax in all_axes:
+            ax.set_xlim(left=min(xs), right=max(xs))
+        
         trace1_axes.set_xlabel("Time [$\mu$s]")
-        trace1_axes.set_ylabel("Voltage mV")
+
+        if trace1 == _cn.DPPVirtualProbe1.Input:
+            trace1_axes.set_ylabel("Voltage mV")
 
         # waveform (input) plot
-        trace1_plot = trace1_axes.plot(range(0), color="b", lw=1.2)[0]
-        trace2_plot = trace2_axes.plot(range(0), color="r", lw=1.2)[0]
+        trace1_plot  = trace1_axes.plot(range(0), color="b", lw=1.2)[0]
+        trace2_plot  = trace2_axes.plot(range(0), color="r", lw=1.2)[0]
+        dtrace1_plot = dtrace1_axes.plot(range(0), color="k", lw=1.2)[0]
+        dtrace2_plot = dtrace2_axes.plot(range(0), color="g", lw=1.2)[0]
 
         start_time = time.monotonic()
      
@@ -295,6 +334,7 @@ class CaenN6725(object):
         self.digitizer.set_vprobe2(trace2)
         self.digitizer.set_dprobe1(dtrace1)
         self.digitizer.set_dprobe2(dtrace2)
+
         #self.digitizer.allocate_memory()
         self.digitizer.start_acquisition()
         data = []
@@ -306,7 +346,6 @@ class CaenN6725(object):
         ys_trace2  = self.digitizer.get_analog_trace2()
         ys_dtrace1 = self.digitizer.get_digital_trace1()
         ys_dtrace2 = self.digitizer.get_digital_trace2()
-        print (set(ys_trace1)) 
 
         print ("-----sneak peak waveforms-----")
         print (ys_trace1[:10])
@@ -315,23 +354,27 @@ class CaenN6725(object):
         print (ys_dtrace2[:10])
         print ("------------------------------")
 
-        ys_trace1  = self.to_volts(0,ys_trace1)
-
-        print (set(ys_trace1)) 
-        ys_trace1 = 1e3*ys_trace1
-        print (xs[:10])
-        print (ys_trace1[:10])
-        print (ys_trace2[:10])
-        print (len(xs), len(ys_trace1), len(ys_trace2))
+        if trace1 == _cn.DPPVirtualProbe1.Input:
+            ys_trace1  = self.to_volts(0,ys_trace1)
+            ys_trace1 = 1e3*ys_trace1
+            print (ys_trace1[:10])
+        #print (ys_trace2[:10])
+        #print (len(xs), len(ys_trace1), len(ys_trace2))
+        #all_plots = trace1_plot, trace2_plot, dtrace1_plot, dtrace2_plot
         trace1_plot.set_xdata(xs)
         trace1_plot.set_ydata(ys_trace1)
-        if len(ys_trace2):
-            trace2_plot.set_xdata(xs)
-            trace2_plot.set_ydata(ys_trace2)
-
+        #if len(ys_trace2):
+        trace2_plot.set_xdata(xs)
+        trace2_plot.set_ydata(ys_trace2)
+        dtrace1_plot.set_xdata(xs)
+        dtrace1_plot.set_ydata(ys_dtrace2)
+        dtrace2_plot.set_xdata(xs)
+        dtrace2_plot.set_ydata(ys_dtrace2)
 
         for ys, ax in [(ys_trace1, trace1_axes),\
-                       (ys_trace2, trace2_axes)]:
+                       (ys_trace2, trace2_axes),\
+                       (ys_dtrace2, dtrace1_axes),\
+                       (ys_dtrace2, dtrace2_axes)]:
             if len(ys):
                 ymax = max(ys) + abs(max(ys)*0.2)
                 ymin = min(ys) - abs(min(ys)*0.2)
@@ -342,6 +385,14 @@ class CaenN6725(object):
 
         plt.adjust_minor_ticks(trace1_axes, which = 'both')
         plt.adjust_minor_ticks(trace2_axes, which = 'y')
+        #plt.adjust_minor_ticks(dtrace1_axes, which = 'y')
+        #plt.adjust_minor_ticks(dtrace2_axes, which = 'y')
+                
+
+        trace1_axes.text(xs[int(0.7*len(xs))],0.9*max(ys_trace1),   self.vprobe1_to_str[trace1]) 
+        trace2_axes.text(xs[int(0.7*len(xs))],0.9*max(ys_trace2),   self.vprobe2_to_str[trace2]) 
+        dtrace1_axes.text(xs[int(0.7*len(xs))],0.9*max(ys_dtrace1), self.dprobe1_to_str[dtrace1]) 
+        dtrace2_axes.text(xs[int(0.7*len(xs))],0.9*max(ys_dtrace2), self.dprobe2_to_str[dtrace2]) 
 
         canvas.figure.canvas.draw()
         canvas.figure.savefig(filename)
@@ -349,7 +400,8 @@ class CaenN6725(object):
         #    time.sleep(5)
         #for k in data:
         #   for j in k:
-        #       print (j.waveforms)
+        #       print (j.wavefor
+        #ms)
         #while True:
         #    sec = time.monotonic() - start_time
         #    datamins, datamaxes = [],[]
