@@ -234,6 +234,19 @@ class CaenN6725(object):
         pars.twwdt      = [config[channel_key]['rise-time-validation-window']   ]*nchan
         return pars
 
+    @staticmethod
+    def guess_voltages(waveform, dynamic_range, offset):
+        resolution = 2**14
+        frs = dynamic_range[1] - dynamic_range[0]
+        #offset = self.dc_offset[ch]
+        #offset = (offset/4)*(frs/resolution)  + self.dynamic_range[0]
+        if hasattr(waveform, '__iter__'):
+            volts = np.array([w*(frs/resolution) + self.dynamic_range[0] for w in waveform]) 
+        else:
+            volts = waveform*(frs/resolution) + self.dynamic_range[0]
+        return volts
+    
+
     def to_volts(self,ch, waveform):
         """
         Convert waveform from digitizer bins to volts
