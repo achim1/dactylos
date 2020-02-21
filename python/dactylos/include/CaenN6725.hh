@@ -212,7 +212,8 @@ class CaenN6725 {
         std::vector<uint8_t> get_digital_trace1();
         std::vector<uint8_t> get_digital_trace2();
         
-
+        // acces the last seen energy
+        uint16_t get_energy();
 
         // set the virtualprobes for traces 1 and 2
         // this defines what will be stored in the waveform field 
@@ -223,8 +224,19 @@ class CaenN6725 {
         void set_digitalprobe1(DPPDigitalProbe1 vprobe1);
         void set_digitalprobe2(DPPDigitalProbe2 vprobe2);
 
+        // check if certain channel is active
+        bool is_active(int channel) const;
+        
+        // for dual trace mode, the sampling rate is only half
+        int get_current_sampling_rate();
+
 
     private:
+
+        // active channel bitmask - compare with it to check
+        // if a particular channel is active
+        uint8_t active_channel_bitmask_;
+
         // internal readout method, use read_data
         // if you want to interface with the individual 
         // data. This method is used by continuous_readout
@@ -243,7 +255,6 @@ class CaenN6725 {
         void fill_analog_trace2_();
         void fill_digital_trace1_();
         void fill_digital_trace2_();
-
 
         // is it configured"
         bool configured_ = false;
@@ -264,6 +275,7 @@ class CaenN6725 {
         // is opened
         int handle_;
         CAEN_DGTZ_ErrorCode current_error_;
+
         /* Buffers to store the data. The memory must be allocated using the appropriate
         CAENDigitizer API functions (see below), so they must not be initialized here
         NB: you must use the right type for different DPP analysis (in this case PHA) */
@@ -273,11 +285,9 @@ class CaenN6725 {
         CAEN_DGTZ_DPP_PHA_Event_t*      events_[max_n_channels_];  // events buffer
         CAEN_DGTZ_DPP_PHA_Waveforms_t*  waveform_ = nullptr;     // waveforms buffer
         CAEN_DGTZ_BoardInfo_t           board_info_;
-        uint32_t                        active_channels_;
         uint32_t                        num_events_[max_n_channels_];
 };
         bool                            decode_waveforms_;
-
 
         // save data to a rootfle
         std::string                        rootfile_name_  = "digitizer_output.root";
@@ -293,4 +303,10 @@ class CaenN6725 {
         std::vector<uint8_t> digital_trace1_;
         std::vector<uint8_t> digital_trace2_;
 
+        int16_t* atrace1_;
+        int16_t* atrace2_;
+        uint8_t* dtrace1_;
+        uint8_t* dtrace2_;
+        uint32_t trace_ns_;
+        uint16_t energy_;
 #endif

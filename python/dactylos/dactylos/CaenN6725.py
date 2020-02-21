@@ -55,15 +55,18 @@ class CaenN6725(object):
     dprobe2_to_str = {\
     _cn.DPPDigitalProbe2.Trigger           :  'Trigger'}
 
+    @property
+    def samplingrate(self):
+        return self.digitizer.get_current_sampling_rate()
 
-    def __init__(self, configfile):
+    def __init__(self, configfile, shaping_time=None):
         self.digitizer = None
         self.recordlength = None
-        self.samplingrate = 250e6
         self.configfile = configfile
         self.trigger_thresholds = dict()
         self.dc_offsets = dict()
         self.dynamic_range = list()
+        self.shaping_time = shaping_time
         self.setup()
 
     @staticmethod
@@ -197,7 +200,12 @@ class CaenN6725(object):
         self.trigger_thresholds[channel] = trigger_threshold
 
         # check if the trapezoid is short enough to fit into the record length
-        trrt  = config[channel_key]['trapezoid-rise-time']
+        # reminder, the trapezoid rise time is our SHAPINGTIME
+        if self.shaping_time is None:
+            trrt  = config[channel_key]['trapezoid-rise-time']
+        else:
+            print ('Warning, overwriting shaping time from configfile with {self.shaping_time}')
+            trrt = self.shaping_time
         trft  = config[channel_key]['trapezoid-flat-top']
         trpho = config[channel_key]['peak-holdoff']
         pkrun = trrt + trft + trpho # in ns
@@ -206,7 +214,8 @@ class CaenN6725(object):
             raise ValueError(f"Trapezoid run time {pkrun} is longer than recordlength {self.recordlength}.Tof fix it, change the values of trapezoid-rise-time, trapezoid-flat-top, peak-holdoff.")
         print (f"We have an eventlength of {eventlength} and trapezoid run time of {pkrun}")
         pars.thr        = [trigger_threshold                                    ]*nchan 
-        pars.k          = [config[channel_key]['trapezoid-rise-time']           ]*nchan 
+        pars.k          = [trrt                                                 ]*nchan                     
+        #pars.k          = [config[channel_key]['trapezoid-rise-time']           ]*nchan 
         pars.m          = [config[channel_key]['trapezoid-flat-top']            ]*nchan 
         pars.M          = [config[channel_key]['decay-time-constant']           ]*nchan 
         pars.ftd        = [config[channel_key]['flat-top-delay']                ]*nchan 
@@ -234,20 +243,24 @@ class CaenN6725(object):
         frs = self.dynamic_range[1] - self.dynamic_range[0]
         #offset = self.dc_offset[ch]
         #offset = (offset/4)*(frs/resolution)  + self.dynamic_range[0]
-        volts = np.array([w*(frs/resolution) + self.dynamic_range[0] for w in waveform]) 
+        if hasattr(waveform, '__iter__'):
+            volts = np.array([w*(frs/resolution) + self.dynamic_range[0] for w in waveform]) 
+        else:
+            volts = waveform*(frs/resolution) + self.dynamic_range[0]
         return volts
 
 
-    def get_times(self):
+    def get_times(self, digital_trace=False):
         """
         Return the time binning in microseconds
 
         """
         binsize = 1/self.samplingrate
+        if digital_trace:
+            # FIXME: binsize always full sampling rate
+            binsize = 1/250e6
         bins = np.array([k*binsize for k in range(self.recordlength)])
         return bins
-
-
 
     def run_digitizer(self,\
                       seconds,\
@@ -296,7 +309,10 @@ class CaenN6725(object):
                                 figsize="auto",\
                                 figure_factory=None)
         # initialize figure
-        xs  = self.get_times()*1e6 # times is in ns 
+        xs_analog  = self.get_times()*1e6 # times is in ns 
+        xs_digital = self.get_times(digital_trace=True)*1e6
+        # FIXME
+        xs = xs_digital # find out in what conditions the smapling rate is reduced
         #ax.set_xlabel("Time [$\mu$s]")
         #ax.set_ylabel("Voltage mV")
         p.ion()
@@ -346,18 +362,35 @@ class CaenN6725(object):
         ys_trace2  = self.digitizer.get_analog_trace2()
         ys_dtrace1 = self.digitizer.get_digital_trace1()
         ys_dtrace2 = self.digitizer.get_digital_trace2()
+        energy     = self.digitizer.get_energy()
 
         print ("-----sneak peak waveforms-----")
-        print (ys_trace1[:10])
-        print (ys_trace2[:10])
-        print (ys_dtrace1[:10])
-        print (ys_dtrace2[:10])
+        print ("tr1",  ys_trace1[:10],  len(ys_trace1),  self.vprobe1_to_str[trace1])
+        print ("tr2",  ys_trace2[:10],  len(ys_trace2),  self.vprobe2_to_str[trace2])
+        print ("dtr1", ys_dtrace1[:10], len(ys_dtrace1), self.dprobe1_to_str[dtrace1])
+        print ("dtr2", ys_dtrace2[:10], len(ys_dtrace2), self.dprobe2_to_str[dtrace2])
+        print ("energy", energy)
         print ("------------------------------")
-
+        
+        energy    = 1e3*self.to_volts(0, energy)
+        plot_energy = None
         if trace1 == _cn.DPPVirtualProbe1.Input:
             ys_trace1  = self.to_volts(0,ys_trace1)
             ys_trace1 = 1e3*ys_trace1
-            print (ys_trace1[:10])
+            delta = abs(max(ys_trace1)) - abs(min(ys_trace1))
+            bl_corrected = abs(ys_trace1) - abs(min(ys_trace1))*np.ones(len(ys_trace1))
+            # calculate decay time, that is ln(2)*half signal height    
+            over_threshold = bl_corrected > delta/2
+            half_time = xs[over_threshold][-1]
+            print (f"Calculated decay time of {np.log(2)*half_time}")
+
+            energy    = 1e3*self.to_volts(0, energy)
+            plot_energy = 1
+        #if trace2 == _cn.DPPVirtualProbe2.Input:
+            #ys_trace2  = self.to_volts(0,ys_trace2)
+            #ys_trace2 = 1e3*ys_trace2
+            #plot_energy = 2
+            #print (ys_trace1[:10])
         #print (ys_trace2[:10])
         #print (len(xs), len(ys_trace1), len(ys_trace2))
         #all_plots = trace1_plot, trace2_plot, dtrace1_plot, dtrace2_plot
@@ -367,9 +400,14 @@ class CaenN6725(object):
         trace2_plot.set_xdata(xs)
         trace2_plot.set_ydata(ys_trace2)
         dtrace1_plot.set_xdata(xs)
-        dtrace1_plot.set_ydata(ys_dtrace2)
+        dtrace1_plot.set_ydata(ys_dtrace1)
         dtrace2_plot.set_xdata(xs)
         dtrace2_plot.set_ydata(ys_dtrace2)
+
+        if plot_energy == 1:
+            trace1_axes.hlines(min(xs), max(xs), energy)
+        if plot_energy == 2:
+            trace2_axes.hlines(min(xs), max(xs), energy)
 
         for ys, ax in [(ys_trace1, trace1_axes),\
                        (ys_trace2, trace2_axes),\
@@ -378,10 +416,11 @@ class CaenN6725(object):
             if len(ys):
                 ymax = max(ys) + abs(max(ys)*0.2)
                 ymin = min(ys) - abs(min(ys)*0.2)
+                print (f"adjugsting range {ymin} - {ymax}")
                 ax.set_ylim(bottom=ymin, top=ymax)
                 ax.grid(True)
 
-        canvas.figure.tight_layout()
+        #canvas.figure.tight_layout()
 
         plt.adjust_minor_ticks(trace1_axes, which = 'both')
         plt.adjust_minor_ticks(trace2_axes, which = 'y')
@@ -389,10 +428,25 @@ class CaenN6725(object):
         #plt.adjust_minor_ticks(dtrace2_axes, which = 'y')
                 
 
-        trace1_axes.text(xs[int(0.7*len(xs))],0.9*max(ys_trace1),   self.vprobe1_to_str[trace1]) 
-        trace2_axes.text(xs[int(0.7*len(xs))],0.9*max(ys_trace2),   self.vprobe2_to_str[trace2]) 
-        dtrace1_axes.text(xs[int(0.7*len(xs))],0.9*max(ys_dtrace1), self.dprobe1_to_str[dtrace1]) 
-        dtrace2_axes.text(xs[int(0.7*len(xs))],0.9*max(ys_dtrace2), self.dprobe2_to_str[dtrace2]) 
+        trace1_axes.text(xs[int(0.7*len(xs))],0.8*max(ys_trace1),   self.vprobe1_to_str[trace1]) 
+        trace2_axes.text(xs[int(0.7*len(xs))],0.8*max(ys_trace2),   self.vprobe2_to_str[trace2]) 
+        dtrace1_axes.text(xs[int(0.7*len(xs))],0.8*max(ys_dtrace1), self.dprobe1_to_str[dtrace1]) 
+        dtrace2_axes.text(xs[int(0.7*len(xs))],0.8*max(ys_dtrace2), self.dprobe2_to_str[dtrace2]) 
+
+        # despine
+        trace2_axes.spines['bottom'].set_visible(False)
+        dtrace1_axes.spines['bottom'].set_visible(False)
+        dtrace2_axes.spines['bottom'].set_visible(False)
+        for tic in trace2_axes.xaxis.get_major_ticks():
+            tic.tick1line.set_visible(False)
+            #tic.tick1On = tic.tick2On = False
+        for tic in dtrace1_axes.xaxis.get_major_ticks():
+            tic.tick1line.set_visible(False)
+            #tic.tick1On = tic.tick2On = False
+        for tic in dtrace2_axes.xaxis.get_major_ticks():
+            tic.tick1line.set_visible(False)
+            #tic.tick1On = tic.tick2On = False
+
 
         canvas.figure.canvas.draw()
         canvas.figure.savefig(filename)

@@ -77,9 +77,6 @@ CaenN6725::CaenN6725()
 
 CaenN6725::CaenN6725(DigitizerParams_t params) : CaenN6725()
 {
-    // remember the active cannels
-    active_channels_  = params.ChannelMask;
-    std::cout << "Setting channel mask " << params.ChannelMask << std::endl;
     current_error_ = CAEN_DGTZ_SetDPPAcquisitionMode(handle_, params.AcqMode, CAEN_DGTZ_DPP_SAVE_PARAM_EnergyAndTime);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP acquisition mode err code:" + std::to_string(current_error_));
     std::cout << "Setting record length " << params.RecordLength << std::endl;
@@ -95,13 +92,15 @@ CaenN6725::CaenN6725(DigitizerParams_t params) : CaenN6725()
     if (current_error_ !=0 ) throw std::runtime_error("Can not set IO level err code:" + std::to_string(current_error_));
 
     // Set the enabled channels
+    // remember the active cannels
+    active_channel_bitmask_  = params.ChannelMask;
+    std::cout << "Setting channel mask " << params.ChannelMask << std::endl;
     current_error_ = CAEN_DGTZ_SetChannelEnableMask(handle_, params.ChannelMask);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set channel enable mask err code:" + std::to_string(current_error_));
 
-
     for(unsigned int i=0; i<max_n_channels_; i++) {
-        if (params.ChannelMask & (1<<i)) {
-
+        //if (params.ChannelMask & (1<<i)) {
+        if (is_active(i)) {
             // Set the Pre-Trigger size (in samples)
             current_error_ = CAEN_DGTZ_SetDPPPreTriggerSize(handle_, i, 1000);
             if (current_error_ !=0 ) throw std::runtime_error("Can not set dpp trigger sixe err code:" + std::to_string(current_error_));
@@ -200,36 +199,32 @@ CAEN_DGTZ_ErrorCode CaenN6725::get_last_error() const
 
 inline void CaenN6725::fill_analog_trace1_()
 {
-    int waveform_size_t1 = (int) waveform_->Ns; // number of samples
-    int16_t *waveform_trace1 = waveform_->Trace1;
-    analog_trace1_ = std::vector<int16_t>(waveform_trace1, waveform_trace1 + waveform_size_t1);
+    atrace1_ = waveform_->Trace1;
+    analog_trace1_ = std::vector<int16_t>(atrace1_, atrace1_ + trace_ns_);
 }
 
 /***************************************************************/
 
 inline void CaenN6725::fill_analog_trace2_()
 {
-    int waveform_size_t2 = (int) waveform_->Ns; // number of samples
-    int16_t *waveform_trace2 = waveform_->Trace2;
-    analog_trace2_ = std::vector<int16_t>(waveform_trace2, waveform_trace2 + waveform_size_t2);
+    atrace2_ = waveform_->Trace2;
+    analog_trace2_ = std::vector<int16_t>(atrace2_, atrace2_ + trace_ns_);
 }
 
 /***************************************************************/
 
 inline void CaenN6725::fill_digital_trace1_()
 {
-    int waveform_size_d1 = (int) waveform_->Ns; // number of samples
-    uint8_t *waveform_trace_d1 = waveform_->DTrace1;
-    digital_trace1_ = std::vector<uint8_t>(waveform_trace_d1, waveform_trace_d1 + waveform_size_d1);
+    dtrace1_ = waveform_->DTrace1;
+    digital_trace1_ = std::vector<uint8_t>(dtrace1_, dtrace1_ + trace_ns_);
 }
 
 /***************************************************************/
 
 inline void CaenN6725::fill_digital_trace2_()
 {
-    int waveform_size_d2 = (int) waveform_->Ns; // number of samples
-    uint8_t *waveform_trace_d2 = waveform_->DTrace2;
-    digital_trace2_ = std::vector<uint8_t>(waveform_trace_d2, waveform_trace_d2 + waveform_size_d2);
+    dtrace2_ = waveform_->DTrace2;
+    digital_trace2_ = std::vector<uint8_t>(dtrace2_, dtrace2_ + trace_ns_);
 }
 
 /***************************************************************/
@@ -266,6 +261,13 @@ std::vector<uint8_t> CaenN6725::get_digital_trace1()
 std::vector<uint8_t> CaenN6725::get_digital_trace2()
 {
     return digital_trace2_;
+}
+
+/***************************************************************/
+
+uint16_t CaenN6725::get_energy()
+{
+    return energy_;
 }
 
 /***************************************************************/
@@ -324,9 +326,6 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
 
     std::vector<CAEN_DGTZ_DPP_PHA_Event_t> channel_events;
     std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> thisevents;
-    int waveform_size;
-    int16_t *waveform_trace;
-    //uint8_t *waveform_trace;
     current_error_ = CAEN_DGTZ_ReadData(handle_, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer_, &buffer_size_);
     if (current_error_ != 0) 
         {
@@ -337,8 +336,10 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
         {
             return thisevents;
         }
+
     //if (current_error_ != 0) throw std::runtime_error("Error while reading data from the digitizer, err code " + std::to_string(current_error_));
     current_error_ =  CAEN_DGTZ_GetDPPEvents(handle_, buffer_, buffer_size_, (void**)(events_),num_events_);
+
     if (current_error_ != 0)
         {
             std::cout << "error while getting data" << current_error_ << std::endl;
@@ -346,34 +347,40 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
         }
 
     if (root_file_) root_file_->cd();
-    //uint traceId(0);
+
     for (int ch=0;ch<get_nchannels();ch++)
         {
             channel_events = {};
-            waveform_ch_.clear();
-            for (int k=0;k<8;k++)
-                {waveform_ch_.push_back({});}
+            if (decode_waveforms_)
+                {
+                    waveform_ch_.clear();
+                    for (int k=0;k<8;k++)
+                        {waveform_ch_.push_back({});}
+                }
+    
             for (int ev=0;ev<num_events_[ch];ev++)
                 {
                     channel_events.push_back(events_[ch][ev]);
                     energy_ch_[ch] = events_[ch][ev].Energy;
+                    energy_        = events_[ch][ev].Energy;
                     if (decode_waveforms_)
                         {
                             CAEN_DGTZ_DecodeDPPWaveforms(handle_, &events_[ch][ev], waveform_);
+                            trace_ns_ = waveform_->Ns;
                             fill_analog_trace1_();
                             fill_analog_trace2_();
                             fill_digital_trace1_();
                             fill_digital_trace2_();
                             waveform_ch_.at(ch) = get_analog_trace1();
-                            if (root_file_) channel_trees_[ch]->Fill();
                             //channel_trees_[ch]->Write();
                             //++traceId;
                         }
+                    if (root_file_) channel_trees_[ch]->Fill();
                 }
+
             channel_trees_[ch]->Write();
             n_events_acq_[ch] += num_events_[ch]; 
             thisevents.push_back(channel_events);
-            //thisevents[ch] = events_[ch];
         }
     //CAEN_DGTZ_DPP_PHA_Event_t (*thisevents)[]
     return thisevents;
@@ -417,8 +424,7 @@ void CaenN6725::fast_readout_()
         }
     for (int k = 0; k<get_nchannels(); k++)
         {num_events_[k] = 0;}
-    std::vector<CAEN_DGTZ_DPP_PHA_Event_t> channel_events;
-    //uint8_t *waveform_trace;
+
     current_error_ = CAEN_DGTZ_ReadData(handle_, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer_, &buffer_size_);
     if (current_error_ != 0) 
         {
@@ -436,25 +442,25 @@ void CaenN6725::fast_readout_()
             std::cout << "error while getting data" << current_error_ << std::endl;
             return;
         }
+
     if (root_file_) root_file_->cd();
     waveform_ch_.clear();
     waveform_ch_.reserve(get_nchannels());
+
     for (int k=0; k<get_nchannels(); k++)
         {waveform_ch_.push_back({});}
-    channel_events.clear();
-    channel_events.reserve(get_nchannels());
 
     for (int ch=0;ch<get_nchannels();ch++)
       {
         for (int ev=0;ev<num_events_[ch];ev++)
           {
-            channel_events.push_back(events_[ch][ev]);
             energy_ch_[ch] = events_[ch][ev].Energy;
-
+            //energy_        = events_[ch][ev].Energy;
             if (decode_waveforms_)
               {
                   CAEN_DGTZ_DecodeDPPWaveforms(handle_, &events_[ch][ev], waveform_);
                   // fast mode, only do trace1
+                  trace_ns_ = waveform_->Ns;
                   fill_analog_trace1_();
                   waveform_ch_.at(ch) = get_analog_trace1();
                   channel_trees_[ch]->Fill();
@@ -479,6 +485,13 @@ void CaenN6725::end_acquisition()
 int CaenN6725::get_nchannels() const
 {
     return max_n_channels_;
+}
+
+/***************************************************************/
+
+bool CaenN6725::is_active(int channel) const
+{
+    return (active_channel_bitmask_ & (1<<channel)); 
 }
 
 /***************************************************************/
@@ -603,6 +616,21 @@ void CaenN6725::start_acquisition()
 
 /*******************************************************************/
 
+int CaenN6725::get_current_sampling_rate() 
+{
+    int sampling_rate = 250e6;
+    int probe;
+    current_error_ = CAEN_DGTZ_GetDPP_VirtualProbe(handle_, ANALOG_TRACE_2, &probe);
+    if (current_error_ != 0) throw std::runtime_error("Can not get virtual probe 2, err code: "  + std::to_string(current_error_));
+    // for dual trace mode, the sampling rate is only half
+    if (probe != CAEN_DGTZ_DPP_VIRTUALPROBE_None)
+        {sampling_rate = sampling_rate/2;}
+    return sampling_rate;
+}
+
+
+/*******************************************************************/
+
 void CaenN6725::calibrate()
 {
     current_error_ = CAENDGTZ_API CAEN_DGTZ_Calibrate(handle_);
@@ -626,6 +654,23 @@ uint32_t CaenN6725::get_channel_dc_offset(int channel)
 
 void CaenN6725::continuous_readout(unsigned int seconds)
 {
+    // this is meant for fast continueous readout
+    // set second vprobe to None, so we get the full 
+    // sampling rate for the waveform
+    current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, ANALOG_TRACE_2, CAEN_DGTZ_DPP_VIRTUALPROBE_None);
+    if (current_error_ != 0) throw std::runtime_error("Can not set virtual probe to None, err code: "  + std::to_string(current_error_));
+    
+    if (!decode_waveforms_)
+        {
+            current_error_ = CAEN_DGTZ_SetDPPAcquisitionMode(handle_, CAEN_DGTZ_DPP_ACQ_MODE_List, CAEN_DGTZ_DPP_SAVE_PARAM_EnergyAndTime);    
+            if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP acquisition mode err code:" + std::to_string(current_error_));
+        }
+    else 
+        {
+            current_error_ = CAEN_DGTZ_SetDPPAcquisitionMode(handle_, CAEN_DGTZ_DPP_ACQ_MODE_Mixed, CAEN_DGTZ_DPP_SAVE_PARAM_EnergyAndTime);    
+            if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP acquisition mode err code:" + std::to_string(current_error_));
+
+        }
     long now_time = get_time()/1000;
     long last_time = now_time;
     long delta_t = 0;

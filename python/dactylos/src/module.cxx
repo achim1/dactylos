@@ -573,6 +573,7 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .def("configure_channel",   &CaenN6725::configure_channel)
         .def("calibrate",           &CaenN6725::calibrate)
         .def("read_data",           &CaenN6725::read_data)
+        .def("get_current_sampling_rate",   &CaenN6725::get_current_sampling_rate)
         .def("get_analog_trace1",   &CaenN6725::get_analog_trace1)
         .def("get_analog_trace2",   &CaenN6725::get_analog_trace2)
         .def("get_digital_trace1",  &CaenN6725::get_digital_trace1)
@@ -582,11 +583,13 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .def("set_dprobe1",         &CaenN6725::set_digitalprobe1)
         .def("set_dprobe2",         &CaenN6725::set_digitalprobe2)
         .def("continuous_readout",  &CaenN6725::continuous_readout)
-        .def("set_rootfilename",    &CaenN6725::set_rootfilename)
+        .def("is_active",             &CaenN6725::is_active)
+        .def("set_rootfilename",      &CaenN6725::set_rootfilename)
         .def("set_channel_dc_offset", &CaenN6725::set_channel_dc_offset)
         .def("get_channel_dc_offset", &CaenN6725::get_channel_dc_offset)
         .def("get_n_events",        &CaenN6725::get_n_events)
         .def("get_n_events_tot",        &CaenN6725::get_n_events_tot)
+        .def("get_energy",              &CaenN6725::get_energy)
         .def("set_input_dynamic_range", &CaenN6725::set_input_dynamic_range)
         .def("get_input_dynamic_range", &CaenN6725::get_input_dynamic_range);
 };
