@@ -177,8 +177,11 @@ class CaenN6725 {
         void calibrate();
 
         // get a chunk of data
-        // this needs to be run in some sort of loop
-        std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> read_data();
+        // this needs to be run in some sort of loop.
+        // display channel is used for the scope mode
+        // and determines which channels shall be available
+        // for the get_traces functions
+        std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> read_data(int display_channel = 0);
 
         // get the number of events acquired per read_data call
         std::vector<int> get_n_events();
@@ -230,6 +233,10 @@ class CaenN6725 {
         // for dual trace mode, the sampling rate is only half
         int get_current_sampling_rate();
 
+        // at which time sample do we have
+        // the trigger point?
+        // this requires the digital trace2 to be filled
+        int get_trigger_point();
 
     private:
 
@@ -255,6 +262,7 @@ class CaenN6725 {
         void fill_analog_trace2_();
         void fill_digital_trace1_();
         void fill_digital_trace2_();
+
 
         // is it configured"
         bool configured_ = false;
@@ -292,7 +300,8 @@ class CaenN6725 {
         // save data to a rootfle
         std::string                        rootfile_name_  = "digitizer_output.root";
         TFile*                             root_file_      = nullptr;
-        std::vector<double>                energy_ch_      = {};
+        std::vector<uint16_t>              energy_ch_      = {};
+        std::vector<int>                   trigger_ch_     = {};
         std::vector<std::vector<int16_t>>  waveform_ch_    = {};
         std::vector<TTree*>                channel_trees_  = {};
 

@@ -290,6 +290,8 @@ class CaenN6725(object):
         """
         if read_waveforms:
             self.digitizer.enable_waveform_decoding()
+            self.digitizer.set_dprobe2(_cn.DPPDigitalProbe2.Trigger)
+        
         if rootfilename is not None:
             self.digitizer.set_rootfilename(rootfilename)
         # run calibration before readout
@@ -300,6 +302,14 @@ class CaenN6725(object):
         self.digitizer.end_acquisition()
         print (f"We saw {self.digitizer.get_n_events_tot()} events!")
         return
+
+    def init_scope(self):
+        self.canvas = YStackedCanvas(subplot_yheights=(0.1, 0.1, 0.2, 0.5),
+                                padding=(0.15, 0.05, 0.0, 0.1 ),\
+                                space_between_plots=0,\
+                                figsize="auto",\
+                                figure_factory=None)
+
 
     def oscilloscope(self,\
                      maxtime=np.inf,\
@@ -316,11 +326,11 @@ class CaenN6725(object):
         """
         time_since_running = 0
         self.digitizer.enable_waveform_decoding()
-        canvas = YStackedCanvas(subplot_yheights=(0.1, 0.1, 0.2, 0.5),
-                                padding=(0.15, 0.05, 0.0, 0.1 ),\
-                                space_between_plots=0,\
-                                figsize="auto",\
-                                figure_factory=None)
+        #self.canvas = YStackedCanvas(subplot_yheights=(0.1, 0.1, 0.2, 0.5),
+        #                        padding=(0.15, 0.05, 0.0, 0.1 ),\
+        #                        space_between_plots=0,\
+        #                        figsize="auto",\
+        #                        figure_factory=None)
         # initialize figure
         xs_analog  = self.get_times()*1e6 # times is in ns 
         xs_digital = self.get_times(digital_trace=True)*1e6
@@ -332,10 +342,14 @@ class CaenN6725(object):
         #ax.set_xlim(left=min(xs), right=max(xs))
 
         # trace 1 of the scope is the fast timing filter
-        trace1_axes  = canvas.select_axes(0)
-        trace2_axes  = canvas.select_axes(1)
-        dtrace1_axes = canvas.select_axes(2)
-        dtrace2_axes = canvas.select_axes(3)
+        trace1_axes  = self.canvas.select_axes(0)
+        trace2_axes  = self.canvas.select_axes(1)
+        dtrace1_axes = self.canvas.select_axes(2)
+        dtrace2_axes = self.canvas.select_axes(3)
+        trace1_axes .clear() 
+        trace2_axes .clear() 
+        dtrace1_axes.clear() 
+        dtrace2_axes.clear() 
         all_axes = trace1_axes, trace2_axes, dtrace1_axes, dtrace2_axes
 
         for ax in all_axes:
@@ -354,9 +368,9 @@ class CaenN6725(object):
 
         start_time = time.monotonic()
      
-        canvas.figure.show()
-        canvas.figure.canvas.draw()
-        canvas.figure.tight_layout()
+        #canvas.figure.show()
+        #canvas.figure.canvas.draw()
+        #canvas.figure.tight_layout()
    
         # set the traces -m
         self.digitizer.set_vprobe1(trace1)
@@ -368,7 +382,7 @@ class CaenN6725(object):
         self.digitizer.start_acquisition()
         data = []
         while len(data) == 0:
-            data = self.digitizer.read_data()
+            data = self.digitizer.read_data(0)
         self.digitizer.end_acquisition()
 
         ys_trace1  = self.digitizer.get_analog_trace1()
@@ -461,8 +475,8 @@ class CaenN6725(object):
             #tic.tick1On = tic.tick2On = False
 
 
-        canvas.figure.canvas.draw()
-        canvas.figure.savefig(filename)
+        self.canvas.figure.canvas.draw()
+        self.canvas.figure.savefig(filename)
         #for i in range(6):
         #    time.sleep(5)
         #for k in data:

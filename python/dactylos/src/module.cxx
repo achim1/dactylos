@@ -578,6 +578,7 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .def("get_analog_trace2",   &CaenN6725::get_analog_trace2)
         .def("get_digital_trace1",  &CaenN6725::get_digital_trace1)
         .def("get_digital_trace2",  &CaenN6725::get_digital_trace2)
+        .def("get_trigger_point",   &CaenN6725::get_trigger_point)
         .def("set_vprobe1",         &CaenN6725::set_virtualprobe1)
         .def("set_vprobe2",         &CaenN6725::set_virtualprobe2)
         .def("set_dprobe1",         &CaenN6725::set_digitalprobe1)

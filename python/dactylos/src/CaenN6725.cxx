@@ -229,6 +229,17 @@ inline void CaenN6725::fill_digital_trace2_()
 
 /***************************************************************/
 
+int CaenN6725::get_trigger_point()
+{
+    for (int k=0; k<digital_trace2_.size(); k++)
+        {   //std::cout << digital_trace2_[k] << std::endl;
+            if (digital_trace2_[k] > 0) return k;
+        }
+    return digital_trace2_.size();
+}
+
+/***************************************************************/
+
 CAEN_DGTZ_BoardInfo_t CaenN6725::get_board_info()
 {
     current_error_ = CAEN_DGTZ_GetInfo(handle_, &board_info_);
@@ -305,7 +316,7 @@ void CaenN6725::allocate_memory()
 
 /***************************************************************/
 
-std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data()
+std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data(int display_channel)
 {
     // check the readout status
     uint32_t acqstatus;
@@ -444,12 +455,17 @@ void CaenN6725::fast_readout_()
         }
 
     if (root_file_) root_file_->cd();
-    waveform_ch_.clear();
-    waveform_ch_.reserve(get_nchannels());
-
-    for (int k=0; k<get_nchannels(); k++)
-        {waveform_ch_.push_back({});}
-
+    if (decode_waveforms_)
+    {
+        waveform_ch_.clear();
+        waveform_ch_.reserve(get_nchannels());
+        //trigger_ch_ = std::vector<int>(8,0);
+        trigger_ch_.clear();
+        trigger_ch_.reserve(get_nchannels());
+        for (int k=0; k<get_nchannels(); k++)
+            {waveform_ch_.push_back({});
+             trigger_ch_.push_back(-1);}
+    }
     for (int ch=0;ch<get_nchannels();ch++)
       {
         for (int ev=0;ev<num_events_[ch];ev++)
@@ -462,6 +478,9 @@ void CaenN6725::fast_readout_()
                   // fast mode, only do trace1
                   trace_ns_ = waveform_->Ns;
                   fill_analog_trace1_();
+                  fill_digital_trace2_();
+                  trigger_ch_.at(ch)  = get_trigger_point(); 
+                  //std::cout << get_trigger_point() << std::endl;
                   waveform_ch_.at(ch) = get_analog_trace1();
                   channel_trees_[ch]->Fill();
               }
@@ -597,10 +616,11 @@ void CaenN6725::start_acquisition()
     channel_trees_.clear();
     energy_ch_.clear();
     waveform_ch_.clear();
-
+    trigger_ch_.clear();
     energy_ch_.reserve(8);
     waveform_ch_.reserve(8);
     channel_trees_.reserve(8);
+    trigger_ch_.reserve(8);
     std::string ch_name = "ch";
     for (int k=0;k<8;k++)
         {
@@ -608,7 +628,10 @@ void CaenN6725::start_acquisition()
             channel_trees_.push_back(new TTree(ch_name.c_str(), ch_name.c_str()));
             channel_trees_[k]->Branch("energy", &energy_ch_[k]);
             if (decode_waveforms_)
-                {channel_trees_[k]->Branch("waveform", &waveform_ch_[k]);}
+                {
+                    channel_trees_[k]->Branch("waveform", &waveform_ch_[k]);
+                    channel_trees_[k]->Branch("trigger", &trigger_ch_[k]);
+                }
         } 
     n_events_acq_ = std::vector<long>(get_nchannels(), 0);
     current_error_ = CAEN_DGTZ_SWStartAcquisition(handle_);
