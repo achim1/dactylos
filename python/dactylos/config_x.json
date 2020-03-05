@@ -20,27 +20,27 @@
                     },
     "CaenN6725"   : {
                       "VMEBaseAddress"      : 0,
-                      "RecordLength"        : 20000,
+                      "RecordLength"        : 50000,
                       "EventAggr"           : 0,// 0 means automatic
                       //"active-channels"   : [0,1,2,3,4,5,6,7],
-                      "active-channels"   : [0], // has to be an increaising list of channle numbers which should be usded. First channel is 0
+                      "active-channels"   : [0,1,2,3,4,5,6,7], // has to be an increaising list of channle numbers which should be usded. First channel is 0
                       // the baseline offset is given as a list for the active channels
                       // if the active channels are e.g. [0,3,6]
                       // baseline-offset [5,1,3] means 5 for ch0, 1 for ch3 3 for ch6
                       //"baseline-offset"     : [50,0,0,0,0,0,0,0],
-                      "baseline-offset"     : [50], // baseline offset in percent, one value per channel
+                      "baseline-offset"     : [50,50,50,50,50,50,50,50], // baseline offset in percent, one value per channel
                       // can be either "2VPP" or "05VPP"
                       "dynamic-range"       : "05VPP",
                       "ch0"      : {
-                                         "trigger-threshold"                   : 5,   // in mV
-                                         "trapezoid-rise-time"                 : 1000, // in ns 4000 for xray          
+                                         "trigger-threshold"                   : 15,   // in mV
+                                         "trapezoid-rise-time"                 : 4000, // in ns 4000 for xray          
                                          //"trapezoid-rise-time"               : 4000, // in ns           
-                                         "trapezoid-flat-top"                  : 2000,             
+                                         "trapezoid-flat-top"                  : 1000,             
                                          "decay-time-constant"                 : 80000,            
-                                         "flat-top-delay"                      : 1000,
+                                         "flat-top-delay"                      : 800,
                                          "trigger-filter-smoothing-factor"     : 16,
-                                         "input-signal-rise-time"              : 600,
-                                         "trigger-hold-off"                    : 1500,                
+                                         "input-signal-rise-time"              : 500,
+                                         "trigger-hold-off"                    : 5000,                
                                          "n-samples"                           : 2, 
                                          "peak-mean"                           : 2, 
                                          "peak-holdoff"                        : 4992,
@@ -55,146 +55,166 @@
                                          "rise-time-validation-window"         : 0
                       },
                       "ch1"      : {
-                                         "trigger-threshold"                   : 1, // was 50
-                                         "trapezoid-rise-time"                 : 4000,            
-                                         "trapezoid-flat-top"                  : 1,             
+                                         "trigger-threshold"                   : 15,   // in mV
+                                         "trapezoid-rise-time"                 : 4000, // in ns 4000 for xray          
+                                         //"trapezoid-rise-time"               : 4000, // in ns           
+                                         "trapezoid-flat-top"                  : 1000,             
                                          "decay-time-constant"                 : 80000,            
-                                         "flat-top-delay"                      : 80000,
+                                         "flat-top-delay"                      : 800,
                                          "trigger-filter-smoothing-factor"     : 16,
                                          "input-signal-rise-time"              : 500,
-                                         "trigger-hold-off"                    : 500,                
+                                         "trigger-hold-off"                    : 5000,                
                                          "n-samples"                           : 2, 
                                          "peak-mean"                           : 2, 
                                          "peak-holdoff"                        : 4992,
+                                         //"peak-holdoff"                        : 20000,
                                          "baseline-holdoff"                    : 2000,
                                          "energy-normalization-factor"         : 1.0,
                                          "decimation"                          : 0,
                                          "decimation-gain"                     : 0,
                                          "otrej"                               : 0,
                                          "trigger-window"                      : 0,
-                                         "rise-time-validation-window"         : 100
+                                         //"rise-time-validation-window"         : 100
+                                         "rise-time-validation-window"         : 0
                       },
                       "ch2"      : {
-                                         "trigger-threshold"                   : 1, // was 50
-                                         "trapezoid-rise-time"                 : 4000,            
-                                         "trapezoid-flat-top"                  : 1,             
+                                         "trigger-threshold"                   : 15,   // in mV
+                                         "trapezoid-rise-time"                 : 4000, // in ns 4000 for xray          
+                                         //"trapezoid-rise-time"               : 4000, // in ns           
+                                         "trapezoid-flat-top"                  : 1000,             
                                          "decay-time-constant"                 : 80000,            
-                                         "flat-top-delay"                      : 80000,
+                                         "flat-top-delay"                      : 800,
                                          "trigger-filter-smoothing-factor"     : 16,
                                          "input-signal-rise-time"              : 500,
-                                         "trigger-hold-off"                    : 500,                
+                                         "trigger-hold-off"                    : 5000,                
                                          "n-samples"                           : 2, 
                                          "peak-mean"                           : 2, 
                                          "peak-holdoff"                        : 4992,
+                                         //"peak-holdoff"                        : 20000,
                                          "baseline-holdoff"                    : 2000,
                                          "energy-normalization-factor"         : 1.0,
                                          "decimation"                          : 0,
                                          "decimation-gain"                     : 0,
                                          "otrej"                               : 0,
                                          "trigger-window"                      : 0,
-                                         "rise-time-validation-window"         : 100
+                                         //"rise-time-validation-window"         : 100
+                                         "rise-time-validation-window"         : 0
                       },
                       "ch3"      : {
-                                         "trigger-threshold"                   : 1, // was 50
-                                         "trapezoid-rise-time"                 : 4000,            
-                                         "trapezoid-flat-top"                  : 1,             
+                                         "trigger-threshold"                   : 15,   // in mV
+                                         "trapezoid-rise-time"                 : 4000, // in ns 4000 for xray          
+                                         //"trapezoid-rise-time"               : 4000, // in ns           
+                                         "trapezoid-flat-top"                  : 1000,             
                                          "decay-time-constant"                 : 80000,            
-                                         "flat-top-delay"                      : 80000,
+                                         "flat-top-delay"                      : 800,
                                          "trigger-filter-smoothing-factor"     : 16,
                                          "input-signal-rise-time"              : 500,
-                                         "trigger-hold-off"                    : 500,                
+                                         "trigger-hold-off"                    : 5000,                
                                          "n-samples"                           : 2, 
                                          "peak-mean"                           : 2, 
                                          "peak-holdoff"                        : 4992,
+                                         //"peak-holdoff"                        : 20000,
                                          "baseline-holdoff"                    : 2000,
                                          "energy-normalization-factor"         : 1.0,
                                          "decimation"                          : 0,
                                          "decimation-gain"                     : 0,
                                          "otrej"                               : 0,
                                          "trigger-window"                      : 0,
-                                         "rise-time-validation-window"         : 100
+                                         //"rise-time-validation-window"         : 100
+                                         "rise-time-validation-window"         : 0
                       },
                       "ch4"      : {
-                                         "trigger-threshold"                   : 1, // was 50
-                                         "trapezoid-rise-time"                 : 4000,            
-                                         "trapezoid-flat-top"                  : 1,             
+                                         "trigger-threshold"                   : 15,   // in mV
+                                         "trapezoid-rise-time"                 : 4000, // in ns 4000 for xray          
+                                         //"trapezoid-rise-time"               : 4000, // in ns           
+                                         "trapezoid-flat-top"                  : 1000,             
                                          "decay-time-constant"                 : 80000,            
-                                         "flat-top-delay"                      : 80000,
+                                         "flat-top-delay"                      : 800,
                                          "trigger-filter-smoothing-factor"     : 16,
                                          "input-signal-rise-time"              : 500,
-                                         "trigger-hold-off"                    : 500,                
+                                         "trigger-hold-off"                    : 5000,                
                                          "n-samples"                           : 2, 
                                          "peak-mean"                           : 2, 
                                          "peak-holdoff"                        : 4992,
+                                         //"peak-holdoff"                        : 20000,
                                          "baseline-holdoff"                    : 2000,
                                          "energy-normalization-factor"         : 1.0,
                                          "decimation"                          : 0,
                                          "decimation-gain"                     : 0,
                                          "otrej"                               : 0,
                                          "trigger-window"                      : 0,
-                                         "rise-time-validation-window"         : 100
+                                         //"rise-time-validation-window"         : 100
+                                         "rise-time-validation-window"         : 0
                       },
                       "ch5"      : {
-                                         "trigger-threshold"                   : 1, // was 50
-                                         "trapezoid-rise-time"                 : 4000,            
-                                         "trapezoid-flat-top"                  : 1,             
+                                         "trigger-threshold"                   : 15,   // in mV
+                                         "trapezoid-rise-time"                 : 4000, // in ns 4000 for xray          
+                                         //"trapezoid-rise-time"               : 4000, // in ns           
+                                         "trapezoid-flat-top"                  : 1000,             
                                          "decay-time-constant"                 : 80000,            
-                                         "flat-top-delay"                      : 80000,
+                                         "flat-top-delay"                      : 800,
                                          "trigger-filter-smoothing-factor"     : 16,
                                          "input-signal-rise-time"              : 500,
-                                         "trigger-hold-off"                    : 500,                
+                                         "trigger-hold-off"                    : 5000,                
                                          "n-samples"                           : 2, 
                                          "peak-mean"                           : 2, 
                                          "peak-holdoff"                        : 4992,
+                                         //"peak-holdoff"                        : 20000,
                                          "baseline-holdoff"                    : 2000,
                                          "energy-normalization-factor"         : 1.0,
                                          "decimation"                          : 0,
                                          "decimation-gain"                     : 0,
                                          "otrej"                               : 0,
                                          "trigger-window"                      : 0,
-                                         "rise-time-validation-window"         : 100
+                                         //"rise-time-validation-window"         : 100
+                                         "rise-time-validation-window"         : 0
                       },
                       "ch6"      : {
-                                         "trigger-threshold"                   : 1, // was 50
-                                         "trapezoid-rise-time"                 : 4000,            
-                                         "trapezoid-flat-top"                  : 1,             
+                                         "trigger-threshold"                   : 15,   // in mV
+                                         "trapezoid-rise-time"                 : 4000, // in ns 4000 for xray          
+                                         //"trapezoid-rise-time"               : 4000, // in ns           
+                                         "trapezoid-flat-top"                  : 1000,             
                                          "decay-time-constant"                 : 80000,            
-                                         "flat-top-delay"                      : 80000,
+                                         "flat-top-delay"                      : 800,
                                          "trigger-filter-smoothing-factor"     : 16,
                                          "input-signal-rise-time"              : 500,
-                                         "trigger-hold-off"                    : 500,                
+                                         "trigger-hold-off"                    : 5000,                
                                          "n-samples"                           : 2, 
                                          "peak-mean"                           : 2, 
                                          "peak-holdoff"                        : 4992,
+                                         //"peak-holdoff"                        : 20000,
                                          "baseline-holdoff"                    : 2000,
                                          "energy-normalization-factor"         : 1.0,
                                          "decimation"                          : 0,
                                          "decimation-gain"                     : 0,
                                          "otrej"                               : 0,
                                          "trigger-window"                      : 0,
-                                         "rise-time-validation-window"         : 100
+                                         //"rise-time-validation-window"         : 100
+                                         "rise-time-validation-window"         : 0
                       },
                       "ch7"      : {
-                                         "trigger-threshold"                   : 1, // was 50
-                                         "trapezoid-rise-time"                 : 4000,            
-                                         "trapezoid-flat-top"                  : 1,             
+                                         "trigger-threshold"                   : 15,   // in mV
+                                         "trapezoid-rise-time"                 : 4000, // in ns 4000 for xray          
+                                         //"trapezoid-rise-time"               : 4000, // in ns           
+                                         "trapezoid-flat-top"                  : 1000,             
                                          "decay-time-constant"                 : 80000,            
-                                         "flat-top-delay"                      : 80000,
+                                         "flat-top-delay"                      : 800,
                                          "trigger-filter-smoothing-factor"     : 16,
                                          "input-signal-rise-time"              : 500,
-                                         "trigger-hold-off"                    : 500,                
+                                         "trigger-hold-off"                    : 5000,                
                                          "n-samples"                           : 2, 
                                          "peak-mean"                           : 2, 
                                          "peak-holdoff"                        : 4992,
+                                         //"peak-holdoff"                        : 20000,
                                          "baseline-holdoff"                    : 2000,
                                          "energy-normalization-factor"         : 1.0,
                                          "decimation"                          : 0,
                                          "decimation-gain"                     : 0,
                                          "otrej"                               : 0,
                                          "trigger-window"                      : 0,
-                                         "rise-time-validation-window"         : 100
+                                         //"rise-time-validation-window"         : 100
+                                         "rise-time-validation-window"         : 0
                       }
-
                     }
    
 }
