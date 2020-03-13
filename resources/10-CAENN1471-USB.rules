@@ -1,0 +1,2 @@
+SUBSYSTEM=="tty",ATTRS{idVendor}=="21e1", SYMLINK+="caen1471", MODE="0666", GROUP="dialout"
+
