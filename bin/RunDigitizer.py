@@ -1,0 +1,209 @@
+#! /usr/bin/env python3
+
+import dactylos as dact
+import hepbasestack as hep
+
+import concurrent.futures as fut
+import os
+import sys
+import time
+import tqdm
+import pylab as p
+p.ion()
+from os.path import join as _j
+from skippylab.controllers import PrologixUsbGPIBController
+try:
+    import ROOT
+except ImportError:
+    print ("Failed to import root.... Some functionality might not be available")
+    print ("Make sure $ROOTSYS/lib is in your $PYTHONPATH")
+use_chamber = True
+test = False
+scope = False
+shaping_spree  = True
+runtime = 240
+config = 'config_x.json'
+outdir = 'run12-Wed03052020'
+
+# some global variables
+NCHANNELS = 8
+NBINS = 16834 # 14-bit digitizer
+
+MPI = True
+if MPI:
+    EXECUTOR = fut.ProcessPoolExecutor(max_workers=2)
+
+def cooldown(sunec):
+    """
+    One-shot function for threaded execution.
+    Performs cooldown to -37 deg and displays
+    a plot while doing so.
+    """
+    sunec.ON
+    sunec.monitor_temperatures(target_temp=-37,
+                               activate=True)
+    sunec.OFF
+
+def setup_root_histos():
+    """
+    Prepare energy histograms in ROOT.TH1D style.
+    """
+    histos = []
+    for i in range(NCHANNELS):
+        h = ROOT.TH1D()
+        h.SetName("ehistch" + str(i))
+        h.SetTitle("DigitizerChannel Ch" + str(i))
+        h.SetBins(NBINS, 0, NBINS-1)
+        histos.append(h)
+    return histos
+
+def histogram_energy(input_file):
+    """
+    Create root TH1D histograms for the energy
+    """
+    f = ROOT.TFile(input_file,"UPDATE")        
+    f.cd()
+    histos = setup_root_histos()
+    for ch in range(7):
+        for event in f.__getattr__(f'ch{ch}'):
+            histos[ch].Fill(event.energy)  
+        histos[ch].Write()  
+        f.Write()
+    f.Close()
+
+
+
+
+if __name__ == '__main__':
+    
+    import argparse
+    parser = argparse.ArgumentParser(description='Take data with CAEN N6725 digitizer. If desired, operate SUNEC13 chamber.')
+    parser.add_argument('--shaping-spree', action='store_true', default=False, help='Take data for different shaping times from a pre-defined (currently hardcoded) list')
+    parser.add_argument('--test', action='store_true', default=False)
+    parser.add_argument('--scope', action='store_true', default=False)
+    parser.add_argument('--use-chamber', action='store_true', default=False, help="Use the SUN chamber to cooldown between different parts of the run.")
+    parser.add_argument('--read-waveforms', action='store_true', default=False, help='Save the waveforms as well.')
+    parser.add_argument('-o','--outdir', type=str, default='outdir')
+    parser.add_argument('-i','--infile', type=str, default='infile', help='Only to use in combination with --create-histograms-only')
+    parser.add_argument('--create-histograms-only', action='store_true', default=False, help='add histograms to the outfile after the run. Basically, histogram the "energy" field in the root file. Requires -i infile to be given.')
+    parser.add_argument('--detector-name', type=str, default='', help='add the id/name of the detector for identification. This is a MUST')
+    parser.add_argument('--run-config', type=str, default='', help='path to a run configuration file')
+
+    args = parser.parse_args()
+    print(args)
+    if not args.run_config:
+        shaping_spree = args.shaping_spree
+        use_chamber   = args.use_chamber
+        #shaping_times = [100, 500, 1000, 1500, 2000, 3000, 5000, 6000, 7000, 10000]
+        shaping_times = [4000]
+        detector_sequence = False
+    else:
+        run_config = hjson.load(open(args.run_config)) 
+        use_chamber = run_config['use-chamber']
+        args.read_waveforms = run_config['save-waveforms']
+        shaping_spree = len(run_config['peaking-times']) > 0
+        if shaping_spree:
+            shaping_times = run_config['peaking-times'] 
+        detector_sequence = run_config['detector-sequence']        
+
+    scope         = args.scope
+    test          = args.test
+    outdir        = args.outdir
+
+    if args.create_histograms_only:
+        histogram_energy(args.infile)
+        print ('done!')
+        sys.exit()
+
+    # for anything else we need a detector name
+    if not args.detector_name:
+        raise ValueError('No detector name/id given. abort!')
+
+    outfilename = _j(outdir, f"det{args.detector_name}")
+
+    #sys.exit()
+    if use_chamber:
+        from skippylab.instruments.climate_chambers import SunChamber
+        SUNPORT='/dev/serial/by-id/usb-Prologix_Prologix_GPIB-USB_Controller_PX30FLUZ-if00-port0'
+        sunec = SunChamber(PrologixUsbGPIBController(port=SUNPORT),
+                                                 publish=False,                                             port=SUNPORT)
+    try:
+        os.mkdir(outdir)
+    except Exception as e:
+        print (e)
+        pass
+    
+    
+    if test:
+        digi = dact.CaenN6725(config)
+        digi.run_digitizer(10, rootfilename=_j(outdir,'example.root'),\
+                       read_waveforms=args.read_waveforms)
+        del digi
+    #del digi # closes the connection to the digitzer
+    
+    if shaping_spree:
+        for stime in tqdm.tqdm(shaping_times):
+            print (f"Taking data for shaping time {stime} ..")
+            outfile = outfilename = '_stime{stime}.root'
+            print (f"Writing data to file {outfile}")
+            digi = dact.CaenN6725(config, shaping_time=stime)
+            ex = hep.timed_progressbar(runtime) # show a progressbar for runtime seconds
+            digi.run_digitizer(runtime, rootfilename=outfile,\
+                               read_waveforms=args.read_waveforms)
+            del digi  # close the digitizer. This is important, since only one at the time
+                      # can be open.
+            ex.shutdown()
+
+            if use_chamber:
+                #cooldown
+                print (f".. done. Cooling down!")
+                if MPI:
+                    EXECUTOR.submit(cooldown, sunec)
+                histogram_energy(outfile)
+                if not MPI:
+                    sunec.ON
+                    sunec.monitor_temperatures(target_temp=-37,
+                                               activate=True)
+                    sunec.OFF
+    
+    if scope:
+        try:
+            os.mkdir(outdir)
+        except Exception as e:
+            print (e)
+            pass
+    
+        digi = dact.CaenN6725(config)
+        digi.init_scope()
+        while True:
+            print ("Getting shaping...")
+            digi.oscilloscope(filename = _j(outdir,"shaping.png"))
+            print ("Getting trigger...")
+            digi.oscilloscope(filename = _j(outdir, "trigger.png"),
+                              trace1 = dact.DPPVirtualProbe1.Delta2,\
+                              trace2 = dact.DPPVirtualProbe2.Input,\
+                              dtrace1 = dact.DPPDigitalProbe1.TRGWin)
+            time.sleep(5)
+        #digi.oscilloscope(filename = _j(outdir, "test3.png"),
+        #                  trace1 = dact.DPPVirtualProbe1.Trapezoid,\
+        #                  trace2 = dact.DPPVirtualProbe2.Input,\
+        #                  dtrace1 = dact.DPPDigitalProbe1.Armed)
+        #digi.oscilloscope(filename = _j(outdir,"test4.png"),
+        #                  trace1 = dact.DPPVirtualProbe1.Input,\
+        #                  trace2 = dact.DPPVirtualProbe2.TrapezoidReduced,\
+        #                  dtrace1 = dact.DPPDigitalProbe1.PkRun)
+        #digi.oscilloscope(filename = _j(outdir,"test5.png"),
+        #                  trace1 = dact.DPPVirtualProbe1.Input,\
+        #                  trace2 = dact.DPPVirtualProbe2.Baseline,\
+        #                  dtrace1 = dact.DPPDigitalProbe1.Busy)
+        #digi.oscilloscope(filename = _j(outdir,"test6.png"),
+        #                  trace1 = dact.DPPVirtualProbe1.Input,\
+        #                  trace2 = dact.DPPVirtualProbe2.Threshold,\
+        #                  dtrace1 = dact.DPPDigitalProbe1.PileUp)
+        #digi.oscilloscope(filename = _j(outdir,"test7.png"),
+        #                  trace1 = dact.DPPVirtualProbe1.Input,\
+        #                  trace2 = dact.DPPVirtualProbe2.Threshold,\
+        #                  dtrace1 = dact.DPPDigitalProbe1.TRGHoldoff)
+        
+    
+    

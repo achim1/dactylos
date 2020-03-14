@@ -1,0 +1,78 @@
+// example configuration file 
+// for CRaneLab
+
+{
+    "SunEC13"     : {
+                      "target-temp"         : -45,
+                      "tolerance"           : 5,
+                      "cooldown-rate"       : 5,
+                      "port"                : "/dev/ttyUSB0",
+                      // publish the monitored temperatures to a network socket
+                      "publish-temps"       : 0
+    },
+    "CaenN1471" : {
+                      //"port"                : "/dev/caen1471", 
+                      "port"                : "/dev/ttyACM0",
+                      // a  [4] here means all channels 
+                      "active-channels"     : [0,1,2,3],
+                      "target-voltages"     : [250,250,250,250],
+                      "ramp-rate"           : 5
+                    },
+    "CaenN6725"   : {
+                      "VMEBaseAddress"      : 0,
+                      "RecordLength"        : 100000,
+                      "EventAggr"           : 0,
+                      //"active-channels"   : [0,1,2,3,4,5,6,7],
+                      "active-channels"   : [0,1],
+                      // the baseline offset is given as a list for the active channels
+                      // if the active channels are e.g. [0,3,6]
+                      // baseline-offset [5,1,3] means 5 for ch0, 1 for ch3 3 for ch6
+                      //"baseline-offset"     : [0,0,0,0,0,0,0,0],
+                      //"baseline-offset"     : [13000,13000,13000,13000,13000,13000,13000,13000],
+                      //"baseline-offset"     : [50,0,0,0,0,0,0,0],
+                      "baseline-offset"     : [50, 50],
+                      // can be either "2VPP" or "05VPP"
+                      "dynamic-range"       : "05VPP",
+                      "ch0"      : {
+                                                 "trigger-threshold"                   : 10, // was 50
+                                                 "trapezoid-rise-time"                 : 4000,            
+                                                 "trapezoid-flat-top"                  : 1000,             
+                                                 "decay-time-constant"                 : 80000,            
+                                                 "flat-top-delay"                      : 500,
+                                                 "trigger-filter-smoothing-factor"     : 16,
+                                                 "input-signal-rise-time"              : 500,
+                                                 "trigger-hold-off"                    : 500,                
+                                                 "n-samples"                           : 2, 
+                                                 "peak-mean"                           : 2, 
+                                                 "peak-holdoff"                        : 4992,
+                                                 "baseline-holdoff"                    : 2000,
+                                                 "energy-normalization-factor"         : 1.0,
+                                                 "decimation"                          : 0,
+                                                 "decimation-gain"                     : 0,
+                                                 "otrej"                               : 0,
+                                                 "trigger-window"                      : 0,
+                                                 "rise-time-validation-window"         : 100
+                      },
+                      "ch1"      : {
+                                                 "trigger-threshold"                   : 100, // was 50
+                                                 "trapezoid-rise-time"                 : 4000,            
+                                                 "trapezoid-flat-top"                  : 1000,             
+                                                 "decay-time-constant"                 : 80000,            
+                                                 "flat-top-delay"                      : 500,
+                                                 "trigger-filter-smoothing-factor"     : 16,
+                                                 "input-signal-rise-time"              : 500,
+                                                 "trigger-hold-off"                    : 500,                
+                                                 "n-samples"                           : 2, 
+                                                 "peak-mean"                           : 2, 
+                                                 "peak-holdoff"                        : 4992,
+                                                 "baseline-holdoff"                    : 2000,
+                                                 "energy-normalization-factor"         : 1.0,
+                                                 "decimation"                          : 0,
+                                                 "decimation-gain"                     : 0,
+                                                 "otrej"                               : 0,
+                                                 "trigger-window"                      : 0,
+                                                 "rise-time-validation-window"         : 100
+                      }
+                    }
+   
+}
