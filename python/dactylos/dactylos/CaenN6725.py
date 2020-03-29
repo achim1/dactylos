@@ -335,7 +335,10 @@ class CaenN6725(object):
         xs_analog  = self.get_times()*1e6 # times is in ns 
         xs_digital = self.get_times(digital_trace=True)*1e6
         # FIXME
-        xs = xs_digital # find out in what conditions the smapling rate is reduced
+        #xs = xs_digital # find out in what conditions the smapling rate is reduced
+        print (len (xs_analog))
+        print (len (xs_digital))
+        xs = xs_analog
         #ax.set_xlabel("Time [$\mu$s]")
         #ax.set_ylabel("Voltage mV")
         p.ion()
@@ -383,6 +386,9 @@ class CaenN6725(object):
         data = []
         while len(data) == 0:
             data = self.digitizer.read_data(0)
+            if sum(self.digitizer.get_digital_trace2()) < 1:
+                data = []
+
         self.digitizer.end_acquisition()
 
         ys_trace1  = self.digitizer.get_analog_trace1()
@@ -392,6 +398,7 @@ class CaenN6725(object):
         energy     = self.digitizer.get_energy()
 
         print ("-----sneak peak waveforms-----")
+        print ("xs",  xs[:10],  len(xs),  "timing bins")
         print ("tr1",  ys_trace1[:10],  len(ys_trace1),  self.vprobe1_to_str[trace1])
         print ("tr2",  ys_trace2[:10],  len(ys_trace2),  self.vprobe2_to_str[trace2])
         print ("dtr1", ys_dtrace1[:10], len(ys_dtrace1), self.dprobe1_to_str[dtrace1])
@@ -406,10 +413,13 @@ class CaenN6725(object):
             ys_trace1 = 1e3*ys_trace1
             delta = abs(max(ys_trace1)) - abs(min(ys_trace1))
             bl_corrected = abs(ys_trace1) - abs(min(ys_trace1))*np.ones(len(ys_trace1))
-            # calculate decay time, that is ln(2)*half signal height    
-            over_threshold = bl_corrected > delta/2
-            half_time = xs[over_threshold][-1]
-            print (f"Calculated decay time of {np.log(2)*half_time}")
+            # calculate decay time, that is ln(2)*half signal height   
+            try: 
+                over_threshold = bl_corrected > delta/2
+                half_time = xs[over_threshold][-1]
+                print (f"Calculated decay time of {np.log(2)*half_time}")
+            except Exception as e:
+                print ("Halftime calculation failed, no pulse detected.")
 
             energy    = 1e3*self.to_volts(0, energy)
             plot_energy = 1
@@ -421,6 +431,8 @@ class CaenN6725(object):
         #print (ys_trace2[:10])
         #print (len(xs), len(ys_trace1), len(ys_trace2))
         #all_plots = trace1_plot, trace2_plot, dtrace1_plot, dtrace2_plot
+
+
         trace1_plot.set_xdata(xs)
         trace1_plot.set_ydata(ys_trace1)
         #if len(ys_trace2):
