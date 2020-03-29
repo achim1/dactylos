@@ -26,7 +26,7 @@ CaenN6725::CaenN6725()
             //while (current_error_ !=0 )
                 {
                  std::cout << "Trying ..." << busnr << std::endl;
-                 current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 1, 0, 0, &handle_);
+                 current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, busnr, 0, 0, &handle_);
                  if (current_error_ == 0)  break;
                 }
         }
