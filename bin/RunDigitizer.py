@@ -29,7 +29,7 @@ outdir = 'run12-Wed03052020'
 NCHANNELS = 8
 NBINS = 16834 # 14-bit digitizer
 
-MPI = True
+MPI = False
 if MPI:
     EXECUTOR = fut.ProcessPoolExecutor(max_workers=2)
 
@@ -95,7 +95,8 @@ if __name__ == '__main__':
         shaping_spree = args.shaping_spree
         use_chamber   = args.use_chamber
         #shaping_times = [100, 500, 1000, 1500, 2000, 3000, 5000, 6000, 7000, 10000]
-        shaping_times = [4000]
+        #shaping_times = [4000]
+        shaping_times = [500,1000, 2000, 4000, 5000, 8000, 12000, 16000, 20000, 30000]
         detector_sequence = False
     else:
         run_config = hjson.load(open(args.run_config)) 
@@ -144,17 +145,18 @@ if __name__ == '__main__':
     if shaping_spree:
         for stime in tqdm.tqdm(shaping_times):
             print (f"Taking data for shaping time {stime} ..")
-            outfile = outfilename = '_stime{stime}.root'
+            outfile = outfilename + f'_stime{stime}.root'
             print (f"Writing data to file {outfile}")
             digi = dact.CaenN6725(config, shaping_time=stime)
-            ex = hep.timed_progressbar(runtime) # show a progressbar for runtime seconds
+            #ex = hep.timed_progressbar(runtime) # show a progressbar for runtime seconds
             digi.run_digitizer(runtime, rootfilename=outfile,\
                                read_waveforms=args.read_waveforms)
             del digi  # close the digitizer. This is important, since only one at the time
                       # can be open.
-            ex.shutdown()
+            #ex.shutdown()
 
             if use_chamber:
+
                 #cooldown
                 print (f".. done. Cooling down!")
                 if MPI:
