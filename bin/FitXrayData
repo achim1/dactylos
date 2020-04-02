@@ -1,0 +1,845 @@
+#! /usr/bin/env python3
+"""
+Create a plot for an energy spectrum for a certain peaking
+time obtained with the CaenN6725 digitizer
+"""
+import matplotlib
+matplotlib.use('Agg')
+
+import uproot as up
+import dashi as d
+import numpy as np
+import hepbasestack as hep
+import pylab as p
+import HErmes as he
+import HErmes.visual.layout as lo
+import concurrent.futures as fut
+import os
+import os.path
+import re
+import time
+
+import tqdm
+
+from dactylos.analysis.waveform_analysis import WaveformAnalysis
+from dactylos.analysis.noisemodel import noise_model, fit_noisemodel, extract_parameters_from_noisemodel   
+
+# call imagemapgick with subprocess
+# FIXME: there are python bindings
+
+import shlex
+import subprocess
+
+from copy import deepcopy as copy
+
+@dataclass
+class PeakingTimeRun:
+    ptime    : int = -1
+    channel  : int = -1
+    detid    : int = -1
+    fwhm     : float = -1
+    fwhm_err : float = -1 
+    figname  : matplotlib.figure.Figure = p.figure()   
+
+
+hep.visual.set_style_present()
+d.visual()
+
+logger = hep.logger.get_logger(20)
+
+p.ioff()
+
+
+
+########################################################################
+
+def model_with_shoulder_with_linear_cutoff(xs,\
+                                           mu_p, fwhm_p, amp_p,\
+                                           mu_s, fwhm_s, amp_s):
+    """
+    A full fledged model combining two gaussians - one for the Compton 
+    shoulder and another one for the line peak. The shoulder has a linear
+    cutoff in the reaion of the peak, ranging from mu_p - fwhm_p to mu_p. 
+    for xs > mu_p the contribution of the shoulder is set to zero.
+
+    Args:
+        xs (array)       : input data
+        mu_p (float)     : line peak
+        fwhm_p (float)   : line resolution
+        amp_p (float)    : number of events at the line peak
+        mu_s (float)     : peak of the (Compton) shoulder
+        fwhm_s (float)   : width of the shoulder
+        amp_s (float)    : number of events at the peak of (Compton) 
+                           shoulder
+
+    Returns:
+        ndarray          : model prediction
+    """
+    peak_ys = he.fitting.functions.fwhm_gauss(xs, mu_p, fwhm_p, amp_p) 
+    shoulder_ys = he.fitting.functions.fwhm_gauss(xs, mu_s, fwhm_s, amp_s)
+   
+    linear_ys = np.zeros(len(peak_ys)) 
+    # construct the cutoff-part
+    if (np.isfinite(mu_p) and np.isfinite(fwhm_p)):
+        start_x = xs[xs <= (mu_p - (abs(fwhm_p)/2))][-1]
+        start_y = shoulder_ys[xs <= (mu_p - (abs(fwhm_p)/2))][-1]
+        end_x   = mu_p
+        assert start_x < end_x
+        #end_y   = shoulder_ys[xs < mu_p][-1]
+        end_y   = 0
+        #print (f'linear interpolation from {start_x} to {end_x}. Yrange {start_y} to {end_y}')
+        slope = (abs(start_y))/(abs(end_x) - abs(start_x))
+        constant = slope*abs(end_x)
+
+        #print (constant)
+        for i, x in enumerate(xs):
+            if (x >= start_x and x <= end_x):
+                linear_ys[i] = -1*slope*x + constant
+        #linear_interp = lambda xs : -1*slope*xs + np.ones(len(xs))*abs(start_y)
+        #linear_ys[np.logical_and(xs >= start_x, xs<= end_x)] = linear_interp(xs[np.logical_and(xs >= start_x, xs<=end_x)])
+        #print (linear_ys)
+        #print (start_x, end_x, start_y)
+        shoulder_ys[xs >= mu_p] = 0
+    return peak_ys + shoulder_ys - linear_ys
+
+########################################################################
+
+def peak_only_model_with_linear_subtraction(xs, mu_p, fwhm_p, amp_p):
+    """
+    A model with a single peak, however, we subtract a linear
+    contribution coming from a possible shoulder
+    
+    Args:
+        xs (array)       : input data
+        mu_p (float)     : line peak
+        fwhm_p (float)   : line resolution
+        amp_p (float)    : number of events at the line peak
+
+    """
+    peak_ys = he.fitting.functions.fwhm_gauss(xs, mu_p, fwhm_p, amp_p) 
+    
+    # construct the cutoff-part
+    if (np.isfinite(mu_p) and np.isfinite(fwhm_p)):
+        start_x = xs[xs < (mu_p - abs(fwhm_p)/2)][-1]
+        start_y = peak_ys[xs < (mu_p - abs(fwhm_p)/2)][-1]
+        end_x   = xs[xs < mu_p][-1]
+        end_y   = peak_ys[xs < mu_p][-1]
+        slope = (end_y - start_y)/(end_x - start_x)
+        linear_interp = lambda xs : slope*xs + np.ones(len(xs))*start_y
+        peak_ys[np.logical_and(xs >= start_x, xs<= end_x)] = linear_interp(xs[np.logical_and(xs >= start_x, xs<=end_x)])
+        peak_ys[xs > end_x] = 0
+    return peak_ys
+
+########################################################################
+
+def get_stripname(ch):
+    """
+    Mapping channel number <-> strip name
+    
+    Args:
+        ch (int) : channel number [0-7]
+
+    Returns
+        str      : strip name
+
+    """
+    channel_names = {\
+    0 : 'stripA',\
+    1 : 'stripB',\
+    2 : 'stripC',\
+    3 : 'stripD',\
+    4 : 'stripE',\
+    5 : 'stripF',\
+    6 : 'stripG',\
+    7 : 'stripH'}
+    return channel_names[ch]
+
+########################################################################
+
+def fitting(energy, bins, startparams,\
+            use_cutoff_for_shoulder=False,\
+            limits = ((None, None),\
+                      (None, None),\
+                      (None, None),\
+                      (None, None),\
+                      (None, None),\
+                      (None, None)),
+            constrain_parameters=False,\
+            mode='distribution'):
+    """
+    The fitting routine. Gaussian for peak + gaussian for Compton shoulder. As a default, energy 
+    is all the energy values, and this function will create a distribution with binning as specified 
+    in bins. This behaviour can be changed by modifying the mode switch.
+
+    Args:
+        energy (ndarray)               : energy as obtained by the digitizer
+        bins (ndarray)                 : bins to create the distribution
+        startparams (ndarray)          : a set of 6 startparams [mu_x, fwhm_x, amp_x, mu_x, fwhm_x, amp_x]
+
+    Keyword Args:
+        use_cutoff_for_shoulder (bool) : use a gaussian model with a cutoff
+                                         for the fitting of the shoulder
+        limits (tuple)                 : min/max limits for the fitparameters. Are
+                                         passed through to 
+                                         HErmes.fitting.Model.fit_to_data
+        mode (str)                     : default is *distribution* which means that a histogram
+                                         will be created out of *energy* with the binning *bins*.
+                                         Alternatively, this can be set to *direct*, then *energy*
+                                         needs to be bin content and bins need to be the corresponding
+                                         bincenters. In this case there will no histogramming by 
+                                         this function.
+    """
+    
+    if use_cutoff_for_shoulder:
+        # use a model with 2 gaussians and
+        # a linear cutoff part at the 'end'
+        # of the shoulder
+        peakmod = he.fitting.Model(model_with_shoulder_with_linear_cutoff)
+    else:
+        # the x-ray peak
+        peakmod = he.fitting.Model(he.fitting.functions.fwhm_gauss)
+        # fit the compton shoulder with another gaussian to increase 
+        # fit quality
+        shouldermod = he.fitting.Model(he.fitting.functions.fwhm_gauss)
+        peakmod += shouldermod
+    
+    if mode == 'distribution':
+        peakmod.add_data(energy, bins=bins, create_distribution=True)
+    elif mode == 'direct':
+        assert len(energy) == len(bins), "In this mode, 'energy' and 'bins' must be the same length"
+        peakmod.add_data(energy, xs=bins)
+    else:
+        raise ValueError(f'Mode {mode} not understood. Has to be one of "distribution" or "direct"')
+    peakmod.startparams = startparams
+    # we still constrain the parameters, 
+    # condition is that xray peak 
+    # and shoulder peak should not interfere
+    peakmod.fit_to_data(silent=True,\
+                        errors=(1,1,1,1,1,1),\
+                        limits = limits)
+    
+    return peakmod
+
+########################################################################
+
+def first_guess(bincenters, bincontent, roi_right_edge=700):
+    """
+    Get a reasonable set of startparameters for a certain
+    energy. This will look for the peak of the line and 
+    then try to set the shoulde peak as far away as possible.
+
+    Args:
+        bincenters (ndarray)   : xs
+        bincontent (ndarray)   : ys
+
+    Keyword Args:
+        roi_right_edge (int)   : the right edge of the roi (region-of-interest)
+
+    """
+    assert len(bincontent) == len(bincenters), f"Bincenters and bincontent must have the same length! {len(bincenters)} {len(bincontent)}"
+
+    # we know that the spectrum is the full range of the digitizer, 
+    # so first look at a region of interest.
+    # typically, the peak will be around 500, 
+    # so lets take 0 - 700 (default), then the peak 
+    # should be savelyi in the right half
+    bincenters = bincenters[:roi_right_edge]
+    bincontent = bincontent[:roi_right_edge]
+
+    # assume we have a fair number of bins, so let's try 
+    # to get the peak value for the line
+    right_half = int(len(bincenters)/2)
+    left_10_percent = int(right_half/5)
+    logger.info(f'Found spectrum of len {len(bincenters)}. Dividing in half left and right of {right_half}')
+    right_half_spectrum = bincontent[right_half:]
+
+    peakval = np.where(right_half_spectrum == max(right_half_spectrum))[0][0]
+    logger.info(f'Found an estimate for the line peak {peakval}')
+    peakval += right_half 
+    # estimate the fwhm
+    peak_amp = max(right_half_spectrum)
+
+    print (peakval)
+    print (peak_amp)
+    mod = he.fitting.Model(he.fitting.fwhm_gauss)
+    mod.startparams = (peakval, 5, peak_amp)
+    mod.add_data(bincontent, xs=bincenters, create_distribution=False)
+    mod.fit_to_data(silent=True,\
+                    errors=(1,1,1),\
+                    limits=((peakval - 0.01*peakval, peakval + 0.01*peakval),
+                            (1, 100),
+                            (peak_amp - 0.01*peak_amp, peak_amp + 0.01*peak_amp)))
+    peak_fwhm = mod.best_fit_params[1]
+
+    # then just ensure that the shoulder peak is far enough from the
+    # line peak, maybe just start from the half?
+    shoulder_peak = right_half
+    # and finally assume the peak hight is 0.1 of the xray peak
+    shoulder_amp = peak_amp/10
+    
+    # try to prefit it
+    mod = he.fitting.Model(he.fitting.fwhm_gauss)
+    mod.startparams = (shoulder_peak, 10, shoulder_amp) # 10 is arbitrary
+    mod.add_data(bincontent, xs=bincenters, create_distribution=False)
+    mod.fit_to_data(silent=True,\
+                    errors=(1,1,1,1,1,1),\
+                    limits=((left_10_percent, peakval - peak_fwhm),\
+                            (1, 100),\
+                            (1, peak_amp/2)))
+    shoulder_fwhm = mod.best_fit_params[1]
+
+    #first_guess_params = np.array([500,20,500, 300, 40, 50])
+    first_guess_params = np.array([peakval, peak_fwhm, peak_amp,\
+                                   shoulder_peak, shoulder_fwhm, shoulder_amp])
+    limits = ((peakval-peak_fwhm, peakval+peak_fwhm),\
+              (0.5*peak_fwhm, 2*peak_fwhm),\
+              (1, peak_amp*1.1),\
+              (left_10_percent, peakval-2*peak_fwhm),\
+              (1, shoulder_fwhm*2),
+              (1, peak_amp/2))
+    print (limits)
+    return first_guess_params, limits    
+
+
+########################################################################
+
+def fit_file(infilename = '143_4000.root',\
+             file_type = '.root',\
+             channel = 0,\
+             ptime = -1,\
+             detid = -1,\
+             plot_dir = '.',\
+             energy = None,\
+             #bins = np.linspace(150, 550, 200),\
+             bins = np.linspace(1,2**14, 2**14) - 0.5,\
+             peakposition = 88.03):
+    """
+    One shot function to fit a datafile with 
+    energy values obtained by the Caen N6725 digitizer
+    with two gaussians. One for the signal peak,
+    another one for the Compton shoulder.
+
+    Keyword Args:
+        infilename (str)     : the file to fit. Must have energy  
+        file_type (str)      : A specialized string to identify the file type
+                               Can be either '.root' (default),'.txt' or None
+                               In case of '.txt' one line per digitizer 
+                               bin is expected (2**14 lines) with one
+                               value each. If None is given, then the parameter energy
+                               has to be different than None. In that case,
+                               there is no need to read out a file 
+        channel (int)        : digitizer channel (0-7)
+        energy  (ndarray)    : in case there is no file, but we 
+                               have the data already, it can be passed via
+                               the energies parameter. If there is a file, 
+                               this has to be 'None'
+        plot_dir (int)       : directory to save the plots in 
+        bins (ndarray)       : bins for the histogram
+        ptime (float)        : peaking time (just used for the plot title)
+        detid (int)          : detector id (just uded for the plot title)
+        peakposition (float) : the true value of the x-ray peak in keV
+                               this is used to recalibrate the x-axis
+
+    """
+    # set startparameters
+    startparams = np.array([500,20,500, 300, 40, 50])
+
+
+    if file_type == '.root':
+        mode = 'distribution'
+        f = up.open(infilename)
+        trigger = f.get('ch' + str(channel)).get('trigger').array()
+        energy  = f.get('ch' + str(channel)).get('energy').array()    
+        # prebin the histogram to estimate start params
+        h = d.factory.hist1d(energy, bins)
+        startparams, limits = first_guess(h.bincenters, h.bincontent)
+        peakmod = fitting(energy, bins, startparams, limits=limits)
+
+    elif file_type == '.txt':
+        mode='direct'
+        energy = []
+        with open(infilename) as f:
+            for line in f.readlines():
+                binenergy = 0
+                if len(line.split()) == 2:
+                    # we have 2 column data. second line is the bincontent
+                    # FIXM: for some reason, in the mc2 data, the first
+                    # two bins are a float. This can be bascially ignored
+                    # since it is out of our region of interest
+                    binenergy = int(float(line.split()[1]))
+                else:
+                    # one column data, just energy
+                    binenergy = int(line.split()[0])
+                energy.append(binenergy) 
+
+        energy = np.array(energy)
+        if len(energy) != 2**14:
+            raise ValueError(f"Bins missing! Only found {len(energy)} bins in the file!")
+        bins = np.linspace(1,2**14, 2**14)
+        # make them the bincenter instead of the edge
+        bins = bins - 0.50
+        startparams, limits = first_guess(bins, energy)
+        peakmod = fitting(energy, bins, startparams, mode=mode, limits=limits)
+
+    elif file_type == None:
+        if energy is None:
+            raise ValueError("Need to give energy or filename and filetype!")
+        # direct mode, no file. in that energy and bins must be given directly
+        mode = 'distribution'
+        # prebin the histogram to estimate start params
+        h = d.factory.hist1d(energy, bins)
+        logger.info(f'Caluclating start parameters')
+        startparams, limits = first_guess(h.bincenters, h.bincontent)
+        peakmod = fitting(energy, bins, startparams, mode=mode, limits=limits)
+    else:
+        raise ValueError(f'Can not process file type {file_type}')
+
+    logger.info(f'Got chi2/ndf of {peakmod.chi2_ndf}')
+    logger.info(f'Found peak at {peakmod.best_fit_params[0]}')
+    logger.info(f'Best fit parameters {peakmod.best_fit_params}')
+
+    peak = peakmod.best_fit_params[0]
+
+    # recalibrate the x-axis
+    logger.info(f'Calibrating x-axis...{peak} -> {peakposition}')
+    conversion = peakposition/peak
+
+    # only convert the energies if they 
+    # are truly energies.
+    # in the 'direct' approach for mc2 data
+    # we 'hijack' these to be the bincontents
+    if mode =='direct':
+        energyxs = energy
+    else:
+        energyxs = conversion*energy
+    
+
+    # use the previously obtained fit params as start params
+    # remember the amplitdue is not converted.
+    startparams = [conversion*startparams[0], conversion*startparams[1],\
+                   startparams[2], conversion*startparams[3],\
+                   conversion*startparams[4], startparams[5]]
+
+    limits = [conversion*np.array(limits[0]),\
+              conversion*np.array(limits[1]),\
+              np.array(limits[2]),\
+              conversion*np.array(limits[3]),\
+              conversion*np.array(limits[4]),\
+              np.array(limits[5])]
+    limits = tuple(limits)
+    print (limits)
+    print (startparams)
+    bins = conversion*bins
+
+    startparams = np.array([abs(s) for s in startparams])
+    # get a better fit with a more refined model
+    logger.info(f'Refitting...with startparams {startparams}')
+    peakmod = fitting(energyxs, bins, startparams,\
+                      limits = limits,\
+                      use_cutoff_for_shoulder= False,\
+                      mode=mode)
+    logger.info(f'Got chi2/ndf of {peakmod.chi2_ndf}')
+    logger.info(f'Found peak at {peakmod.best_fit_params[0]} with a FWHM of {peakmod.best_fit_params[1]}')
+
+    # create a nice figure
+    #fig = p.figure(figsize=SINGLE_FIG, dpi=DPI)
+    fig = p.figure()
+    #fig = matplotlib.figure.Figure()
+    ax = fig.gca()
+    if mode == 'direct':
+        ax.scatter(peakmod.xs, peakmod.data, c="k",\
+                   edgecolors="k", marker="+",\
+                   s=20, linewidth=1  )
+    else:
+        peakmod.distribution.scatter()
+    ax.plot(peakmod.xs, peakmod.prediction(peakmod.xs), color="r")
+    ax = hep.visual.adjust_minor_ticks(ax)
+    ax.set_xlabel('energy [keV]')
+    ax.set_ylabel('events')
+    
+    # error handling
+    errdict = peakmod.errors
+
+    # compose a title
+    stripname = get_stripname(channel)
+    title = f'det. {detid} {stripname} pt {ptime/1000}$\mu$s'
+    ax.set_title(title, loc='right')
+
+    # create a textbox with some output
+    infotext  = r"\begin{tabular}{ll}"
+    infotext += r"spectra fit:&\\ "
+    if mode == 'direct':
+        infotext += r"entries: & {:4.2f} \\".format(sum(peakmod.data))
+    else:
+        infotext += r"entries: & {:4.2f} \\".format(peakmod.distribution.stats.nentries)
+    infotext += r"peak (line)  & {:4.2f} $\pm$ {:4.2f} \\ ".format(peakmod.best_fit_params[0], errdict['mu0'])
+    infotext += r"FWHM (line)  & {:4.2f} $\pm$ {:4.2f} \\ ".format(peakmod.best_fit_params[1], errdict['fwhm0'])
+    if len(peakmod.best_fit_params) > 3:
+        infotext += r"peak (shoulder) & {:4.2f} $\pm$ {:4.2f} \\ ".format(peakmod.best_fit_params[3], errdict['mu1'])
+        infotext += r"FWHM (shoulder) & {:4.2f} $\pm$ {:4.2f} \\ ".format(peakmod.best_fit_params[4], errdict['fwhm1'])
+        infotext += r"$\chi^2/ndf$ & {:4.2f} \\ ".format(peakmod.chi2_ndf)
+    infotext += r"\end{tabular}"
+    ax.text(0.3, 0.5, infotext,\
+            horizontalalignment='center',\
+            verticalalignment='center',\
+            transform=ax.transAxes,\
+            bbox=dict(facecolor='white', alpha=0.7, edgecolor=None),\
+           )
+
+    # in case we have one bin per digitizer 
+    # channel, cut down on the xrange
+    if len(bins) > 1000:
+        # ignore the first 10 mV
+        # we will not see a peak at zero,
+        # but actually we don't care
+        # and this helps with the scaling
+        ax.set_xlim(left=0, right=110)
+        if (ax.get_ylim()[1] > 2*max(energyxs[20:])):
+            ax.set_ylim(top= 1.1*max(energyxs[20:]),
+                        bottom = 0)
+        #fig.savefig('debug-figure.png')
+
+    # return the resolution
+    pngfilename = f'det{detid}-stime{ptime}-{stripname}.png' 
+    logger.info(f'Saving {pngfilename} ... ')
+    fig.savefig(os.path.join(plot_dir,pngfilename))
+    time.sleep(1) # give the filesystem time to save the figure
+                  # not sure why it seems that there are some hickups
+    p.close(fig)
+    return detid, channel, peakmod.best_fit_params[1], errdict['fwhm0'], pngfilename
+
+########################################################################
+
+def plot_waveform(ax, times, digi_channels):
+    """
+    Create a plot for the individual waveform, set labels assume
+    times is in microseconds and voltages are mV.
+
+    Args:
+        times (ndarray)                : Times in microseconds
+        voltages (ndarrya)             : Waveform in milliVolts
+
+    Returns:
+        None
+    """
+    ax.plot(times, digi_channels, lw=0.9, color="r", alpha=0.7, label='waveform')
+    return ax
+
+########################################################################
+
+if __name__ == '__main__':
+
+    import sys
+    import argparse
+    from glob import glob
+
+    parser = argparse.ArgumentParser(description='Analyze data taken by N6725 digitizer.\n\
+                                     \t\tThis script can do several things:\n\
+                                     \t\t1) Analyze the histograms as saved by the MC2 windows\n\
+                                     \t\t   software in textfiles (one line per bin)\n\
+                                     \t\t2) Analyze dactylos data - root files with the\n\
+                                     \t\    tenergy from the digitizer internal shaping algorithm\n\
+                                     \t\t3) Analyze the waveform data taken by dactylos - root files\n\
+                                     \t\t   with waveform entries')
+    parser.add_argument('--mc2',
+                        dest='mc2',
+                        default=False, action='store_true',\
+                        help='Analyze data taken with mc2/windows.\
+                              Currently, this relies on a certain file structure.')
+    #parser.add_argument('infiles', metavar='infiles', type=str, nargs='+',
+    #                help='input root files, taken with CraneLab')
+    #parser.add_argument('--debug', dest='debug',
+    #                    default=False, action='store_true',
+    #                    help='Set the loglevel to 10, that is debug')
+    parser.add_argument('-i','--indir', dest='indir',
+                        default=".",type=str,
+                        help='glob all rootfiles in this directory for input"')
+    parser.add_argument('-o','--outdir', dest='outdir',
+                        default="firxraydata-outdir",type=str,
+                        help='save plots in a directory named "outdir"')
+    parser.add_argument('-j','--jobs', dest='njobs',
+                        default=12,type=int,
+                        help='number of jobs to use')
+    parser.add_argument('--waveform-analysis', dest='waveform_analysis',
+                        default=False, action='store_true',
+                        help='Use the waveform information to generate the noisemodel plot.')
+    parser.add_argument('--plot-waveforms', dest='plot_waveforms',
+                        default=False, action='store_true',
+                        help='plot the individual waveforms as png')
+    #parser.add_argument('--digitizer-energy-only', dest='digitizer_energy_only',
+    #                    default=False, action='store_true',
+    #                    help='Only produce the plot of the energy as calculated by the digitizer')
+    #parser.add_argument('--run-sequence', dest='run_sequence',
+    #                    default=False, action='store_true',
+    #                    help='Only get the digitizer energy from the series of given files and produce the resolution plot. This is meant to be used for one file per shaping time')
+
+    args = parser.parse_args()
+
+    # create the outdir
+    try:
+        os.makedirs(args.outdir)
+    except Exception as e:
+        logger.warning(f'Can not create directory {args.outdir}! {e}')
+
+    if args.njobs > 1:
+        executor = fut.ProcessPoolExecutor(max_workers=14)
+
+    if args.mc2:
+        infiles = []
+        subfolders = glob(os.path.join(args.indir, '*'))
+        for subfolder in subfolders:
+            infiles += glob(os.path.join(subfolder, '*.txt'))
+
+        regex = 'pt_(?P<stime>[0-9]*)_(mu_s|ns)\/Sh(?P<detid>[0-9]*)_(?P<strip>[A-H]).txt' 
+        pattern = re.compile(regex)
+    else:
+        infiles = glob(os.path.join(args.indir, '*.root'))
+        regex = '(?P<detid>[0-9]*)_stime(?P<stime>[0-9]*).root' 
+        pattern = re.compile(regex)
+
+    if args.njobs > 1: future_to_ptime = dict()
+    
+    # store the results
+    datasets = []
+
+    # mapping detector strips <-> digitizer channels
+    ch_name_to_int = {'A' : 0, 'B' : 1, 'C' : 2, 'D' : 3,\
+                      'E' : 4, 'F' : 5, 'G' : 6, 'H' :7}
+
+    if args.plot_waveforms and not args.waveform_analysis:
+        raise ValueError("Can not plot waveforms without the --waveform-analysis switch!") 
+    if args.waveform_analysis:
+        logger.info("Will do anlysis directly on the waveforms")
+        analysis = WaveformAnalysis(njobs=args.njobs, active_channels=[0,1])
+        analysis.set_infiles(infiles)
+        for infile in infiles:
+            metadata = pattern.search(infile).groupdict()
+            # FIXME: this is buggy in case
+            # mutliple detectors are mixed
+            ptime = int(metadata['stime']) # shaping/peaking time
+            detid = int(metadata['detid']) # detector id
+
+        # in case of the waveform analysis, the actual analysis 
+        # is performed here, since we first needed to just
+        # get the filenames 
+        analysis.read_waveforms()
+        nevents = analysis.get_eventcounts()
+        recordlengths = analysis.get_recordlengths()
+        logger.info(f'Seeing recordlenghts of {recordlengths}')
+        logger.info(f'Seeing nevents of {nevents}')
+        for k in analysis.active_channels:
+            logger.info(f" Record length in ch {k} ; {len(analysis.channel_data[k][0])}")
+        
+        peaking_sequence = np.array([500,1000,2000,4000,8000,12000,16000,20000,30000])    
+        logger.info(f'Setting peaking sequence {peaking_sequence} micro seconds')
+        analysis.set_peakingtime_sequence(peaking_sequence)
+
+        for ch in analysis.active_channels:
+            if args.plot_waveforms:
+                analysis.plot_waveforms(ch, 10)
+            channel_peakingtimes = analysis.analyze(ch)
+
+            logger.info('Shaping completed!')
+            logger.info('Submitting fitting jobs...')
+
+            for ptime in channel_peakingtimes.keys():
+                kwargs = {'energy'     : channel_peakingtimes[ptime],\
+                          'channel'    : copy(ch),\
+                          'plot_dir'   : copy(args.outdir),\
+                          'ptime'      : copy(ptime),\
+                          'detid'      : copy(detid),\
+                          'file_type'  : None
+                }
+            
+                if args.njobs > 1:
+                    future_to_ptime[executor.submit(fit_file, **kwargs)] = ptime 
+                else:
+                    detid, ch, fwhm, fwhm_err, figname = fit_file(**kwargs)
+                    data = PeakingTimeRun(detid = detid,\
+                                          channel = ch,\
+                                          fwhm = fwhm,\
+                                          fwhm_err = fwhm,\
+                                          ptime = ptime,\
+                                          figname = figname)
+                    datasets.append(data)
+    
+
+    # in case we do the analysis on the 
+    # energies as calculated by the digitizer
+    # we will have one root file per shaping time
+    # this type of analysis is performed here
+    # there is one if-branch for linux and 
+    # another one for mc2/windows
+    for infile in infiles:
+        if args.waveform_analysis:
+            # we do not need this step here and can 
+            # skip it
+            break
+
+        elif args.mc2:
+            logger.info(f"Loading {infile}")
+            metadata = pattern.search(infile).groupdict()
+            ptime = int(metadata['stime'])
+            if ptime < 500:
+                ptime *= 1000 # converti to ns
+            detid = int(metadata['detid'])
+            strip = metadata['strip'] 
+            
+            #for ch in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']:
+            ch = ch_name_to_int[strip]
+            kwargs = {'infilename' : copy(infile),\
+                      'channel'    : copy(ch),\
+                      'plot_dir'   : copy(args.outdir),\
+                      'ptime'      : copy(ptime),\
+                      'detid'      : copy(detid),\
+                      'file_type'  : '.txt'
+            }
+            
+            if args.njobs > 1:
+                future_to_ptime[executor.submit(fit_file, **kwargs)] = ptime 
+            else:
+                detid, ch, fwhm, fwhm_err, figname = fit_file(**kwargs)
+                data = PeakingTimeRun(detid = detid,\
+                                      channel = ch,\
+                                      fwhm = fwhm,\
+                                      fwhm_err = fwhm_err,\
+                                      ptime = ptime,\
+                                      figname = figname)
+                datasets.append(data)
+        else:  
+            # last option will be anlyzing data taken 
+            # with dactylos (root files) one file 
+            # per shaping time
+            logger.info(f"Loading {infile}")
+
+            metadata = pattern.search(infile).groupdict()
+            ptime = int(metadata['stime']) # shaping/peaking time
+            detid = int(metadata['detid']) # detector id
+       
+            # anlayze per channel, each file has all
+            # the 8 channels saved 
+            for ch in range(8):
+                    
+                # be paranoid with mutable arguments
+                file_type = '.root'
+                kwargs = {'infilename' : copy(infile),\
+                          'channel'    : copy(ch),\
+                          'plot_dir'   : copy(args.outdir),\
+                          'ptime'      : copy(ptime),\
+                          'detid'      : copy(detid),\
+                          'file_type'  : copy(file_type)
+                }
+                
+                if args.njobs > 1:
+                    future_to_ptime[executor.submit(fit_file, **kwargs)] = ptime 
+                else:
+                    detid, ch, fwhm, fwhm_err, figname = fit_file(**kwargs)
+                    data = PeakingTimeRun(detid = detid,\
+                                          channel = ch,\
+                                          fwhm = fwhm,\
+                                          fwhm_err = fwhm,\
+                                          ptime = ptime,\
+                                          figname = figname)
+                    datasets.append(data)
+
+
+    # get the results in the parallel case
+    if args.njobs > 1:
+        for future in fut.as_completed(future_to_ptime):
+            ptime = future_to_ptime[future]
+            try:
+                detid, ch, fwhm, fwhm_err, figname = future.result()
+            except Exception as e:
+                logger.warning(f'Can not fit file for ptime {ptime}, exception {e}')
+                continue
+            data = PeakingTimeRun(detid = detid,\
+                                  channel = ch,\
+                                  fwhm = fwhm,\
+                                  fwhm_err = fwhm_err,\
+                                  ptime = ptime,\
+                                  figname = figname)
+            datasets.append(data)
+        logger.info(f'In total, {len(datasets)} datasets were processed ')
+
+    # prepare all the plots we want to combine in 
+    # one for a single peaking time
+    pktimes_savenames = dict([(dsptime.ptime,[]) for dsptime in datasets])
+    # create the model fit plots
+    ch_savenames = dict(zip([ch for ch in range(8)],[[] for ch in range(8)])) 
+    for ch in range(8):
+        stripname = get_stripname(ch)
+        ch_datasets = [data for data in datasets if data.channel == ch]
+        #print (f'{len(ch_datasets)} datasets available for channel {ch}')
+        xs = np.array([data.ptime for data in ch_datasets])
+        ys = np.array([data.fwhm for data in ch_datasets])
+        ys_err = np.array([data.fwhm_err for data in ch_datasets])
+
+        #figures = [data.fig for data in ch_datasets]
+        figures = [data.figname for data in ch_datasets]
+        #print (f'peaking times {xs}')
+        
+        # sort them from smallest to largest peaking time
+        idx     = np.argsort(np.array(xs))
+        xs      = np.array(xs)[idx]
+        ys      = np.array(ys)[idx]
+        ys_err  = np.array(ys_err)[idx]
+
+        fit_noisemodel(xs, ys, ys_err, ch, detid, plotdir=args.outdir)
+
+        # save the individual figure
+        for i,fig in tqdm.tqdm(enumerate(figures), desc=f'Saving data for {get_stripname(ch)}', total=len(figures)):
+            #pngfilename = f'det{detid}-stime{xs[i]}-{stripname}.png' 
+            #logger.info(f'Saving {pngfilename} ... ')
+            #fig.savefig(os.path.join(args.outdir,pngfilename))
+            #p.close(fig)
+            pngfilename = fig
+            ch_savenames[ch].append(os.path.join(args.outdir, pngfilename))
+            pktimes_savenames[xs[i]].append(os.path.join(args.outdir, pngfilename))
+        
+    # combine all the figures for a specific ch in 
+    # one panel with imagemagic
+    for ch in ch_savenames.keys():
+        mplotname = os.path.join(args.outdir,f'det{detid}-{get_stripname(ch)}')
+        command = f'montage -geometry +4+4 -tile 5x2 '
+        for gfx in ch_savenames[ch]:
+            command += f' {gfx} '
+        command += f' {mplotname}'  
+        print (command)
+
+        logger.info(f'Executing {command}')
+        print (shlex.split(command + '.png'))
+        proc = subprocess.Popen(shlex.split(command + '.pdf')).communicate()
+        proc = subprocess.Popen(shlex.split(command + '.png')).communicate()
+        proc = subprocess.Popen(shlex.split(command + '.jpg')).communicate()
+        #raise ZeroDivisionError 
+        # shrink the jpg so it will go in google docs presentation
+        command_shrink = f'convert {mplotname}.jpg -resize 50% -normalize  {mplotname}.jpg'
+        proc = subprocess.Popen(shlex.split(command_shrink)).communicate()
+    # also combine all the figures for a specific peaking time in 
+    # one panel with imagemagic
+    for pktime in pktimes_savenames.keys():
+
+        mplotname = os.path.join(args.outdir,f'det{detid}-pktime{pktime}')
+        command = f'montage -geometry +4+4 -tile 4x2 '
+        for gfx in pktimes_savenames[pktime]:
+            command += f' {gfx} '
+        command += f' {mplotname}'  
+
+        logger.info(f'Executing {command}')
+        proc = subprocess.Popen(shlex.split(command + '.pdf ')).communicate()
+        proc = subprocess.Popen(shlex.split(command + '.png ')).communicate()
+        proc = subprocess.Popen(shlex.split(command + '.jpg ')).communicate()
+        command_shrink = f' convert {mplotname}.jpg -resize 50% -normalize  {mplotname}.jpg'
+        proc = subprocess.Popen(shlex.split(command_shrink)).communicate()
+
+    # let's write a textfile as well
+    summaryfile = open(os.path.join(args.outdir, f'summary-{detid}.dat'), 'w')
+    summaryfile.write(f'# detector {detid}\n')
+    summaryfile.write(f'# strip - peaking time  - fwhm - fwhm_err\n')
+    # FIXME - this fails in case we have more than one
+    # detector, in that case however the whole script will blow up
+    for ds in datasets:
+        summaryfile.write(f'{detid}\t{get_stripname(ds.channel)}\t{ds.ptime:4.2f}\t{ds.fwhm:4.2f}\t{ds.fwhm_err:4.2f}\n')
+    summaryfile.close()
+
+    print (f'Folder {args.indir} analyzed')

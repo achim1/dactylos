@@ -240,7 +240,6 @@ setup(name='dactylos',
       #download_url="pip install skippylab",
       install_requires=['numpy>=1.11.0',
                         'matplotlib>=1.5.0',
-                        'appdirs>=1.4.0',
                         'pyserial>=3.4.0',
                         'six>=1.1.0',
                         "python-vxi11>=0.9.0",
@@ -264,5 +263,6 @@ setup(name='dactylos',
     keywords=["digitzer", "CAEN",\
               "CAEN N6725", "6725",\
               "readout", "physics", "engineering", "lab", "USB"],
-    packages=['dactylos']
+    packages=['dactylos', 'dactylos.analysis', 'dactylos.analysis.shaping'],
+    scripts=['bin/RunDigitizer', 'bin/FitXrayData']
     )
