@@ -11,18 +11,11 @@ from HErmes.visual.canvases import YStackedCanvas
 import HErmes.visual.layout as lo
 import HErmes.visual.plotting as plt
 
-
 landscape_half_figure_factory= lambda : p.figure(dpi=150, figsize=lo.FIGSIZE_A4_LANDSCAPE_HALF_HEIGHT)
-
-
 
 class CaenN6725(object):
     """
     A digitizer from CAEN. Model name N6725.
-
-    Args:
-        configfile (str) : Path to a .json configfile. See example config file
-                           in this package
     """
     vprobe1_to_str = {\
     _cn.DPPVirtualProbe1.Input  : 'Input',\
@@ -59,14 +52,34 @@ class CaenN6725(object):
     def samplingrate(self):
         return self.digitizer.get_current_sampling_rate()
 
-    def __init__(self, configfile, shaping_time=None):
+    @staticmethod
+    def parse_configfile(configfile):
+        """
+        Use hjson to parse a configfile
+        with comments
+        """
+
+        config = hjson.load(open(configfile))
+        return config
+        
+    def __init__(self, config, shaping_time=None, logger=None, loglevel=30):
+        """
+        Keyword args:
+            config (dict) : This is the parsed result of a complex configfile
+                            typically stored in .json format
+
+        """
         self.digitizer = None
         self.recordlength = None
-        self.configfile = configfile
+        self.config = config
         self.trigger_thresholds = dict()
         self.dc_offsets = dict()
         self.dynamic_range = list()
         self.shaping_time = shaping_time
+        if logger is None:
+            self.logger = hep.logger.get_logger(loglevel)
+        else:
+            self.logger = logger
         self.setup()
 
     @staticmethod
@@ -76,7 +89,7 @@ class CaenN6725(object):
         percentage to something the digitizer can understand
         """
         val = int(((2**16)/100)*percent)
-        print (f"Calculated dc offset of {val}")
+        #print (f"Calculated dc offset of {val}")
         return val
 
     def set_vprobe1(self, vprobe1):
@@ -92,10 +105,7 @@ class CaenN6725(object):
         self.digitizer.set_vprobe2(vprobe2)
 
     def setup(self):
-        config = open(self.configfile)
-        # get the configuration
-        config = hjson.load(config)
-
+        config = self.config
         # get the active channels
         active_digitizer_channels = config['CaenN6725']['active-channels']
         
@@ -119,7 +129,7 @@ class CaenN6725(object):
     
         self.digitizer = _cn.CaenN6725(digi_pars)
         bf = self.digitizer.get_board_info()
-        print (f'Connected to digitizer model {bf.get_model_name()}, roc firmware {bf.get_model_roc_firmware_rel()},  amc firmware {bf.get_amc_firmware_rel()}')
+        self.logger.debug(f'Connected to digitizer model {bf.get_model_name()}, roc firmware {bf.get_model_roc_firmware_rel()},  amc firmware {bf.get_amc_firmware_rel()}')
 
         # set input dynmaic range for all channels
         self.digitizer.set_input_dynamic_range(digitizer_dynamic_range)
@@ -135,10 +145,11 @@ class CaenN6725(object):
             self.digitizer.configure_channel(ch, dpp_params)
 
         for ch, val in enumerate(self.digitizer.get_temperatures()):
-            print (f'Chan: {ch} -  {val}\N{DEGREE SIGN}C')
-        print ("Will calibrate the digitizer")
+            self.logger.debug(f'Chan: {ch} -  {val}\N{DEGREE SIGN}C')
+        self.logger.debug("Will calibrate the digitizer")
         self.digitizer.calibrate()
         self.digitizer.allocate_memory()
+        self.logger.info("Digitizer set up!")
         return 
 
     def extract_digitizer_parameters(self,config):
@@ -165,6 +176,13 @@ class CaenN6725(object):
         pars.EventAggr = config['EventAggr']
         return pars
 
+    def get_temperatures(self):
+        """
+        Returns the temperatures of the digitizer electronics. One temperature 
+        per channel
+        """
+        return self.digitizer.get_temperatures()
+
     def extract_dpp_pha_parameters(self, channel, config,\
                                    dc_offset,
                                    dynamic_range=[-0.5, 0.5]):
@@ -185,18 +203,18 @@ class CaenN6725(object):
         pars = _cn.DPPPHAParams()
         nchan = 8
         channel_key     = "ch" + str(channel)
-        print (config[channel_key]['trigger-threshold'])
+        self.logger.debug(f"Got trigger threshold : {config[channel_key]['trigger-threshold']}")
         trigger_threshold = config[channel_key]['trigger-threshold'] #in minivolts, neeed to convert to bin
         # resolution is 14 bit
         fsr = dynamic_range[1] - dynamic_range[0]
         lsb = fsr/2**14
         trigger_threshold = 1e-3*trigger_threshold # convert to volt
         trigger_threshold = int(trigger_threshold/lsb)
-        print(f"Calculated value for {trigger_threshold}")
-        print(f"Found a dc offset of {dc_offset}")
+        self.logger.debug(f"Calculated value for {trigger_threshold}")
+        self.logger.debug(f"Found a dc offset of {dc_offset}")
         #trigger_threshold += dc_offset/4 
         trigger_threshold = int(trigger_threshold)
-        print(f"This means we have a trigger threshold after applying the dc offset of {trigger_threshold}")
+        self.logger.debug(f"This means we have a trigger threshold after applying the dc offset of {trigger_threshold}")
         self.trigger_thresholds[channel] = trigger_threshold
 
         # check if the trapezoid is short enough to fit into the record length
@@ -204,7 +222,7 @@ class CaenN6725(object):
         if self.shaping_time is None:
             trrt  = config[channel_key]['trapezoid-rise-time']
         else:
-            print ('Warning, overwriting shaping time from configfile with {self.shaping_time}')
+            self.logger.warning('Warning, overwriting shaping time from config setting with {self.shaping_time}')
             trrt = self.shaping_time
         trft  = config[channel_key]['trapezoid-flat-top']
         trpho = config[channel_key]['peak-holdoff']
@@ -212,7 +230,7 @@ class CaenN6725(object):
         eventlength  = self.recordlength*(1/self.samplingrate)*1e9 # ns
         if pkrun >= eventlength: 
             raise ValueError(f"Trapezoid run time {pkrun} is longer than recordlength {self.recordlength}.Tof fix it, change the values of trapezoid-rise-time, trapezoid-flat-top, peak-holdoff.")
-        print (f"We have an eventlength of {eventlength} and trapezoid run time of {pkrun}")
+        self.logger.debug(f"We have an eventlength of {eventlength} and trapezoid run time of {pkrun}")
         pars.thr        = [trigger_threshold                                    ]*nchan 
         pars.k          = [trrt                                                 ]*nchan                     
         #pars.k          = [config[channel_key]['trapezoid-rise-time']           ]*nchan 
@@ -296,11 +314,11 @@ class CaenN6725(object):
             self.digitizer.set_rootfilename(rootfilename)
         # run calibration before readout
         self.digitizer.calibrate()
-        print ("Starting run")
+        self.logger.info("Starting run")
         self.digitizer.start_acquisition()
         self.digitizer.continuous_readout(seconds)
         self.digitizer.end_acquisition()
-        print (f"We saw {self.digitizer.get_n_events_tot()} events!")
+        self.logger.info(f"We saw {self.digitizer.get_n_events_tot()} events!")
         return
 
     def init_scope(self):
@@ -336,8 +354,8 @@ class CaenN6725(object):
         xs_digital = self.get_times(digital_trace=True)*1e6
         # FIXME
         #xs = xs_digital # find out in what conditions the smapling rate is reduced
-        print (len (xs_analog))
-        print (len (xs_digital))
+        #print (len (xs_analog))
+        #print (len (xs_digital))
         xs = xs_analog
         #ax.set_xlabel("Time [$\mu$s]")
         #ax.set_ylabel("Voltage mV")
@@ -417,9 +435,9 @@ class CaenN6725(object):
             try: 
                 over_threshold = bl_corrected > delta/2
                 half_time = xs[over_threshold][-1]
-                print (f"Calculated decay time of {np.log(2)*half_time}")
+                self.logger.debug(f"Calculated decay time of {np.log(2)*half_time}")
             except Exception as e:
-                print ("Halftime calculation failed, no pulse detected.")
+                self.logger.info("Halftime calculation failed, no pulse detected.")
 
             energy    = 1e3*self.to_volts(0, energy)
             plot_energy = 1
@@ -455,7 +473,7 @@ class CaenN6725(object):
             if len(ys):
                 ymax = max(ys) + abs(max(ys)*0.2)
                 ymin = min(ys) - abs(min(ys)*0.2)
-                print (f"adjugsting range {ymin} - {ymax}")
+                self.logger.debug (f"adjugsting range {ymin} - {ymax}")
                 ax.set_ylim(bottom=ymin, top=ymax)
                 ax.grid(True)
 

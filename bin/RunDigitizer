@@ -9,6 +9,10 @@ import sys
 import time
 import tqdm
 import pylab as p
+import hjson
+
+import hepbasestack as hep
+
 p.ion()
 from os.path import join as _j
 from skippylab.controllers import PrologixUsbGPIBController
@@ -18,11 +22,9 @@ except ImportError:
     print ("Failed to import root.... Some functionality might not be available")
     print ("Make sure $ROOTSYS/lib is in your $PYTHONPATH")
 use_chamber = True
-test = False
 scope = False
 shaping_spree  = True
 runtime = 240
-config = 'config_x.json'
 outdir = 'run12-Wed03052020'
 
 # some global variables
@@ -86,11 +88,15 @@ if __name__ == '__main__':
     parser.add_argument('-o','--outdir', type=str, default='outdir')
     parser.add_argument('-i','--infile', type=str, default='infile', help='Only to use in combination with --create-histograms-only')
     parser.add_argument('--create-histograms-only', action='store_true', default=False, help='add histograms to the outfile after the run. Basically, histogram the "energy" field in the root file. Requires -i infile to be given.')
+    parser.add_argument('--loglevel', type=int, default='20', help='loglevel ')
     parser.add_argument('--detector-name', type=str, default='', help='add the id/name of the detector for identification. This is a MUST')
     parser.add_argument('--run-config', type=str, default='', help='path to a run configuration file')
+    parser.add_argument('--digitizer-config', type=str, default='config_x.json', help='path to a digitizer configuration file')
 
     args = parser.parse_args()
     print(args)
+    logger = hep.logger.get_logger(args.loglevel)
+    config = args.digitizer_config
     if not args.run_config:
         shaping_spree = args.shaping_spree
         use_chamber   = args.use_chamber
@@ -108,12 +114,11 @@ if __name__ == '__main__':
         detector_sequence = run_config['detector-sequence']        
 
     scope         = args.scope
-    test          = args.test
     outdir        = args.outdir
 
     if args.create_histograms_only:
         histogram_energy(args.infile)
-        print ('done!')
+        logger.info('done!')
         sys.exit()
 
     # for anything else we need a detector name
@@ -131,14 +136,16 @@ if __name__ == '__main__':
     try:
         os.mkdir(outdir)
     except Exception as e:
+        logger.warning(f'Can not create {outdir}!')
         print (e)
         pass
     
     
-    if test:
-        digi = dact.CaenN6725(config)
+    if args.test:
+        logger.info('Starting test session...')
+        digi = dact.CaenN6725(dact.CaenN6725.parse_configfile(config), logger=logger)
         digi.run_digitizer(10, rootfilename=_j(outdir,'example.root'),\
-                       read_waveforms=args.read_waveforms)
+                           read_waveforms=args.read_waveforms)
         del digi
     #del digi # closes the connection to the digitzer
     
@@ -147,7 +154,7 @@ if __name__ == '__main__':
             print (f"Taking data for shaping time {stime} ..")
             outfile = outfilename + f'_stime{stime}.root'
             print (f"Writing data to file {outfile}")
-            digi = dact.CaenN6725(config, shaping_time=stime)
+            digi = dact.CaenN6725(dact.CaenN6725.parse_configfile(config), shaping_time=stime)
             #ex = hep.timed_progressbar(runtime) # show a progressbar for runtime seconds
             digi.run_digitizer(runtime, rootfilename=outfile,\
                                read_waveforms=args.read_waveforms)
@@ -175,12 +182,12 @@ if __name__ == '__main__':
             print (e)
             pass
     
-        digi = dact.CaenN6725(config)
+        digi = dact.CaenN6725(dact.CaenN6725.parse_configfile(config))
         digi.init_scope()
         while True:
-            print ("Getting shaping...")
+            logger.info("Getting shaping...")
             digi.oscilloscope(filename = _j(outdir,"shaping.png"))
-            print ("Getting trigger...")
+            logger.info("Getting trigger...")
             digi.oscilloscope(filename = _j(outdir, "trigger.png"),
                               trace1 = dact.DPPVirtualProbe1.Delta2,\
                               trace2 = dact.DPPVirtualProbe2.Input,\
