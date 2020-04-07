@@ -71,7 +71,7 @@ class CaenN6725(object):
                             typically stored in .json format
 
         """
-        self.digitizer = None
+        self.digitizer = _cn.CaenN6725()
         self.recordlength = None
         self.config = config
         self.trigger_thresholds = dict()
@@ -87,6 +87,12 @@ class CaenN6725(object):
 
     def __del__(self):
         del self.digitizer
+
+    def get_handle(self):
+        return self.digitizer.get_handle()
+
+    def set_handle(self, handle):
+        self.digitizer.set_handle(handle)
 
     @staticmethod
     def baseline_offset_percent_to_val(percent):
@@ -116,6 +122,7 @@ class CaenN6725(object):
             self.logger.warning("No config found, not changing any settings!")
             return None
 
+
         # active channels, digitizer dynamic range as well as baseline offsets
         # are set separately
         self.logger.debug(f'Configuring with {config}')
@@ -142,6 +149,7 @@ class CaenN6725(object):
         digi_pars = self.extract_digitizer_parameters(config)
     
         self.digitizer = _cn.CaenN6725(digi_pars)
+
         bf = self.digitizer.get_board_info()
         self.logger.debug(f'Connected to digitizer model {bf.get_model_name()}, roc firmware {bf.get_model_roc_firmware_rel()},  amc firmware {bf.get_amc_firmware_rel()}')
 

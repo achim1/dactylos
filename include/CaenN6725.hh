@@ -135,6 +135,15 @@ class CaenN6725 {
         CaenN6725(DigitizerParams_t pars);
         ~CaenN6725();
 
+        // open the link to the digitizer
+        void connect();
+
+        // get the digitzer handle
+        int get_handle();
+
+        // set a new handle
+        void set_handle(int handle);
+
         // show the supported probes, that is settings for the 
         // waveform fields (what will trace1/trace2/dtrace1/dtrace2 be?
         void show_supported_probes();
@@ -256,6 +265,10 @@ class CaenN6725 {
 
         // length of the waveforms
         int recordlength_;
+
+        // is this instance connected to the digitizer 
+        // and has a handle assigned?
+        bool is_connected_;
 
         // fill the internal field for the traces
         void fill_analog_trace1_();

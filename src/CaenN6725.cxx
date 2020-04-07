@@ -13,67 +13,13 @@
 
 CaenN6725::CaenN6725()
 {
-    // make this specific for our case
-    // third 0 is VMEBaseAddress, which must be 0 for direct USB connections
-    current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 0, 0, 0, &handle_);
-    if (current_error_ == -1)
-        {
-            std::cout << "Can not find digitizer at USB bus 0, trying others" << std::endl;
-            for (int busnr=1; busnr<20; busnr++)
-            //while (current_error_ !=0 )
-                {
-                 std::cout << "Trying ..." << busnr << std::endl;
-                 current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, busnr, 0, 0, &handle_);
-                 if (current_error_ == 0)  break;
-                }
-        }
-    if (current_error_ !=0 ) throw std::runtime_error("Can not open digitizer err code: " + std::to_string(current_error_));
-
-    /* Reset the digitizer */
-    current_error_ = CAEN_DGTZ_Reset(handle_);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not reset digitizer err code:" + std::to_string(current_error_));
-
-    // FIXME: WHat is this doing?
-    current_error_ = CAEN_DGTZ_WriteRegister(handle_, 0x8000, 0x01000114);  // Channel Control Reg (indiv trg, seq readout) ??
-    if (current_error_ !=0 ) throw std::runtime_error("Can not write register err code:" + std::to_string(current_error_));
-
-    // Set t`he digitizer acquisition mode (CAEN_DGTZ_SW_CONTROLLED or CAEN_DGTZ_S_IN_CONTROLLED)
-    current_error_ = CAEN_DGTZ_SetAcquisitionMode(handle_, CAEN_DGTZ_SW_CONTROLLED);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not set acquisition mode err code:" + std::to_string(current_error_));
-    //see CAENDigitizer user manual, chapter "Trigger configuration" for details */
-    current_error_ = CAEN_DGTZ_SetExtTriggerInputMode(handle_, CAEN_DGTZ_TRGMODE_ACQ_ONLY);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not set trigger input  mode err code:" + std::to_string(current_error_));
-
-    /* Set the mode used to syncronize the acquisition between different boards.
-    In this example the sync is disabled */
-    current_error_ = CAEN_DGTZ_SetRunSynchronizationMode(handle_, CAEN_DGTZ_RUN_SYNC_Disabled);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not set run synchronisation mode err code: " + std::to_string(current_error_));
-
-//    current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, ANALOG_TRACE_1, CAEN_DGTZ_DPP_VIRTUALPROBE_Delta2);
-
-   
-
-
-    current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, ANALOG_TRACE_1, CAEN_DGTZ_DPP_VIRTUALPROBE_Input);
-    //current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, ANALOG_TRACE_1, CAEN_DGTZ_DPP_VIRTUALPROBE_Input);
-    //current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, ANALOG_TRACE_1, CAEN_DGTZ_DPP_VIRTUALPROBE_Input);
-    //current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, ANALOG_TRACE_1, CAEN_DGTZ_DPP_VIRTUALPROBE_Input);
-    //current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, ANALOG_TRACE_1, CAEN_DGTZ_DPP_VIRTUALPROBE_Input);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP virtual probe trace 1 err ode: " + std::to_string(current_error_));
-
-    // set the second one the the trapezoid
-    //current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, ANALOG_TRACE_1, CAEN_DGTZ_DPP_VIRTUALPROBE_Trapezoid);
-    current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, ANALOG_TRACE_2, CAEN_DGTZ_DPP_VIRTUALPROBE_TrapezoidReduced);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP virtual probe trace 2 err ode: " + std::to_string(current_error_));
-
-    current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, DIGITAL_TRACE_1, CAEN_DGTZ_DPP_DIGITALPROBE_Peaking);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP virtual probe trace 2 err ode: " + std::to_string(current_error_));
 };
 
 /***************************************************************/
 
 CaenN6725::CaenN6725(DigitizerParams_t params) : CaenN6725()
 {
+    connect();
     current_error_ = CAEN_DGTZ_SetDPPAcquisitionMode(handle_, params.AcqMode, CAEN_DGTZ_DPP_SAVE_PARAM_EnergyAndTime);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP acquisition mode err code:" + std::to_string(current_error_));
     std::cout << "Setting record length " << params.RecordLength << std::endl;
@@ -121,6 +67,83 @@ CaenN6725::CaenN6725(DigitizerParams_t params) : CaenN6725()
     if (current_error_ !=0 ) throw std::runtime_error("Can not set dpp event agregation err code:" + std::to_string(current_error_));
 
 };
+
+/***************************************************************/
+
+int CaenN6725::get_handle()
+{
+    return handle_;
+}
+
+/***************************************************************/
+
+void CaenN6725::set_handle(int handle)
+{
+    handle_ = handle;
+}
+
+/***************************************************************/
+
+void CaenN6725::connect()
+{
+    // make this specific for our case
+    // third 0 is VMEBaseAddress, which must be 0 for direct USB connections
+    current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 0, 0, 0, &handle_);
+    if (current_error_ == -1)
+        {
+            std::cout << "Can not find digitizer at USB bus 0, trying others" << std::endl;
+            for (int busnr=1; busnr<20; busnr++)
+            //while (current_error_ !=0 )
+                {
+                 std::cout << "Trying ..." << busnr << std::endl;
+                 current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, busnr, 0, 0, &handle_);
+                 if (current_error_ == 0)  break;
+                }
+        }
+    if (current_error_ !=0 ) throw std::runtime_error("Can not open digitizer err code: " + std::to_string(current_error_));
+
+    /* Reset the digitizer */
+    current_error_ = CAEN_DGTZ_Reset(handle_);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not reset digitizer err code:" + std::to_string(current_error_));
+
+    // FIXME: WHat is this doing?
+    current_error_ = CAEN_DGTZ_WriteRegister(handle_, 0x8000, 0x01000114);  // Channel Control Reg (indiv trg, seq readout) ??
+    if (current_error_ !=0 ) throw std::runtime_error("Can not write register err code:" + std::to_string(current_error_));
+
+    // Set t`he digitizer acquisition mode (CAEN_DGTZ_SW_CONTROLLED or CAEN_DGTZ_S_IN_CONTROLLED)
+    current_error_ = CAEN_DGTZ_SetAcquisitionMode(handle_, CAEN_DGTZ_SW_CONTROLLED);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set acquisition mode err code:" + std::to_string(current_error_));
+
+    //see CAENDigitizer user manual, chapter "Trigger configuration" for details */
+    current_error_ = CAEN_DGTZ_SetExtTriggerInputMode(handle_, CAEN_DGTZ_TRGMODE_ACQ_ONLY);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set trigger input  mode err code:" + std::to_string(current_error_));
+
+    /* Set the mode used to syncronize the acquisition between different boards.
+    In this example the sync is disabled */
+    current_error_ = CAEN_DGTZ_SetRunSynchronizationMode(handle_, CAEN_DGTZ_RUN_SYNC_Disabled);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set run synchronisation mode err code: " + std::to_string(current_error_));
+
+    // setting the virtual probes determines what we see in the different 
+    // registers for the traces. The digitzer can hold 2 registers each for 
+    // analog and digital traces which can show different traces. 
+    // This can also be set later on
+    set_virtualprobe1(DPPVirtualProbe1::Input);
+    //set_virtualprobe1(CAEN_DGTZ_DPP_VIRTUALPROBE_Input);
+    //current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, ANALOG_TRACE_1, CAEN_DGTZ_DPP_VIRTUALPROBE_Input);
+    //if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP virtual probe trace 1 err ode: " + std::to_string(current_error_));
+
+    // set the second one the the trapezoid
+    set_virtualprobe2(DPPVirtualProbe2::TrapezoidReduced);
+    //current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, ANALOG_TRACE_2, CAEN_DGTZ_DPP_VIRTUALPROBE_TrapezoidReduced);
+    //if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP virtual probe trace 2 err ode: " + std::to_string(current_error_));
+
+    // set the digitial trace to the peaking time, the other digital trace will always be 
+    // the trigger
+    set_digitalprobe1(DPPDigitalProbe1::Peaking);
+    //current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, DIGITAL_TRACE_1, CAEN_DGTZ_DPP_DIGITALPROBE_Peaking);
+    //if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP virtual probe trace 2 err ode: " + std::to_string(current_error_));
+    is_connected_ = true;
+}
 
 /***************************************************************/
 
@@ -728,29 +751,32 @@ void CaenN6725::set_rootfilename(std::string fname)
 // FIXME: pro;er close function
 CaenN6725::~CaenN6725()
 {
-    std::cout << "Closing digitizer..." << std::endl;
-    CAEN_DGTZ_SWStopAcquisition(handle_);
-    CAEN_DGTZ_FreeReadoutBuffer(&buffer_);
-    //CAEN_DGTZ_FreeDPPEvents(handle_, &events_);
-    //CAEN_DGTZ_FreeDPPWaveforms(handle_, waveform_);
-    CAEN_DGTZ_CloseDigitizer(handle_);
-    //root_file_->Write();
-    //delete root_file_;
-    //    for (ch = 0; ch < MaxNChannels; ch++)
-    //        if (EHisto[b][ch] != NULL)
-    //            free(EHisto[b][ch]);
-    //}   
-    /* stop the acquisition, close the device and free the buffers */
-    //for (b =0 ; b < MAXNB; b++) {
-    //    CAEN_DGTZ_SWStopAcquisition(handle[b]);
-    //    CAEN_DGTZ_CloseDigitizer(handle[b]);
-    //    for (ch = 0; ch < MaxNChannels; ch++)
-    //        if (EHisto[b][ch] != NULL)
-    //            free(EHisto[b][ch]);
-    //}   
-    //CAEN_DGTZ_FreeReadoutBuffer(&buffer);
-    //CAEN_DGTZ_FreeDPPEvents(handle[0], Events);
-    //CAEN_DGTZ_FreeDPPWaveforms(handle[0], Waveform);
+    if (is_connected_)
+    {
+        std::cout << "Closing digitizer..." << std::endl;
+        CAEN_DGTZ_SWStopAcquisition(handle_);
+        CAEN_DGTZ_FreeReadoutBuffer(&buffer_);
+        //CAEN_DGTZ_FreeDPPEvents(handle_, &events_);
+        //CAEN_DGTZ_FreeDPPWaveforms(handle_, waveform_);
+        CAEN_DGTZ_CloseDigitizer(handle_);
+        //root_file_->Write();
+        //delete root_file_;
+        //    for (ch = 0; ch < MaxNChannels; ch++)
+        //        if (EHisto[b][ch] != NULL)
+        //            free(EHisto[b][ch]);
+        //}   
+        /* stop the acquisition, close the device and free the buffers */
+        //for (b =0 ; b < MAXNB; b++) {
+        //    CAEN_DGTZ_SWStopAcquisition(handle[b]);
+        //    CAEN_DGTZ_CloseDigitizer(handle[b]);
+        //    for (ch = 0; ch < MaxNChannels; ch++)
+        //        if (EHisto[b][ch] != NULL)
+        //            free(EHisto[b][ch]);
+        //}   
+        //CAEN_DGTZ_FreeReadoutBuffer(&buffer);
+        //CAEN_DGTZ_FreeDPPEvents(handle[0], Events);
+        //CAEN_DGTZ_FreeDPPWaveforms(handle[0], Waveform);
+    }
 };
 
 
