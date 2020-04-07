@@ -564,7 +564,7 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .def("get_handle",          &CaenN6725::get_handle)
         .def("set_handle",          &CaenN6725::set_handle)
         .def("connect",             &CaenN6725::connect)
-        //.def("configure",           &CaenN6725::configure)
+        .def("configure",           &CaenN6725::configure)
         .def("get_time",            &CaenN6725::get_time)
         .def("enable_waveform_decoding", &CaenN6725::enable_waveform_decoding)
         .def("get_last_error",      &CaenN6725::get_last_error)

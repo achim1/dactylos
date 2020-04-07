@@ -138,6 +138,9 @@ class CaenN6725 {
         // open the link to the digitizer
         void connect();
 
+        // configure the digitizer in case
+        void configure(DigitizerParams_t params);
+
         // get the digitzer handle
         int get_handle();
 

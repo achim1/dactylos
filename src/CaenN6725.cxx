@@ -20,52 +20,7 @@ CaenN6725::CaenN6725()
 CaenN6725::CaenN6725(DigitizerParams_t params) : CaenN6725()
 {
     connect();
-    current_error_ = CAEN_DGTZ_SetDPPAcquisitionMode(handle_, params.AcqMode, CAEN_DGTZ_DPP_SAVE_PARAM_EnergyAndTime);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP acquisition mode err code:" + std::to_string(current_error_));
-    std::cout << "Setting record length " << params.RecordLength << std::endl;
-    // Set the number of samples for each waveform
-    current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not set record length err code: " + std::to_string(current_error_));
-
-    // also set the record length internally
-    recordlength_ = params.RecordLength;
-
-    // Set the I/O level (CAEN_DGTZ_IOLevel_NIM or CAEN_DGTZ_IOLevel_TTL)
-    current_error_ = CAEN_DGTZ_SetIOLevel(handle_, params.IOlev);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not set IO level err code:" + std::to_string(current_error_));
-
-    // Set the enabled channels
-    // remember the active cannels
-    active_channel_bitmask_  = params.ChannelMask;
-    std::cout << "Setting channel mask " << params.ChannelMask << std::endl;
-    current_error_ = CAEN_DGTZ_SetChannelEnableMask(handle_, params.ChannelMask);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not set channel enable mask err code:" + std::to_string(current_error_));
-
-    for(unsigned int i=0; i<max_n_channels_; i++) {
-        //if (params.ChannelMask & (1<<i)) {
-        if (is_active(i)) {
-            // Set the Pre-Trigger size (in samples)
-            current_error_ = CAEN_DGTZ_SetDPPPreTriggerSize(handle_, i, 1000);
-            if (current_error_ !=0 ) throw std::runtime_error("Can not set dpp trigger sixe err code:" + std::to_string(current_error_));
-
-            // Set the polarity for the given channel (CAEN_DGTZ_PulsePolarityPositive or CAEN_DGTZ_PulsePolarityNegative)
-            current_error_ = CAEN_DGTZ_SetChannelPulsePolarity(handle_, i, params.PulsePolarity);
-            if (current_error_ !=0 ) throw std::runtime_error("Can not set pulse polarity err code:" + std::to_string(current_error_));
-            // Check the number of events per aggregate
-            //uint32_t num_events;
-            //current_error_ = CAEN_DGTZ_SetNumEventsPerAggregate (handle_,32 , i);
-            //if (current_error_ !=0 ) throw std::runtime_error("Can not get events per aggregate err code:" + std::to_string(current_error_));
-            //current_error_ = CAEN_DGTZ_GetNumEventsPerAggregate (handle_,&num_events , i);
-            //if (current_error_ !=0 ) throw std::runtime_error("Can not get events per aggregate err code:" + std::to_string(current_error_));
-            //std::cout << "Get " << num_events << " per aggregate for ch " << i << std::endl;
-
-        }
-    }
-
-    // Set how many events to accumulate in the board memory before being available for readout
-    current_error_ = CAEN_DGTZ_SetDPPEventAggregation(handle_, params.EventAggr, 0);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not set dpp event agregation err code:" + std::to_string(current_error_));
-
+    configure(params);
 };
 
 /***************************************************************/
@@ -143,6 +98,57 @@ void CaenN6725::connect()
     //current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, DIGITAL_TRACE_1, CAEN_DGTZ_DPP_DIGITALPROBE_Peaking);
     //if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP virtual probe trace 2 err ode: " + std::to_string(current_error_));
     is_connected_ = true;
+}
+
+/***************************************************************/
+
+void CaenN6725::configure(DigitizerParams_t params)
+{
+    current_error_ = CAEN_DGTZ_SetDPPAcquisitionMode(handle_, params.AcqMode, CAEN_DGTZ_DPP_SAVE_PARAM_EnergyAndTime);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP acquisition mode err code:" + std::to_string(current_error_));
+    std::cout << "Setting record length " << params.RecordLength << std::endl;
+    // Set the number of samples for each waveform
+    current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set record length err code: " + std::to_string(current_error_));
+
+    // also set the record length internally
+    recordlength_ = params.RecordLength;
+
+    // Set the I/O level (CAEN_DGTZ_IOLevel_NIM or CAEN_DGTZ_IOLevel_TTL)
+    current_error_ = CAEN_DGTZ_SetIOLevel(handle_, params.IOlev);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set IO level err code:" + std::to_string(current_error_));
+
+    // Set the enabled channels
+    // remember the active cannels
+    active_channel_bitmask_  = params.ChannelMask;
+    std::cout << "Setting channel mask " << params.ChannelMask << std::endl;
+    current_error_ = CAEN_DGTZ_SetChannelEnableMask(handle_, params.ChannelMask);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set channel enable mask err code:" + std::to_string(current_error_));
+
+    for(unsigned int i=0; i<max_n_channels_; i++) {
+        //if (params.ChannelMask & (1<<i)) {
+        if (is_active(i)) {
+            // Set the Pre-Trigger size (in samples)
+            current_error_ = CAEN_DGTZ_SetDPPPreTriggerSize(handle_, i, 1000);
+            if (current_error_ !=0 ) throw std::runtime_error("Can not set dpp trigger sixe err code:" + std::to_string(current_error_));
+
+            // Set the polarity for the given channel (CAEN_DGTZ_PulsePolarityPositive or CAEN_DGTZ_PulsePolarityNegative)
+            current_error_ = CAEN_DGTZ_SetChannelPulsePolarity(handle_, i, params.PulsePolarity);
+            if (current_error_ !=0 ) throw std::runtime_error("Can not set pulse polarity err code:" + std::to_string(current_error_));
+            // Check the number of events per aggregate
+            //uint32_t num_events;
+            //current_error_ = CAEN_DGTZ_SetNumEventsPerAggregate (handle_,32 , i);
+            //if (current_error_ !=0 ) throw std::runtime_error("Can not get events per aggregate err code:" + std::to_string(current_error_));
+            //current_error_ = CAEN_DGTZ_GetNumEventsPerAggregate (handle_,&num_events , i);
+            //if (current_error_ !=0 ) throw std::runtime_error("Can not get events per aggregate err code:" + std::to_string(current_error_));
+            //std::cout << "Get " << num_events << " per aggregate for ch " << i << std::endl;
+
+        }
+    }
+
+    // Set how many events to accumulate in the board memory before being available for readout
+    current_error_ = CAEN_DGTZ_SetDPPEventAggregation(handle_, params.EventAggr, 0);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set dpp event agregation err code:" + std::to_string(current_error_));
 }
 
 /***************************************************************/
