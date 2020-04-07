@@ -60,6 +60,8 @@ class CaenN6725(object):
         """
 
         config = hjson.load(open(configfile))
+        if 'CaenN6725' in config.keys():
+            config = config['CaenN6725']
         return config
         
     def __init__(self, config, shaping_time=None, logger=None, loglevel=30):
@@ -81,6 +83,10 @@ class CaenN6725(object):
         else:
             self.logger = logger
         self.setup()
+        self.logger.info("Caen N6725 initialized")
+
+    def __del__(self):
+        del self.digitizer
 
     @staticmethod
     def baseline_offset_percent_to_val(percent):
@@ -106,15 +112,23 @@ class CaenN6725(object):
 
     def setup(self):
         config = self.config
+        if not config:
+            self.logger.warning("No config found, not changing any settings!")
+            return None
+
+        # active channels, digitizer dynamic range as well as baseline offsets
+        # are set separately
+        self.logger.debug(f'Configuring with {config}')
+
         # get the active channels
-        active_digitizer_channels = config['CaenN6725']['active-channels']
+        active_digitizer_channels = config['active-channels']
         
         # baseline offset for active digitizier channels
-        digitizer_baseline_offset = config['CaenN6725']['baseline-offset']
+        digitizer_baseline_offset = config['baseline-offset']
         assert len(digitizer_baseline_offset) == len(active_digitizer_channels), "The number of active channels does not match the number of baseline offsets give!"
 
         # dynamic range 
-        digitizer_dynamic_range = config['CaenN6725']['dynamic-range']
+        digitizer_dynamic_range = config['dynamic-range']
         assert (digitizer_dynamic_range == "2VPP") or (digitizer_dynamic_range == "05VPP"), "Dynamic range has to be either 2VPP (2 volt peak-peak) or 05VPP (0.5 volt peak-peak"
         if digitizer_dynamic_range == "2VPP":
             digitizer_dynamic_range = _cn.DynamicRange.VPP2
@@ -125,7 +139,7 @@ class CaenN6725(object):
         
 
         # as an example, for now just take data with the digitzer
-        digi_pars = self.extract_digitizer_parameters(config['CaenN6725'])
+        digi_pars = self.extract_digitizer_parameters(config)
     
         self.digitizer = _cn.CaenN6725(digi_pars)
         bf = self.digitizer.get_board_info()
@@ -141,7 +155,7 @@ class CaenN6725(object):
             self.digitizer.set_channel_dc_offset(ch,offset)
             self.dc_offsets[ch] = offset
             # configure each channel individually
-            dpp_params = self.extract_dpp_pha_parameters(ch, config['CaenN6725'], offset) 
+            dpp_params = self.extract_dpp_pha_parameters(ch, config, offset) 
             self.digitizer.configure_channel(ch, dpp_params)
 
         for ch, val in enumerate(self.digitizer.get_temperatures()):

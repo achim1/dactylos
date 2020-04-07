@@ -9,9 +9,6 @@
 #include "CaenN6725.hh"
 #include "TTree.h"
 
-//#include "gaps/GProgressBar.hh"
-
-
 /***************************************************************/
 
 CaenN6725::CaenN6725()

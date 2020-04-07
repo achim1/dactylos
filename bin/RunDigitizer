@@ -147,6 +147,7 @@ if __name__ == '__main__':
         digi.run_digitizer(10, rootfilename=_j(outdir,'example.root'),\
                            read_waveforms=args.read_waveforms)
         del digi
+        sys.exit(0)
     #del digi # closes the connection to the digitzer
     
     if shaping_spree:
