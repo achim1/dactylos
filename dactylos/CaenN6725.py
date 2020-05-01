@@ -115,6 +115,10 @@ class CaenN6725(object):
 
     def set_dprobe2(self, vprobe2):
         self.digitizer.set_vprobe2(vprobe2)
+    
+    def connect(self):
+        self.digitizer.connect()
+
 
     def setup(self):
         config = self.config
@@ -148,7 +152,8 @@ class CaenN6725(object):
         # as an example, for now just take data with the digitzer
         digi_pars = self.extract_digitizer_parameters(config)
     
-        self.digitizer = _cn.CaenN6725(digi_pars)
+        #self.digitizer = _cn.CaenN6725(digi_pars)
+        self.digitizer.configure(digi_pars)
 
         bf = self.digitizer.get_board_info()
         self.logger.debug(f'Connected to digitizer model {bf.get_model_name()}, roc firmware {bf.get_model_roc_firmware_rel()},  amc firmware {bf.get_amc_firmware_rel()}')
@@ -330,7 +335,7 @@ class CaenN6725(object):
         """
         if read_waveforms:
             self.digitizer.enable_waveform_decoding()
-            self.digitizer.set_dprobe2(_cn.DPPDigitalProbe2.Trigger)
+            #self.digitizer.set_dprobe2(_cn.DPPDigitalProbe2.Trigger)
         
         if rootfilename is not None:
             self.digitizer.set_rootfilename(rootfilename)

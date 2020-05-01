@@ -144,6 +144,14 @@ if __name__ == '__main__':
     if args.test:
         logger.info('Starting test session...')
         digi = dact.CaenN6725(dact.CaenN6725.parse_configfile(config), logger=logger)
+        handle = digi.get_handle()
+        logger.info(f"Got handle {handle}")
+        digi2 = dact.CaenN6725({})
+        digi2.set_handle(handle)
+        temps = digi2.get_temperatures()
+        print (type(temps))
+        print (temps)
+        logger.info(f"temps : {temps}")
         digi.run_digitizer(10, rootfilename=_j(outdir,'example.root'),\
                            read_waveforms=args.read_waveforms)
         del digi
