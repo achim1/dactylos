@@ -4,6 +4,9 @@ its associated resolution (fwhm).
 """
 import numpy as np
 import uproot as up
+import os
+import os.path
+import time 
 
 import HErmes as he
 import hepbasestack as hep
@@ -284,6 +287,10 @@ def fit_file(infilename = '143_4000.root',\
     """
     # set startparameters
     startparams = np.array([500,20,500, 300, 40, 50])
+    metainfo = "" # this currently holds the type of measurement
+                  # if it is from a file -> CAEN shaping
+                  # mode direct -> mc2 
+                  # else -> waveform
     if file_type == '.root':
         mode = 'distribution'
         f = up.open(infilename)
@@ -291,13 +298,9 @@ def fit_file(infilename = '143_4000.root',\
         energy  = f.get('ch' + str(channel)).get('energy').array()    
         # prebin the histogram to estimate start params
         h = d.factory.hist1d(energy, bins)
-        import pylab as p
-        fig = p.figure()
-        h.line()
-        p.savefig('/tmp/debughisto.png')
         startparams, limits = first_guess(h.bincenters, h.bincontent)
         peakmod = create_model(energy, bins, startparams, limits=limits)
-
+        metainfo = 'TrpzShap'
     elif file_type == '.txt':
         mode='direct'
         energy = []
@@ -314,6 +317,7 @@ def fit_file(infilename = '143_4000.root',\
                     # one column data, just energy
                     binenergy = int(line.split()[0])
                 energy.append(binenergy) 
+        metainfo = 'TrpzShapMC2'
 
         energy = np.array(energy)
         if len(energy) != 2**14:
@@ -334,6 +338,7 @@ def fit_file(infilename = '143_4000.root',\
         logger.info(f'Caluclating start parameters')
         startparams, limits = first_guess(h.bincenters, h.bincontent)
         peakmod = create_model(energy, bins, startparams, mode=mode, limits=limits)
+        metainfo = 'GaussShap' 
     else:
         raise ValueError(f'Can not process file type {file_type}')
 
@@ -370,8 +375,6 @@ def fit_file(infilename = '143_4000.root',\
               conversion*np.array(limits[4]),\
               np.array(limits[5])]
     limits = tuple(limits)
-    print (limits)
-    print (startparams)
     bins = conversion*bins
 
     startparams = np.array([abs(s) for s in startparams])
@@ -443,11 +446,12 @@ def fit_file(infilename = '143_4000.root',\
         #fig.savefig('debug-figure.png')
 
     # return the resolution
-    pngfilename = f'det{detid}-stime{ptime}-{stripname}.png' 
+    pngfilename = f'det{detid}-stime{ptime}-{stripname}-{metainfo}.png' 
     logger.info(f'Saving {pngfilename} in {plot_dir}... ')
     fig.savefig(os.path.join(plot_dir,pngfilename))
     time.sleep(1) # give the filesystem time to save the figure
                   # not sure why it seems that there are some hickups
     p.close(fig)
-    return detid, channel, peakmod.best_fit_params[1], errdict['fwhm0'], pngfilename
+    #@return detid, channel, peakmod.best_fit_params[1], errdict['fwhm0'], pngfilename
+    return detid, channel, peakmod.best_fit_params, errdict, pngfilename
 

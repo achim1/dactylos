@@ -10,7 +10,7 @@ import concurrent.futures as fut
 import tqdm
 
 # shaping stuff 
-from shaping import GaussShaper
+from .shaping import GaussShaper
 
 
 ########################################################################

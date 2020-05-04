@@ -197,11 +197,11 @@ if __name__ == '__main__':
                 if args.njobs > 1:
                     future_to_ptime[executor.submit(fit_file, **kwargs)] = ptime 
                 else:
-                    detid, ch, fwhm, fwhm_err, figname = fit_file(**kwargs)
+                    detid, ch, params, params_err, figname = fit_file(**kwargs)
                     data = PeakingTimeRun(detid = detid,\
                                           channel = ch,\
-                                          fwhm = fwhm,\
-                                          fwhm_err = fwhm,\
+                                          fwhm = params[1],\
+                                          fwhm_err = params_err['fwhm0'],\
                                           ptime = ptime,\
                                           figname = figname)
                     datasets.append(data)
@@ -241,11 +241,11 @@ if __name__ == '__main__':
             if args.njobs > 1:
                 future_to_ptime[executor.submit(fit_file, **kwargs)] = ptime 
             else:
-                detid, ch, fwhm, fwhm_err, figname = fit_file(**kwargs)
+                detid, ch, params, params_err, figname = fit_file(**kwargs)
                 data = PeakingTimeRun(detid = detid,\
                                       channel = ch,\
-                                      fwhm = fwhm,\
-                                      fwhm_err = fwhm_err,\
+                                      fwhm = params[1],\
+                                      fwhm_err = params_err['fwhm0'],\
                                       ptime = ptime,\
                                       figname = figname)
                 datasets.append(data)
@@ -276,11 +276,11 @@ if __name__ == '__main__':
                 if args.njobs > 1:
                     future_to_ptime[executor.submit(fit_file, **kwargs)] = ptime 
                 else:
-                    detid, ch, fwhm, fwhm_err, figname = fit_file(**kwargs)
+                    detid, ch, params, params_err, figname = fit_file(**kwargs)
                     data = PeakingTimeRun(detid = detid,\
                                           channel = ch,\
-                                          fwhm = fwhm,\
-                                          fwhm_err = fwhm,\
+                                          fwhm = params[1],\
+                                          fwhm_err = params_err['fwhm0'],\
                                           ptime = ptime,\
                                           figname = figname)
                     datasets.append(data)
