@@ -24,7 +24,7 @@ import tqdm
 from dactylos.analysis.waveform_analysis import WaveformAnalysis
 from dactylos.analysis.noisemodel import noise_model, fit_noisemodel, extract_parameters_from_noisemodel   
 from dactylos.analysis.spectrum_fits import fit_file
-from dactylos.analysis.utils import get_stripname 
+from dactylos.analysis.utils import get_stripname, plot_waveform 
 # call imagemapgick with subprocess
 # FIXME: there are python bindings
 
@@ -53,22 +53,6 @@ p.ioff()
 ########################################################################
 
 
-def plot_waveform(ax, times, digi_channels):
-    """
-    Create a plot for the individual waveform, set labels assume
-    times is in microseconds and voltages are mV.
-
-    Args:
-        times (ndarray)                : Times in microseconds
-        voltages (ndarrya)             : Waveform in milliVolts
-
-    Returns:
-        None
-    """
-    ax.plot(times, digi_channels, lw=0.9, color="r", alpha=0.7, label='waveform')
-    return ax
-
-########################################################################
 
 if __name__ == '__main__':
 

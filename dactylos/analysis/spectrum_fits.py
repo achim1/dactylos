@@ -11,6 +11,7 @@ import time
 import HErmes as he
 import hepbasestack as hep
 import dashi as d
+import pylab as p
 
 d.visual()
 
@@ -184,12 +185,6 @@ def first_guess(bincenters, bincontent, roi_right_edge=700):
     # typically, the peak will be around 500, 
     # so lets take 0 - 700 (default), then the peak 
     # should be savely in the right half of that part of the spectrum
-    #roi_right_edge_index = bincenters[bincenters > roi_right_edge][0]
-    #print (roi_right_edge_index)
-    #roi_right_edge_index = np.where(bincenters == roi_right_edge_index)
-    #print (roi_right_edge_index)
-    for i,j in enumerate(bincenters[:1000]):
-        print (i, j, bincontent[i])
     bincenters = bincenters[:roi_right_edge]
     bincontent = bincontent[:roi_right_edge]
 
@@ -251,6 +246,7 @@ def fit_file(infilename = '143_4000.root',\
              file_type = '.root',\
              channel = 0,\
              ptime = -1,\
+             savename_prefix = "",\
              detid = -1,\
              plot_dir = '.',\
              energy = None,\
@@ -278,6 +274,7 @@ def fit_file(infilename = '143_4000.root',\
                                the energies parameter. If there is a file, 
                                this has to be 'None'
         plot_dir (int)       : directory to save the plots in 
+        savename_prefix (str): a prefix to be added to the png file the plot is saved as
         bins (ndarray)       : bins for the histogram
         ptime (float)        : peaking time (just used for the plot title)
         detid (int)          : detector id (just uded for the plot title)
@@ -443,10 +440,11 @@ def fit_file(infilename = '143_4000.root',\
         if (ax.get_ylim()[1] > 2*max(energyxs[20:])):
             ax.set_ylim(top= 1.1*max(energyxs[20:]),
                         bottom = 0)
-        #fig.savefig('debug-figure.png')
 
     # return the resolution
     pngfilename = f'det{detid}-stime{ptime}-{stripname}-{metainfo}.png' 
+    if savename_prefix:
+        pngfilen = savename_prefix + pngfilename
     logger.info(f'Saving {pngfilename} in {plot_dir}... ')
     fig.savefig(os.path.join(plot_dir,pngfilename))
     time.sleep(1) # give the filesystem time to save the figure

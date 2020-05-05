@@ -6,12 +6,23 @@ https://github.com/alowell-ssl/awlpico
 import pylab as p
 import numpy as np
 import concurrent.futures as fut
-
+import uproot as up
 import tqdm
+import os
+import os.path
+
+from copy import copy
+
+from .utils import get_stripname, plot_waveform
 
 # shaping stuff 
 from .shaping import GaussShaper
 
+import hepbasestack as hep 
+
+import dactylos
+
+logger = hep.logger.get_logger(dactylos.LOGLEVEL)
 
 ########################################################################
 
@@ -197,7 +208,7 @@ class WaveformAnalysis(object):
         """
         future_to_fname = dict()
 
-        for fname in infiles:
+        for fname in self.files:
             # read out every file once per channel
             for ch in self.active_channels:
                 #read_waveform(fname, ch)
@@ -217,7 +228,9 @@ class WaveformAnalysis(object):
         return None
         #return channel_data
 
-    def plot_waveforms(self, ch, nwaveforms, plots_per_page=100, columns=3, savedir='.'):
+    def plot_waveforms(self, ch, nwaveforms,\
+                       prefix='',\
+                       savedir='.'):
         """
         Plot some of the waveforms.
 
@@ -226,8 +239,7 @@ class WaveformAnalysis(object):
             nwaveforms (int)      : Plot the first nwaveforms
     
         Keyword Args: 
-            plots_per_page (int)  : How many waveforms on a single page
-            columns (int)         : Columns of the multiplot
+            prefix (str)          : A prefix to the filename
             savedir (str)         : Save the resulting plot in this directory
 
         """
@@ -248,8 +260,14 @@ class WaveformAnalysis(object):
                 ax.set_ylabel("d. chan.")
             if (i+1 - nwaveforms) < 4:
                 ax.set_xlabel("time [$\mu$s]")
-        
-        wfplot.savefig(os.path.join(savedir,f'wf-test-ch{ch}.png'))
+        stripname = get_stripname(ch) 
+        if not prefix:
+            savename = f'waveforms-{stripname}.png' 
+        else:
+            savename = f'waveforms-{prefix}-{stripname}.png'
+        savename = os.path.join(savedir, savename)
+        wfplot.savefig(savename)
+        return savename 
 
     def analyze(self, channel):
         """
@@ -260,7 +278,7 @@ class WaveformAnalysis(object):
 
         """
         ptime_energies = dict()
-        data = copy(self.channel_data[ch])
+        data = copy(self.channel_data[channel])
         for ptime in self.peakingtime_sequence:
             shaper = GaussShaper(ptime)
             energies = np.array([energy for energy in self.ppexecutor.map(shaper.shape_it, data)])
