@@ -277,14 +277,14 @@ if __name__ == '__main__':
         for future in fut.as_completed(future_to_ptime):
             ptime = future_to_ptime[future]
             try:
-                detid, ch, fwhm, fwhm_err, figname = future.result()
+                detid, ch, params, params_err, figname = future.result()
             except Exception as e:
                 logger.warning(f'Can not fit file for ptime {ptime}, exception {e}')
                 continue
             data = PeakingTimeRun(detid = detid,\
                                   channel = ch,\
-                                  fwhm = fwhm,\
-                                  fwhm_err = fwhm_err,\
+                                  fwhm = params[1],\
+                                  fwhm_err = params_err['fwhm0'],\
                                   ptime = ptime,\
                                   figname = figname)
             datasets.append(data)

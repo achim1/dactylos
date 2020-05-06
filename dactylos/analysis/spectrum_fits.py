@@ -8,6 +8,8 @@ import os
 import os.path
 import time 
 
+from copy import copy
+
 import HErmes as he
 import hepbasestack as hep
 import dashi as d
@@ -450,6 +452,14 @@ def fit_file(infilename = '143_4000.root',\
     time.sleep(1) # give the filesystem time to save the figure
                   # not sure why it seems that there are some hickups
     p.close(fig)
+    logger.info('..done')
+    # copy them to decouple them from the model
+    # since some minuit entities are non-picklable
+    # which prevents this from running multithreaded
+    return_pars = copy(peakmod.best_fit_params)
+    return_errs = dict()
+    for k in errdict.keys():
+        return_errs[k] = errdict[k]
     #@return detid, channel, peakmod.best_fit_params[1], errdict['fwhm0'], pngfilename
-    return detid, channel, peakmod.best_fit_params, errdict, pngfilename
+    return detid, channel, return_pars, return_errs, pngfilename
 
