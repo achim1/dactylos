@@ -5,9 +5,13 @@ for an arbitrary shaping time
 from dataclasses import dataclass
 import numpy as np
 import pylab as p
+import os
+import os.path
+
 import HErmes as he
 import hepbasestack as hep
 
+from .utils import get_stripname
 logger = hep.logger.get_logger(10)
 
 ########################################################################
@@ -85,7 +89,7 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid, plotdir='.'):
         None
     """
     # channel noise model fit
-    logger.info(f'Performing noise model fit for {get_stripname(ch)}')
+    logger.info(f'Performing noise model fit for channel {ch}')
     noisemodel_fig = p.figure()
     noisemodel = he.fitting.Model(noise_model)
     noisemodel.startparams = (5e5, 1e-5,1)

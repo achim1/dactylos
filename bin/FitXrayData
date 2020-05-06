@@ -31,6 +31,8 @@ from dactylos.analysis.utils import get_stripname, plot_waveform
 import shlex
 import subprocess
 
+
+from dataclasses import dataclass
 from copy import deepcopy as copy
 
 @dataclass
