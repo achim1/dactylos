@@ -347,7 +347,7 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data(int dis
     // check the readout status
     uint32_t acqstatus;
     current_error_ = CAEN_DGTZ_ReadRegister(handle_, 0x8104, &acqstatus);
-    while (! ( acqstatus && (1 << 3))) // the 3rd bit is the acquisition status
+    while (! ( acqstatus & (1 << 3))) // the 3rd bit is the acquisition status
         {
             // nothing to readout
             current_error_ = CAEN_DGTZ_ReadRegister(handle_, 0x8104, &acqstatus);
@@ -450,12 +450,12 @@ void CaenN6725::fast_readout_()
     // check the readout status
     uint32_t acqstatus;
     current_error_ = CAEN_DGTZ_ReadRegister(handle_, 0x8104, &acqstatus);
-    if (! ( acqstatus && (1 << 3))) // the 3rd bit is the acquisition status
+    if (! ( acqstatus & (1 << 3))) // the 3rd bit is the acquisition status
         {
             return; // nothing to readout
         }
     // wait till the buffer is full
-    if (! ( acqstatus && (1 << 4))) // the 3rd bit is the acquisition status
+    if (! ( acqstatus & (1 << 4))) // the 3rd bit is the acquisition status
         {
             return; // no channel in full status
         }

@@ -122,6 +122,14 @@ def get_root_include_dir():
     print (f'Found root include dir at {rootsys}/include')
     return os.path.join(rootsys, 'include')
 
+def get_root_lib_dir():
+    rootsys = os.getenv('ROOTSYS')
+    if rootsys is None:
+        raise SystemError("$ROOTSYS shell variable not defined! Make sure to have root installed end this variable defined.")
+    print (f'Found root include dir at {rootsys}/lib')
+    return os.path.join(rootsys, 'lib')
+
+
 class get_pybind_include(object):
     """Helper class to determine the pybind11 include path
     The purpose of this class is to postpone importing pybind11
@@ -193,6 +201,9 @@ def cpp_flag(compiler):
                        'is needed!')
 
 #ROOT.gSystem.GetIncludePath() 
+# since root might be not in the superusers python path, add it to 
+# sys path
+sys.path.append(get_root_lib_dir())
 import ROOT 
 
 class BuildExt(build_ext):
