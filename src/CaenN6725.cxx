@@ -47,7 +47,7 @@ void CaenN6725::connect()
     if (current_error_ == -1)
         {
             std::cout << "Can not find digitizer at USB bus 0, trying others" << std::endl;
-            for (int busnr=1; busnr<20; busnr++)
+            for (int busnr=1; busnr<200; busnr++)
             //while (current_error_ !=0 )
                 {
                  std::cout << "Trying ..." << busnr << std::endl;
