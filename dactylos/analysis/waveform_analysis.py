@@ -81,7 +81,9 @@ class WaveformAnalysis(object):
 
     """
 
-    def __init__(self, njobs=4, active_channels=[0,1,2,3,4,5,6,7]):
+    def __init__(self, njobs=4,\
+                 active_channels=[0,1,2,3,4,5,6,7],\
+                 shaper_order=4):
         """
         Prepare the waveform analysis. This is a several step process.
         First, tell it what files to use, then load them and finaly analyze.
@@ -97,14 +99,14 @@ class WaveformAnalysis(object):
             dt (float)            :  Digitizer sample size (that is 1/sampling rate) in 
                                      seconds. This value is fix for the CAEN 6725 with 
                                      250 MSamples/s
-
+            shaper_order (int)    :  Order of the Gaussian shaper (4 is default)
         """
         self.files = []
         self.tpexecutor = fut.ThreadPoolExecutor(max_workers=njobs)
         self.ppexecutor = fut.ProcessPoolExecutor(max_workers=njobs)
         self.active_channels = active_channels
         self.channel_data = dict([(k, np.array([])) for k in self.active_channels])  
-
+        self.order = shaper_order
  
     def get_recordlengths(self):
         """
@@ -280,7 +282,7 @@ class WaveformAnalysis(object):
         ptime_energies = dict()
         data = copy(self.channel_data[channel])
         for ptime in self.peakingtime_sequence:
-            shaper = GaussShaper(ptime)
+            shaper = GaussShaper(ptime, order=self.order)
             energies = np.array([energy for energy in self.ppexecutor.map(shaper.shape_it, data)])
             ptime_energies[ptime] = energies 
         return ptime_energies 

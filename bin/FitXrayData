@@ -89,6 +89,9 @@ if __name__ == '__main__':
     parser.add_argument('-j','--jobs', dest='njobs',
                         default=12,type=int,
                         help='number of jobs to use')
+    parser.add_argument('--shaper-order', dest='shaper_order',
+                        default=4,type=int,
+                        help='order parameter of the Gaussian shaper. This parameter only has an effect together with --waveform-analysis.')
     parser.add_argument('--waveform-analysis', dest='waveform_analysis',
                         default=False, action='store_true',
                         help='Use the waveform information to generate the noisemodel plot.')
@@ -139,7 +142,9 @@ if __name__ == '__main__':
         raise ValueError("Can not plot waveforms without the --waveform-analysis switch!") 
     if args.waveform_analysis:
         logger.info("Will do anlysis directly on the waveforms")
-        analysis = WaveformAnalysis(njobs=args.njobs, active_channels=[0,1])
+        analysis = WaveformAnalysis(njobs=args.njobs,\
+                                    active_channels=[0,1],\
+                                    shaper_order=args.shaper_order)
         analysis.set_infiles(infiles)
         for infile in infiles:
             metadata = pattern.search(infile).groupdict()
