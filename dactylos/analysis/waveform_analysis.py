@@ -83,7 +83,8 @@ class WaveformAnalysis(object):
 
     def __init__(self, njobs=4,\
                  active_channels=[0,1,2,3,4,5,6,7],\
-                 shaper_order=4):
+                 shaper_order=4,\
+                 adjust_shaper_order_dynamically=False):
         """
         Prepare the waveform analysis. This is a several step process.
         First, tell it what files to use, then load them and finaly analyze.
@@ -100,6 +101,8 @@ class WaveformAnalysis(object):
                                      seconds. This value is fix for the CAEN 6725 with 
                                      250 MSamples/s
             shaper_order (int)    :  Order of the Gaussian shaper (4 is default)
+            adjust_shaper_order_dynamically (bool) : Switch to a higher shaper order
+                                                     for larger peakingtimes automatically
         """
         self.files = []
         self.tpexecutor = fut.ThreadPoolExecutor(max_workers=njobs)
@@ -107,7 +110,8 @@ class WaveformAnalysis(object):
         self.active_channels = active_channels
         self.channel_data = dict([(k, np.array([])) for k in self.active_channels])  
         self.order = shaper_order
- 
+        self.adjust_shaper_order_dynamically = adjust_shaper_order_dynamically
+
     def get_recordlengths(self):
         """
         For debugging purposes. Check the recordlength of the 
@@ -282,7 +286,14 @@ class WaveformAnalysis(object):
         ptime_energies = dict()
         data = copy(self.channel_data[channel])
         for ptime in self.peakingtime_sequence:
-            shaper = GaussShaper(ptime, order=self.order)
+            if self.adjust_shaper_order_dynamically:
+                if ptime <= 5000:
+                    order = 4
+                else:
+                    order = 7
+            else:
+                order = self.order
+            shaper = GaussShaper(ptime, order=order)
             energies = np.array([energy for energy in self.ppexecutor.map(shaper.shape_it, data)])
             ptime_energies[ptime] = energies 
         return ptime_energies 

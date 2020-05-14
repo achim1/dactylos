@@ -92,6 +92,11 @@ if __name__ == '__main__':
     parser.add_argument('--shaper-order', dest='shaper_order',
                         default=4,type=int,
                         help='order parameter of the Gaussian shaper. This parameter only has an effect together with --waveform-analysis.')
+    parser.add_argument('--shaper-different-orders',
+                        dest='shaper_different_orders',
+                        default=False, action='store_true',\
+                        help='Change the order for the shaper from 4 to 7.\
+                              It is 4 for pt < 5ms and 7 otherwise.')
     parser.add_argument('--waveform-analysis', dest='waveform_analysis',
                         default=False, action='store_true',
                         help='Use the waveform information to generate the noisemodel plot.')
@@ -144,7 +149,8 @@ if __name__ == '__main__':
         logger.info("Will do anlysis directly on the waveforms")
         analysis = WaveformAnalysis(njobs=args.njobs,\
                                     active_channels=[0,1],\
-                                    shaper_order=args.shaper_order)
+                                    shaper_order=args.shaper_order,
+                                    adjust_shaper_order_dynamically=args.shaper_different_orders)
         analysis.set_infiles(infiles)
         for infile in infiles:
             metadata = pattern.search(infile).groupdict()
@@ -164,7 +170,9 @@ if __name__ == '__main__':
         for k in analysis.active_channels:
             logger.info(f" Record length in ch {k} ; {len(analysis.channel_data[k][0])}")
         
-        peaking_sequence = np.array([500,1000,2000,4000,8000,12000,16000,20000,30000])    
+        #peaking_sequence = np.array([500,1000,2000,4000,8000,12000,16000,20000,30000])    
+        peaking_sequence = np.array([500,759,1000,2000,3000,4000,5000, 7000,8000,10000,12000,14000,16000,18000,20000,25000,30000])    
+    
         logger.info(f'Setting peaking sequence {peaking_sequence} micro seconds')
         analysis.set_peakingtime_sequence(peaking_sequence)
 

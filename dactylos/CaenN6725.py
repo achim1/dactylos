@@ -286,9 +286,9 @@ class CaenN6725(object):
         #offset = self.dc_offset[ch]
         #offset = (offset/4)*(frs/resolution)  + self.dynamic_range[0]
         if hasattr(waveform, '__iter__'):
-            volts = np.array([w*(frs/resolution) + self.dynamic_range[0] for w in waveform]) 
+            volts = np.array([w*(frs/resolution) + dynamic_range[0] for w in waveform]) 
         else:
-            volts = waveform*(frs/resolution) + self.dynamic_range[0]
+            volts = waveform*(frs/resolution) + dynamic_range[0]
         return volts
     
 
