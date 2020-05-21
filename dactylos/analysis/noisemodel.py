@@ -66,16 +66,22 @@ def noise_model(xs, par0, par1, par2):
     # mus -> s
     xs = 1e-6*xs
     result = np.sqrt((par0*xs) + (par1/xs) + (np.ones(len(xs))*par2))
+    #u = 1/np.sqrt(xs)
+    # transform into u space
+    #result = np.sqrt(par0)*u**2 + np.sqrt(par1)* u + np.sqrt(par2)
     return result
 
 ########################################################################
 
-def construct_error_belt(nm):
+def construct_error_belt(nm, xs=None):
     """ 
     Get the maximum and minimum values for the noisemodel
 
     Args:
         nm (HErmes.fitting.Model)   : the fitted noisemodel
+
+    Keyword Args:
+        xs (numpy.ndarray)          : x data. If none, take noisemodel.xs
     """
     minmaxpar0 = (nm.best_fit_params[0] + nm.errors['par00'],
                   nm.best_fit_params[0] - nm.errors['par00'])
@@ -84,7 +90,8 @@ def construct_error_belt(nm):
     minmaxpar2 = (nm.best_fit_params[2] + nm.errors['par10'],
                   nm.best_fit_params[2] - nm.errors['par10'])
 
-    xs = nm.xs
+    if xs is None:
+        xs = nm.xs
     currentmaximum = noise_model(xs, minmaxpar0[1],\
                                      minmaxpar1[1],\
                                      minmaxpar2[1])
@@ -118,21 +125,28 @@ def construct_error_belt(nm):
 
 ########################################################################
 
-def fit_noisemodel(xs, ys, ys_err,  ch, detid, plotdir='.', fig=None):
+def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
+                   plotdir='.', fig=None,\
+                   use_minuit=True,\
+                   debug_minuit=False):
     """
     Perform the fit of the xray resolutions over peaking time
     with the noisemodel
 
     Args:
-        xs (ndarray)     : peaking times (microseconds)
-        ys (ndarray)     : x-ray resolutions (fwhm)
-        ys_err (ndarray) : fwhm associated fit errors
-        ch (int)         : digitizer channel/detector strip
-        detid (int)      : detector id (needed for the filename to save the plot)
-        fig (Figure)     : use a pre-exisiting figure instance. If None, create new
-    Keyword Args:
-        plotdir (str)    : directory to save the plot in
+        xs (ndarray)         : peaking times (microseconds)
+        ys (ndarray)         : x-ray resolutions (fwhm)
+        ys_err (ndarray)     : fwhm associated fit errors
+        ch (int)             : digitizer channel/detector strip
+        detid (int)          : detector id (needed for the filename to save the plot)
 
+    Keyword Args:
+        fig (Figure)         : use a pre-exisiting figure instance. If None, create new
+        plotdir (str)        : directory to save the plot in
+        use_minuit (bool)    : Use minuit for the minimization (recommended) 
+        debug_minuit (bool)  : pass this parameter to the model. It attaches the 
+                               iminuit instance to the model, so it is accessible for 
+                               later debugging
     Returns:
         None
     """
@@ -143,7 +157,8 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid, plotdir='.', fig=None):
     noisemodel.add_data(ys, xs=xs/1000,\
                         data_errs=ys_err,
                         create_distribution=False)
-    noisemodel.fit_to_data(use_minuit=True, \
+    noisemodel.fit_to_data(use_minuit=use_minuit,\
+                           debug_minuit=debug_minuit,\
                            errors=(1,1,1),\
                            limits=((1e4,1e7), \
                                    (1e-7,1e-4), \
@@ -171,16 +186,20 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid, plotdir='.', fig=None):
     else:
         noisemodel_fig = fig
     ax = noisemodel_fig.gca()
-    ax.plot(noisemodel.xs, noise_model(noisemodel.xs, *noisemodel.best_fit_params),\
-            color='r', lw=2)
-    ax.errorbar(xs/1000, ys, yerr=ys_err/2, \
-                marker='x', mfc='k', mec='k', ms=2, \
+    xs_for_plt = np.linspace(min(noisemodel.xs), max(noisemodel.xs), 10000)
+    ax.plot(xs_for_plt, noise_model(xs_for_plt, *noisemodel.best_fit_params),\
+            color='r', lw=1.2, zorder=1)
+    minmodel, maxmodel = construct_error_belt(noisemodel, xs=xs_for_plt)
+    ax.fill_between(xs_for_plt, minmodel, y2=maxmodel,\
+                    color='r', alpha=0.4, zorder=1)
+    ax.errorbar(xs/1000, ys, yerr=ys_err, \
+                marker='.', mfc='k', mec='k', ms=1.2, \
                 #fmt='none',\
-                fmt='x', \
-                ecolor='k')
-    minmodel, maxmodel = construct_error_belt(noisemodel)
-    ax.fill_between(noisemodel.xs, minmodel, y2=maxmodel,\
-                    color='r', alpha=0.4)
+                fmt='.', \
+                ecolor='k',\
+                lw=1.2,\
+                zorder=2,\
+               )
     ax = hep.visual.adjust_minor_ticks(ax, which='both')
     ax.set_xscale('log')
     ax.set_yscale('log')
@@ -217,6 +236,17 @@ def extract_parameters_from_noisemodel(noisemodel):
     """
 
     factor = (2.355*CONSTANTS.eps*1e-3/CONSTANTS.q)*(2.355*CONSTANTS.eps*1e-3/CONSTANTS.q)
+
+    # this is necessary in case we did not use
+    # minuit for the fitting, then we do have 
+    # a different structure for the error dict
+    print (noisemodel.errors)
+    if isinstance(noisemodel.errors, list):
+        tmpdict = dict()
+        tmpdict['par00'] = noisemodel.errors[0]
+        tmpdict['par10'] = noisemodel.errors[1]
+        tmpdict['par20'] = noisemodel.errors[2]
+        noisemodel.errors = tmpdict
 
     p0  = noisemodel.best_fit_params[0]/factor;
     ep0 = noisemodel.errors['par00']/factor;
