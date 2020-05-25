@@ -23,8 +23,18 @@ class CMakeExtension(Extension):
         Extension.__init__(self, name, **kwargs)
         if name.startswith('_py'):
             self._cfilename = name + '.so'
+        elif name.startswith('_tr'):
+            self._cfilename = name + '.so'
         else:
             self._cfilename = 'lib' + name + '.so'
+
+        self.has_explicit_destination = False
+
+    def set_destination_explicit(self, destination):
+        """
+
+        """
+        pass
 
 class CMakeBuild(build_ext):
     def run(self):
@@ -74,6 +84,7 @@ class CMakeBuild(build_ext):
                               cwd=self.build_temp)
 
         # Move from build temp to final position
+        #print (self.extensions)
         for ext in self.extensions:
             self.move_output(ext)
 
@@ -87,7 +98,15 @@ class CMakeBuild(build_ext):
         except Exception as e:
             print (e)
         source_path = build_temp / ext._cfilename
+
         dest_directory = dest_path.parents[0]
+
+        # FIXME : not here
+        # we have to branch this in case for the 
+        # the analysis library, this should go directly in the python-package
+        print (ext.name)
+        if ext.name.startswith('_trp') or ext.name.startswith('DactylosAnalysis'):
+            dest_directory = dest_directory / 'analysis' / 'dactylos' / 'shaping'
         dest_directory.mkdir(parents=True, exist_ok=True)
         print (f"Trying to copy {ext.name} from {source_path} to {dest_path}")
         try:
@@ -95,6 +114,7 @@ class CMakeBuild(build_ext):
         except Exception as e:
             print (f"Failed, raised {e}. Trying again..")
             self.copy_file(build_temp/self.get_ext_filename(ext.name), dest_path)        
+
 def get_version(package):
     """
     Return package version as listed in `__version__` in `init.py`.
@@ -143,7 +163,9 @@ class get_pybind_include(object):
         import pybind11
         return pybind11.get_include(self.user)
 
-
+# external modules, build by CMake. At the moment this is all 
+# double a little bit, this must be also defined in the CMakeList.txt file
+# this just helps for the actual install process
 ext_modules = [
     CMakeExtension(
         'CaenN6725',
@@ -165,10 +187,35 @@ ext_modules = [
             "include",
             get_root_include_dir()
         ],
-        library_dirs=['/opt/cranelab/src/python/dactylos/build/lib.linux-x86_64-3.6'],
         libraries=['CAENDigitizer','CaenN6725'],
         language='c++'
     ),
+    CMakeExtension(
+        'DactylosAnalysis',
+        sources = ['dactylos/analysis/shaping/trapezoidal_shaper.cxx'],
+        include_dirs=[
+            # Path to pybind11 headers
+            get_pybind_include(),
+            get_pybind_include(user=True),
+            "include",
+            "dactylos/analysis/shaping"
+        ],
+        libraries=['DactylosAnalysis'],
+        language='c++'
+    ),
+    CMakeExtension(
+        '_trapezoidal_shaper',
+        sources = ['dactylos/analysis/shaping/module.cxx'],
+        include_dirs=[
+            # Path to pybind11 headers
+            get_pybind_include(),
+            get_pybind_include(user=True),
+            "include",
+            "dactylos/analysis/shaping"
+        ],
+        libraries=['DactylosAnalysis'],
+        language='c++'
+    )
 ]
 
 
@@ -251,9 +298,7 @@ setup(name='dactylos',
       #download_url="pip install skippylab",
       install_requires=['numpy>=1.11.0',
                         'matplotlib>=1.5.0',
-                        'pyserial>=3.4.0',
                         'six>=1.1.0',
-                        "python-vxi11>=0.9.0",
                         'pybind11>2.4'],
     ext_modules=ext_modules,
     #cmdclass={'build_ext': BuildExt},
@@ -275,5 +320,9 @@ setup(name='dactylos',
               "CAEN N6725", "6725",\
               "readout", "physics", "engineering", "lab", "USB"],
     packages=['dactylos', 'dactylos.analysis', 'dactylos.analysis.shaping'],
+    # use the package_data hook to get the pybindings (as compiled with cmake) to the right
+    # final destination
+    #package_data={'dactylos.analysis.shaping' : ['*.so']},
+    #include_package_data=True,
     scripts=['bin/RunDigitizer', 'bin/FitXrayData']
     )

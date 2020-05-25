@@ -52,12 +52,13 @@ set(SOURCES
 # for the digitizer readout
 set(DIGITIZER_LIBRARY_SHARED CaenN6725)
 # the analysis lib
-set(DACTYLOS_ANALYSIS_LIB "DactylosAnalysis")
+set(DACTYLOS_ANALYSIS_LIBRARY_SHARED DactylosAnalysis)
 
 # build pybindings
 option(BUILD_PYBINDINGS "pybindings for the digitizer" ON)
 set(PYBIND_VERSION 2.2.4 CACHE STRING "used pybindings version" FORCE)
 set(pybindings "_pyCaenN6725")
+set(pybindings_analysis "_trapezoidal_shaper")
 
 # building - libraries
 add_library(${DIGITIZER_LIBRARY_SHARED} SHARED src/CaenN6725.cxx)
@@ -69,6 +70,19 @@ target_include_directories(${DIGITIZER_LIBRARY_SHARED}
                               )
 
 target_link_libraries(${DIGITIZER_LIBRARY_SHARED}
+                          ${ROOT_LIBRARIES}
+                          ${CAEN_LIBRARIES}
+                          )
+
+add_library(${DACTYLOS_ANALYSIS_LIBRARY_SHARED} SHARED dactylos/analysis/shaping/trapezoidal_shaper.cxx)
+target_include_directories(${DACTYLOS_ANALYSIS_LIBRARY_SHARED}
+                           PRIVATE
+                                ${ROOT_INCLUDE_DIRS}
+                                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                                $<INSTALL_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                              )
+
+target_link_libraries(${DACTYLOS_ANALYSIS_LIBRARY_SHARED}
                           ${ROOT_LIBRARIES}
                           ${CAEN_LIBRARIES}
                           )
@@ -95,19 +109,33 @@ find_package(pybind11 )
                             ${CAEN_LIBRARIES}
                             ${DIGITIZER_LIBRARY_SHARED}
                           )
+    
+    pybind11_add_module(${pybindings_analysis} MODULE dactylos/analysis/shaping/module.cxx)
+    target_include_directories(${pybindings_analysis}
+                               PRIVATE
+                                   dactylos/analysis/shaping/
+                                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                                   $<INSTALL_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                              )
+
+    target_link_libraries(${pybindings_analysis}
+                          PRIVATE
+                            ${DACTYLOS_ANALYSIS_LIBRARY_SHARED}
+                          )
 
   endif()
+
 endif(BUILD_PYBINDINGS)
 
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/python/configuration-example.json
-        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
-        DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-
-# create symlinks for the binaries
-install(CODE "execute_process( \
-        COMMAND ${CMAKE_COMMAND} -E create_symlink \
-        ${CMAKE_CURRENT_SOURCE_DIR}/python/CraneLab \
-        ${CMAKE_CURRENT_BINARY_DIR}/CraneLab   \
-        )"
-       )
-
+#install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/python/configuration-example.json
+#        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
+#        DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+#
+## create symlinks for the binaries
+#install(CODE "execute_process( \
+#        COMMAND ${CMAKE_COMMAND} -E create_symlink \
+#        ${CMAKE_CURRENT_SOURCE_DIR}/python/CraneLab \
+#        ${CMAKE_CURRENT_BINARY_DIR}/CraneLab   \
+#        )"
+#       )
+#
