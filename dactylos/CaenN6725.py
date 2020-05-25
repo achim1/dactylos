@@ -153,6 +153,7 @@ class CaenN6725(object):
         digi_pars = self.extract_digitizer_parameters(config)
     
         #self.digitizer = _cn.CaenN6725(digi_pars)
+        self.digitizer.connect()
         self.digitizer.configure(digi_pars)
 
         bf = self.digitizer.get_board_info()
