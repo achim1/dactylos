@@ -10,15 +10,17 @@ import uproot as up
 import tqdm
 import os
 import os.path
+import tqdm
 
 from copy import copy
+
+import hepbasestack as hep 
 
 from .utils import get_stripname, plot_waveform
 
 # shaping stuff 
-from .shaping import GaussShaper
-
-import hepbasestack as hep 
+#from .shaping import GaussShaper, TrapezoidalFilter
+from . import shaping as sh
 
 import dactylos
 
@@ -41,8 +43,14 @@ def read_waveform(infile, ch):
     """
     f = up.open(infile)
     data = f.get('ch' + str(ch)).get('waveform').array()
-    data = np.array([baseline_correction(k, nsamples=1000)[0] for k in data])
-    print (f'Read out {len(data)} events for channel {ch}')
+    data = [baseline_correction(k, nsamples=100)[0] for k in data]
+    #if sh.WAVEFORMTYPE == 'ARRAY':
+    #    data = np.array(data, dtype=np.int16)
+    # data is in counts here, so it is still technichally not more precise than
+    # an int 16
+    if sh.WAVEFORMTYPE == 'ARRAY':
+        data = np.asarray(data, dtype=np.int16)
+    print (f'Read out {len(data)} events for channel {ch}')    
     return ch, data
 
 ########################################################################
@@ -70,7 +78,11 @@ def baseline_correction(input_pulses, nsamples=2000):
     #baseline = input[:nsamples].mean() - zero
     #print (f"Baseline calculation gives us {baseline}")
     #return input - np.ones(len(input))*baseline - absolute_zero*np.ones(len(input)), baseline
-    return input_pulses - np.ones(len(input_pulses))*baseline, baseline
+    if sh.WAVEFORMTYPE == 'ARRAY':
+        data = input_pulses - np.ones(len(input_pulses), dtype=np.int16)*baseline, baseline
+    if sh.WAVEFORMTYPE == 'LIST':
+        data = list(np.asarray(input_pulses, dtype=np.int16) - np.ones(len(input_pulses), dtype=np.int16)*int(baseline)), baseline
+    return data
     #return baseline,(input - baseline)
 
 ########################################################################
@@ -81,13 +93,19 @@ class WaveformAnalysis(object):
 
     """
 
-    def __init__(self, njobs=4, active_channels=[0,1,2,3,4,5,6,7]):
+    def __init__(self, njobs=4,\
+                 active_channels=[0,1,2,3,4,5,6,7],\
+                 use_simple_trapezoid_shaper=False,\
+                 shaper_order=4,\
+                 adjust_shaper_order_dynamically=False):
         """
         Prepare the waveform analysis. This is a several step process.
         First, tell it what files to use, then load them and finaly analyze.
 
-        Args:
-            njobs (int) : number of jobs to use
+        Keyword Args:
+            njobs (int)                         : number of cpu jobs to use
+            use_simple_trapezoid_shaper (bool)  : instead of the Gaussian shaper, a simple trapezoidal
+                                                  filter can be used. 
 
         Returns:
             order (int)           :  -- unknown shaping parameter
@@ -97,15 +115,20 @@ class WaveformAnalysis(object):
             dt (float)            :  Digitizer sample size (that is 1/sampling rate) in 
                                      seconds. This value is fix for the CAEN 6725 with 
                                      250 MSamples/s
-
+            shaper_order (int)    :  Order of the Gaussian shaper (4 is default)
+            adjust_shaper_order_dynamically (bool) : Switch to a higher shaper order
+                                                     for larger peakingtimes automatically
         """
         self.files = []
         self.tpexecutor = fut.ThreadPoolExecutor(max_workers=njobs)
         self.ppexecutor = fut.ProcessPoolExecutor(max_workers=njobs)
         self.active_channels = active_channels
         self.channel_data = dict([(k, np.array([])) for k in self.active_channels])  
+        self.order = shaper_order
+        self.adjust_shaper_order_dynamically = adjust_shaper_order_dynamically
+        self.use_simple_trapezoid_shaper = use_simple_trapezoid_shaper
+        self.recordlegths = dict()
 
- 
     def get_recordlengths(self):
         """
         For debugging purposes. Check the recordlength of the 
@@ -121,7 +144,11 @@ class WaveformAnalysis(object):
         result = dict()
         for ch in self.active_channels:
             rl = np.array([len(k) for k in self.channel_data[ch]])
-            result[ch] = set(rl)
+            if len (set(rl)) != 1:
+                raise ValueError(f'Waveforms in the SAME CHANNEL do not have the SAME recordlength! Something is terribly wrong! {set(rl)}')
+            result[ch] = rl[0]
+            
+        self.recordlengths = result
         return result
 
     def get_eventcounts(self):
@@ -218,7 +245,8 @@ class WaveformAnalysis(object):
         init_ch = [False]*8
         for future in fut.as_completed(future_to_fname):
             ch, data = future.result()    
-            data = np.array([np.array(k) for k in data])
+            if sh.WAVEFORMTYPE == 'ARRAY':
+                data = np.array([np.array(k, dtype=np.int16) for k in data])
             if not init_ch[ch]:
                 self.channel_data[ch] = data
                 init_ch[ch] = True
@@ -278,10 +306,36 @@ class WaveformAnalysis(object):
 
         """
         ptime_energies = dict()
+        if not self.recordlengths:
+            self.get_recordlengths()
+
         data = copy(self.channel_data[channel])
-        for ptime in self.peakingtime_sequence:
-            shaper = GaussShaper(ptime)
-            energies = np.array([energy for energy in self.ppexecutor.map(shaper.shape_it, data)])
+        for ptime in tqdm.tqdm(self.peakingtime_sequence):
+            #logger.info(f"Crunching numbers for peaking time {ptime}")
+
+            if self.adjust_shaper_order_dynamically:
+                if 500 < ptime <= 1000:
+                    order = 3
+                elif ptime <= 500:
+                    order = 2
+                else:
+                    order = 7
+            else:
+                order = self.order
+            if self.use_simple_trapezoid_shaper:
+                #shaper = TrapezoidalFilter(ptime = ptime, recordlength = self.recordlengths[channel])
+                shaper = sh.TrapezoidalFilter(ptime, 1000, self.recordlengths[channel])
+            else:
+                shaper = sh.GaussShaper(ptime, order=order)
+            #if self.njobs > 1:
+            energies = np.array([energy for energy in self.ppexecutor.map(shaper.shape_it, data, chunksize=50)])
+            #else:
+            #energies = np.array([shaper.shaper_it(wf) for wf in data])
             ptime_energies[ptime] = energies 
+
+        #if self.njobs > 1:
+        #    for future in fut.as_completed(future_to_fname):
+        #        ch, data = future.result()    
+            
         return ptime_energies 
 

@@ -75,6 +75,12 @@ if __name__ == '__main__':
                         default=False, action='store_true',\
                         help='Analyze data taken with mc2/windows.\
                               Currently, this relies on a certain file structure.')
+    parser.add_argument('--trapezoid',
+                        dest='trapezoid',
+                        default=False, action='store_true',\
+                        help='Use trapezoid for shaping instead of\
+                              the Gaussian.'
+                       )
     #parser.add_argument('infiles', metavar='infiles', type=str, nargs='+',
     #                help='input root files, taken with CraneLab')
     #parser.add_argument('--debug', dest='debug',
@@ -89,6 +95,19 @@ if __name__ == '__main__':
     parser.add_argument('-j','--jobs', dest='njobs',
                         default=12,type=int,
                         help='number of jobs to use')
+    parser.add_argument('--gaussian-shaping-times', nargs='+',\
+                        help='Specify a sequence of peking times for the Gaussian\
+                              shaper. If not given, a reasonable default is used',\
+                        dest='gaussian_shaping_times',\
+                        default=[],required=False)
+    parser.add_argument('--shaper-order', dest='shaper_order',
+                        default=4,type=int,
+                        help='order parameter of the Gaussian shaper. This parameter only has an effect together with --waveform-analysis.')
+    parser.add_argument('--shaper-different-orders',
+                        dest='shaper_different_orders',
+                        default=False, action='store_true',\
+                        help='Change the order for the shaper from 4 to 7.\
+                              It is 4 for pt < 5ms and 7 otherwise.')
     parser.add_argument('--waveform-analysis', dest='waveform_analysis',
                         default=False, action='store_true',
                         help='Use the waveform information to generate the noisemodel plot.')
@@ -139,7 +158,13 @@ if __name__ == '__main__':
         raise ValueError("Can not plot waveforms without the --waveform-analysis switch!") 
     if args.waveform_analysis:
         logger.info("Will do anlysis directly on the waveforms")
-        analysis = WaveformAnalysis(njobs=args.njobs, active_channels=[0,1])
+        if args.trapezoid:
+            logger.warning("Will use trapezoid for shaping instead of Gaussian - experimental feature!")
+        analysis = WaveformAnalysis(njobs=args.njobs,\
+                                    active_channels=[0,1],\
+                                    use_simple_trapezoid_shaper=args.trapezoid,\
+                                    shaper_order=args.shaper_order,
+                                    adjust_shaper_order_dynamically=args.shaper_different_orders)
         analysis.set_infiles(infiles)
         for infile in infiles:
             metadata = pattern.search(infile).groupdict()
@@ -159,8 +184,13 @@ if __name__ == '__main__':
         for k in analysis.active_channels:
             logger.info(f" Record length in ch {k} ; {len(analysis.channel_data[k][0])}")
         
-        peaking_sequence = np.array([500,1000,2000,4000,8000,12000,16000,20000,30000])    
-        logger.info(f'Setting peaking sequence {peaking_sequence} micro seconds')
+        #peaking_sequence = np.array([500,1000,2000,4000,8000,12000,16000,20000,30000])    
+        if args.gaussian_shaping_times:
+            peaking_sequence = np.array([int(k) for k in args.gaussian_shaping_times])
+        else:
+            peaking_sequence = np.array([500,759,1000,2000,3000,4000,5000, 7000,8000,10000,12000,14000,16000,18000,20000,25000,30000])    
+         
+        logger.info(f'Setting peaking sequence {peaking_sequence} nano seconds')
         analysis.set_peakingtime_sequence(peaking_sequence)
 
         for ch in analysis.active_channels:
@@ -274,7 +304,7 @@ if __name__ == '__main__':
 
     # get the results in the parallel case
     if args.njobs > 1:
-        for future in fut.as_completed(future_to_ptime):
+        for future in tqdm.tqdm(fut.as_completed(future_to_ptime)):
             ptime = future_to_ptime[future]
             try:
                 detid, ch, params, params_err, figname = future.result()
