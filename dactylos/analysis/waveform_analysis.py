@@ -43,7 +43,7 @@ def read_waveform(infile, ch):
     """
     f = up.open(infile)
     data = f.get('ch' + str(ch)).get('waveform').array()
-    data = [baseline_correction(k, nsamples=100)[0] for k in data]
+    data = [baseline_correction(k, nsamples=1000)[0] for k in data]
     #if sh.WAVEFORMTYPE == 'ARRAY':
     #    data = np.array(data, dtype=np.int16)
     # data is in counts here, so it is still technichally not more precise than

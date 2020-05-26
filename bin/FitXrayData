@@ -12,7 +12,7 @@ import numpy as np
 import hepbasestack as hep
 import pylab as p
 import HErmes as he
-import HErmes.visual.layout as lo
+import hepbasestack.layout as lo
 import concurrent.futures as fut
 import os
 import os.path
@@ -343,7 +343,11 @@ if __name__ == '__main__':
         ys      = np.array(ys)[idx]
         ys_err  = np.array(ys_err)[idx]
 
-        fit_noisemodel(xs, ys, ys_err, ch, detid, plotdir=args.outdir)
+        try:
+            fit_noisemodel(xs, ys, ys_err, ch, detid, plotdir=args.outdir)
+        except Exception as e:
+            logger.warning(f"Can not fit noisemodel for {detid} ch {ch}, exception {e}")
+            continue
 
         # save the individual figure
         for i,fig in tqdm.tqdm(enumerate(figures), desc=f'Saving data for {get_stripname(ch)}', total=len(figures)):

@@ -5,10 +5,10 @@ import time
 import _pyCaenN6725 as _cn
 
 import hepbasestack as hep
+import hepbasestack.layout as lo
 hep.visual.set_style_default()
 
 from HErmes.visual.canvases import YStackedCanvas
-import HErmes.visual.layout as lo
 import HErmes.visual.plotting as plt
 
 landscape_half_figure_factory= lambda : p.figure(dpi=150, figsize=lo.FIGSIZE_A4_LANDSCAPE_HALF_HEIGHT)
