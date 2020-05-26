@@ -10,15 +10,17 @@
 project(dactylos C CXX)
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 
+# we want to use modern c++ features
+set(CMAKE_CXX_STANDARD 17) 
+
 
 # FIXME: this is primed for Ubuntu currently,
 # but it needs to become more system independ
 
 # make sure we use python 3
 set(PYBIND11_PYTHON_VERSION 3.6)
-set(PYTHON_INCLUDE_DIRS "/usr/include/python3.6")
-set(PYTHON_LIBRARIES "/usr/lib/python3.6/config-3.6m-x86_64-linux-gnu/libpython3.6.so")
-message(WARNING "Python has been set up to use version 3.6. This is currently hardcoded for an Ubuntu system!")
+
+find_package (Python COMPONENTS Interpreter Development)
 
 # You need to tell CMake where to find the ROOT installation.
 # For ROOT built with CMake.
