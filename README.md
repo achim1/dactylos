@@ -43,7 +43,7 @@ invoke cmake, but for more control, `cmake` can be called directly as well
 
 ### Usage
 
-Two binaries are provided, one for data-taking and anohter one for analysis of a (possible X-ray) spectrum
+Two binaries are provided, one for data-taking and another one for analysis of a (possible X-ray) spectrum
 
 
 

@@ -1,3 +1,9 @@
+"""
+setup.py file for dactylos - CAEN N6725 digitizer read out software.
+This setup.py file will compile the C++ extensions needed to interact
+with the digitizer with the help of an additional CMakeLists.txt file.
+"""
+
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 
@@ -30,11 +36,6 @@ class CMakeExtension(Extension):
 
         self.has_explicit_destination = False
 
-    def set_destination_explicit(self, destination):
-        """
-
-        """
-        pass
 
 class CMakeBuild(build_ext):
     def run(self):
@@ -291,10 +292,10 @@ class BuildExt(build_ext):
 setup(name='dactylos',
       version=version,
       description='Python package to interact and readout CAEN N6725 digitizers. Can access waveform information, energy values of the shapers and allows for easy configuration of the instrument.',
-      long_description='This is a private project, and with association of CAEN in any kind. There is no guarantee that this code is useful or working or not harmful. Please see the licensce agreement. This code needs the CAEN C libraries for communication of the digitizer via USB as well as the CAEN C interface library, see https://www.caen.it/products/n6725/.',
+      long_description='This is a private project, and without association of CAEN in any kind. There is no guarantee that this code is useful or working or not harmful. Please see the licensce agreement. This code needs the CAEN C libraries for communication of the digitizer via USB as well as the CAEN C interface library, see https://www.caen.it/products/n6725/.',
       author='Achim Stoessl',
       author_email="achim.stoessl@gmail.com",
-      url='https://github.com/achim1/skippylab',
+      url='https://github.com/achim1/dactylos',
       #download_url="pip install skippylab",
       install_requires=['numpy>=1.11.0',
                         'matplotlib>=1.5.0',

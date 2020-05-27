@@ -10,8 +10,11 @@
 project(dactylos C CXX)
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 
-# we want to use modern c++ features
-set(CMAKE_CXX_STANDARD 17) 
+# we want to use modern c++ features, however this is 
+# very sensitiv to the standard CERN's root has been built with
+# it most likely must be the same.
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to be used, 11, 14, 17 or 20")
+message(STATUS "Building with C++ standard ${CMAKE_CXX_STANDARD}")
 
 
 # FIXME: this is primed for Ubuntu currently,
