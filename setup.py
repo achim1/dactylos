@@ -16,6 +16,7 @@ import sys
 import sysconfig
 import platform
 import subprocess
+import shlex
 from pathlib import Path
 
 from distutils.version import LooseVersion
@@ -23,8 +24,106 @@ from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 from setuptools.command.test import test as TestCommand
 
+def get_version(package):
+    """
+    Return package version as listed in `__version__` in `init.py`.
+    """
+    with open(os.path.join(package, '__init__.py'), 'rb') as init_py:
+        src = init_py.read().decode('utf-8')
+        return re.search("__version__ = ['\"]([^'\"]+)['\"]", src).group(1)
+
+VERSION = get_version('dactylos')
+
+tests_require = [
+    'pytest>=3.0.5',
+    'pytest-cov',
+    'pytest-runner',
+]
+
+needs_pytest = set(('pytest', 'test', 'ptr')).intersection(sys.argv)
+setup_requires = ['pytest-runner'] if needs_pytest else []
+setup_requires.append('pybind11>2.4')
+
+#####################################################
+# Get dependnecies 
+# ROOT lib/include dirs
+
+def get_root_include_dir():
+    rootsys = os.getenv('ROOTSYS')
+    if rootsys is None:
+        raise SystemError("$ROOTSYS shell variable not defined! Make sure to have root installed end this variable defined.")
+    print (f'Found root include dir at {rootsys}/include')
+    return os.path.join(rootsys, 'include')
+
+def get_root_lib_dir():
+    rootsys = os.getenv('ROOTSYS')
+    if rootsys is None:
+        raise SystemError("$ROOTSYS shell variable not defined! Make sure to have root installed end this variable defined.")
+    print (f'Found root include dir at {rootsys}/lib')
+    return os.path.join(rootsys, 'lib')
+
+class get_pybind_include(object):
+    """
+    Helper class to determine the pybind11 include path
+    The purpose of this class is to postpone importing pybind11
+    until it is actually installed, so that the ``get_include()``
+    method can be invoked. 
+    """
+
+    def __init__(self, user=False):
+        self.user = user
+
+    def __str__(self):
+        import pybind11
+        return pybind11.get_include(self.user)
+
+
+def get_root_cxx_standard():
+    """
+    Invoce root-config to find out which cxx standard was used
+    to compile root
+    """
+    command = shlex.split('root-config --cflags')
+    result = subprocess.Popen(command, stdout=subprocess.PIPE).communicate()[0]
+    cxxstandard = re.compile('-std=c\+\+(?P<std>[0-9]+)')
+    try:
+        cxxstandard = cxxstandard.search(result.decode()).groupdict()['std']
+    except Exception as e:
+        print(f'Can not retrieve uxed C++ standard used when compiling root, exceoption {e}')
+    return cxxstandard
+
+
+# since root might be not in the superusers python path, add it to 
+# sys path
+sys.path.append(get_root_lib_dir())
+import ROOT 
+
+#####################################################
+
+# As of Python 3.6, CCompiler has a `has_flag` method.
+# cf http://bugs.python.org/issue26689
+def has_flag(compiler, flagname):
+    """
+    Return a boolean indicating whether a flag name is supported on
+    the specified compiler.
+    """
+    import tempfile
+    with tempfile.NamedTemporaryFile('w', suffix='.cpp') as f:
+        f.write('int main (int argc, char **argv) { return 0; }')
+        try:
+            compiler.compile([f.name], extra_postargs=[flagname])
+        except setuptools.distutils.errors.CompileError:
+            return False
+    return True
+
+#####################################################
 
 class CMakeExtension(Extension):
+    """
+    Allows to install extensions with the
+    help of an external CMakeLists.txt file
+    """
+
     def __init__(self, name, **kwargs):
         Extension.__init__(self, name, **kwargs)
         if name.startswith('_py'):
@@ -38,6 +137,12 @@ class CMakeExtension(Extension):
 
 
 class CMakeBuild(build_ext):
+    """
+    Invoke cmake and an external CMakeLists.txt file to 
+    build the external components
+
+    """
+
     def run(self):
         try:
             out = subprocess.check_output(['cmake', '--version'])
@@ -51,9 +156,10 @@ class CMakeBuild(build_ext):
         cmake_args = [
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + build_directory,
             #'-DPYTHON_EXECUTABLE=' + sys.executable
-            '-DPYTHON_EXECUTABLE=/usr/bin/python3', \
-            '-DPYTHON_INCLUDE_DIR=/usr/include/python3.6m', \
-            '-DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.6m.so'
+            #'-DPYTHON_EXECUTABLE=/usr/bin/python3', \
+            #'-DPYTHON_INCLUDE_DIR=/usr/include/python3.6m', \
+            #'-DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.6m.so'
+            f'-DCMAKE_CXX_STANDARD={get_root_cxx_standard()}'\
         ]
 
         cfg = 'Debug' if self.debug else 'Release'
@@ -116,53 +222,6 @@ class CMakeBuild(build_ext):
             print (f"Failed, raised {e}. Trying again..")
             self.copy_file(build_temp/self.get_ext_filename(ext.name), dest_path)        
 
-def get_version(package):
-    """
-    Return package version as listed in `__version__` in `init.py`.
-    """
-    with open(os.path.join(package, '__init__.py'), 'rb') as init_py:
-        src = init_py.read().decode('utf-8')
-        return re.search("__version__ = ['\"]([^'\"]+)['\"]", src).group(1)
-
-version = get_version('dactylos')
-
-tests_require = [
-    'pytest>=3.0.5',
-    'pytest-cov',
-    'pytest-runner',
-]
-
-needs_pytest = set(('pytest', 'test', 'ptr')).intersection(sys.argv)
-setup_requires = ['pytest-runner'] if needs_pytest else []
-setup_requires.append('pybind11>2.4')
-
-def get_root_include_dir():
-    rootsys = os.getenv('ROOTSYS')
-    if rootsys is None:
-        raise SystemError("$ROOTSYS shell variable not defined! Make sure to have root installed end this variable defined.")
-    print (f'Found root include dir at {rootsys}/include')
-    return os.path.join(rootsys, 'include')
-
-def get_root_lib_dir():
-    rootsys = os.getenv('ROOTSYS')
-    if rootsys is None:
-        raise SystemError("$ROOTSYS shell variable not defined! Make sure to have root installed end this variable defined.")
-    print (f'Found root include dir at {rootsys}/lib')
-    return os.path.join(rootsys, 'lib')
-
-
-class get_pybind_include(object):
-    """Helper class to determine the pybind11 include path
-    The purpose of this class is to postpone importing pybind11
-    until it is actually installed, so that the ``get_include()``
-    method can be invoked. """
-
-    def __init__(self, user=False):
-        self.user = user
-
-    def __str__(self):
-        import pybind11
-        return pybind11.get_include(self.user)
 
 # external modules, build by CMake. At the moment this is all 
 # double a little bit, this must be also defined in the CMakeList.txt file
@@ -220,77 +279,9 @@ ext_modules = [
 ]
 
 
-# As of Python 3.6, CCompiler has a `has_flag` method.
-# cf http://bugs.python.org/issue26689
-def has_flag(compiler, flagname):
-    """Return a boolean indicating whether a flag name is supported on
-    the specified compiler.
-    """
-    import tempfile
-    with tempfile.NamedTemporaryFile('w', suffix='.cpp') as f:
-        f.write('int main (int argc, char **argv) { return 0; }')
-        try:
-            compiler.compile([f.name], extra_postargs=[flagname])
-        except setuptools.distutils.errors.CompileError:
-            return False
-    return True
-
-
-def cpp_flag(compiler):
-    """Return the -std=c++[11/14/17] compiler flag.
-    The newer version is prefered over c++11 (when it is available).
-    """
-    flags = ['-std=c++17', '-std=c++14', '-std=c++11']
-
-    for flag in flags:
-        if has_flag(compiler, flag): return flag
-
-    raise RuntimeError('Unsupported compiler -- at least C++11 support '
-                       'is needed!')
-
-#ROOT.gSystem.GetIncludePath() 
-# since root might be not in the superusers python path, add it to 
-# sys path
-sys.path.append(get_root_lib_dir())
-import ROOT 
-
-class BuildExt(build_ext):
-    """A custom build extension for adding compiler-specific options."""
-    c_opts = {
-        'msvc': ['/EHsc'],
-        #'unix': [ROOT.gSystem.GetIncludePath(), "-I" + pybind11.get_include(), '-std=c++14'],
-        'unix': [ROOT.gSystem.GetIncludePath(), '-std=c++14'],
-    }
-    l_opts = {
-        'msvc': [],
-        'unix': ['-lCAENDigitizer'],
-    }
-
-    if sys.platform == 'darwin':
-        darwin_opts = ['-stdlib=libc++', '-mmacosx-version-min=10.7']
-        c_opts['unix'] += darwin_opts
-        l_opts['unix'] += darwin_opts
-
-    def build_extensions(self):
-        ct = self.compiler.compiler_type
-        opts = self.c_opts.get(ct, [])
-        link_opts = self.l_opts.get(ct, [])
-        if ct == 'unix':
-            opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
-            #opts.append(cpp_flag(self.compiler))
-            if has_flag(self.compiler, '-fvisibility=hidden'):
-                opts.append('-fvisibility=hidden')
-        elif ct == 'msvc':
-            opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
-        for ext in self.extensions:
-            ext.extra_compile_args = opts
-            ext.extra_link_args = link_opts
-        build_ext.build_extensions(self)
-
-
 
 setup(name='dactylos',
-      version=version,
+      version=VERSION,
       description='Python package to interact and readout CAEN N6725 digitizers. Can access waveform information, energy values of the shapers and allows for easy configuration of the instrument.',
       long_description='This is a private project, and without association of CAEN in any kind. There is no guarantee that this code is useful or working or not harmful. Please see the licensce agreement. This code needs the CAEN C libraries for communication of the digitizer via USB as well as the CAEN C interface library, see https://www.caen.it/products/n6725/.',
       author='Achim Stoessl',
