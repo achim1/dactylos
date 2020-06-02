@@ -127,7 +127,7 @@ class WaveformAnalysis(object):
         self.order = shaper_order
         self.adjust_shaper_order_dynamically = adjust_shaper_order_dynamically
         self.use_simple_trapezoid_shaper = use_simple_trapezoid_shaper
-        self.recordlegths = dict()
+        self.recordlengths = dict()
 
     def get_recordlengths(self):
         """

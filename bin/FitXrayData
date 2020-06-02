@@ -138,7 +138,7 @@ if __name__ == '__main__':
         for subfolder in subfolders:
             infiles += glob(os.path.join(subfolder, '*.txt'))
 
-        regex = 'pt_(?P<stime>[0-9]*)_(mu_s|ns)\/Sh(?P<detid>[0-9]*)_(?P<strip>[A-H]).txt' 
+        regex = 'pt_(?P<stime>[0-9]*)_(mus|mu_s|ns)\/Sh(?P<detid>[0-9]*)_(?P<strip>[A-H]).txt' 
         pattern = re.compile(regex)
     else:
         infiles = glob(os.path.join(args.indir, '*.root'))
@@ -344,7 +344,8 @@ if __name__ == '__main__':
         ys_err  = np.array(ys_err)[idx]
 
         try:
-            fit_noisemodel(xs, ys, ys_err, ch, detid, plotdir=args.outdir)
+            # do not use minuit right now until we have understood the errors
+            fit_noisemodel(xs, ys, ys_err, ch, detid, use_minuit=False, plotdir=args.outdir)
         except Exception as e:
             logger.warning(f"Can not fit noisemodel for {detid} ch {ch}, exception {e}")
             continue
@@ -367,10 +368,8 @@ if __name__ == '__main__':
         for gfx in ch_savenames[ch]:
             command += f' {gfx} '
         command += f' {mplotname}'  
-        print (command)
 
         logger.info(f'Executing {command}')
-        print (shlex.split(command + '.png'))
         proc = subprocess.Popen(shlex.split(command + '.pdf')).communicate()
         proc = subprocess.Popen(shlex.split(command + '.png')).communicate()
         proc = subprocess.Popen(shlex.split(command + '.jpg')).communicate()
