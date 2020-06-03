@@ -142,8 +142,9 @@ if __name__ == '__main__':
         pattern = re.compile(regex)
     else:
         infiles = glob(os.path.join(args.indir, '*.root'))
-        regex = '(?P<detid>[0-9]*)_stime(?P<stime>[0-9]*).root' 
+        regex = '(?P<detid>[0-9]*)_(s|p)time(?P<stime>[0-9]*).root' 
         pattern = re.compile(regex)
+
 
     if args.njobs > 1: future_to_ptime = dict()
     
