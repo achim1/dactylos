@@ -100,6 +100,10 @@ if __name__ == '__main__':
                               shaper. If not given, a reasonable default is used',\
                         dest='gaussian_shaping_times',\
                         default=[],required=False)
+    parser.add_argument('--channels', nargs='+',\
+                        help='The sequence of channels to analyze. Default to 0,1,2,3,4,5,6,7',\
+                        dest='channels',\
+                        default=[0,1,2,3,4,5,6,7],required=False)
     parser.add_argument('--shaper-order', dest='shaper_order',
                         default=4,type=int,
                         help='order parameter of the Gaussian shaper. This parameter only has an effect together with --waveform-analysis.')
@@ -151,6 +155,9 @@ if __name__ == '__main__':
     # store the results
     datasets = []
 
+    # channels to analyze
+    active_channels = [int(k) for k in args.channels]
+
     # mapping detector strips <-> digitizer channels
     ch_name_to_int = {'A' : 0, 'B' : 1, 'C' : 2, 'D' : 3,\
                       'E' : 4, 'F' : 5, 'G' : 6, 'H' :7}
@@ -162,7 +169,7 @@ if __name__ == '__main__':
         if args.trapezoid:
             logger.warning("Will use trapezoid for shaping instead of Gaussian - experimental feature!")
         analysis = WaveformAnalysis(njobs=args.njobs,\
-                                    active_channels=[0,1],\
+                                    active_channels=active_channels,\
                                     use_simple_trapezoid_shaper=args.trapezoid,\
                                     shaper_order=args.shaper_order,
                                     adjust_shaper_order_dynamically=args.shaper_different_orders)
@@ -278,7 +285,7 @@ if __name__ == '__main__':
        
             # anlayze per channel, each file has all
             # the 8 channels saved 
-            for ch in range(8):
+            for ch in active_channels:
                     
                 # be paranoid with mutable arguments
                 file_type = '.root'
@@ -326,17 +333,15 @@ if __name__ == '__main__':
     pktimes_savenames = dict([(dsptime.ptime,[]) for dsptime in datasets])
     # create the model fit plots
     ch_savenames = dict(zip([ch for ch in range(8)],[[] for ch in range(8)])) 
-    for ch in range(8):
+    for ch in active_channels:
         stripname = get_stripname(ch)
         ch_datasets = [data for data in datasets if data.channel == ch]
-        #print (f'{len(ch_datasets)} datasets available for channel {ch}')
+        logger.info(f'{len(ch_datasets)} datasets available for channel {ch}')
         xs = np.array([data.ptime for data in ch_datasets])
         ys = np.array([data.fwhm for data in ch_datasets])
         ys_err = np.array([data.fwhm_err for data in ch_datasets])
 
-        #figures = [data.fig for data in ch_datasets]
         figures = [data.figname for data in ch_datasets]
-        #print (f'peaking times {xs}')
         
         # sort them from smallest to largest peaking time
         idx     = np.argsort(np.array(xs))
@@ -374,7 +379,7 @@ if __name__ == '__main__':
         proc = subprocess.Popen(shlex.split(command + '.pdf')).communicate()
         proc = subprocess.Popen(shlex.split(command + '.png')).communicate()
         proc = subprocess.Popen(shlex.split(command + '.jpg')).communicate()
-        #raise ZeroDivisionError 
+       
         # shrink the jpg so it will go in google docs presentation
         command_shrink = f'convert {mplotname}.jpg -resize 50% -normalize  {mplotname}.jpg'
         proc = subprocess.Popen(shlex.split(command_shrink)).communicate()
