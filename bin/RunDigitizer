@@ -11,16 +11,15 @@ import tqdm
 import pylab as p
 import hjson
 
-import hepbasestack as hep
-
 p.ion()
 from os.path import join as _j
 from skippylab.controllers import PrologixUsbGPIBController
 try:
     import ROOT
-except ImportError:
+except ImportError as e:
     print ("Failed to import root.... Some functionality might not be available")
     print ("Make sure $ROOTSYS/lib is in your $PYTHONPATH")
+    raise ImportError("This requires CERN's root python library to run!")
 use_chamber = True
 scope = False
 shaping_spree  = True
@@ -94,7 +93,6 @@ if __name__ == '__main__':
     parser.add_argument('--digitizer-config', type=str, default='config_x.json', help='path to a digitizer configuration file')
 
     args = parser.parse_args()
-    print(args)
     logger = hep.logger.get_logger(args.loglevel)
     config = args.digitizer_config
     if not args.run_config:
@@ -136,23 +134,23 @@ if __name__ == '__main__':
     try:
         os.mkdir(outdir)
     except Exception as e:
-        logger.warning(f'Can not create {outdir}!')
-        print (e)
-        pass
-    
+        logger.warning(f'Can not create {outdir} - exception {e}!')
     
     if args.test:
         logger.info('Starting test session...')
         digi = dact.CaenN6725(dact.CaenN6725.parse_configfile(config), logger=logger)
         handle = digi.get_handle()
         logger.info(f"Got handle {handle}")
-        digi2 = dact.CaenN6725({})
-        digi2.set_handle(handle)
-        temps = digi2.get_temperatures()
-        print (type(temps))
-        print (temps)
-        logger.info(f"temps : {temps}")
-        digi.run_digitizer(10, rootfilename=_j(outdir,'example.root'),\
+        #digi2 = dact.CaenN6725({})
+        #digi2.set_handle(handle)
+        #temps = digi2.get_temperatures()
+        #print (type(temps))
+        #print (temps)
+        #logger.info(f"temps : {temps}")
+        # show the current firmware version
+        logger.info(f"We are connected to the digitizer. Boardinfo : {digi.get_board_info()}")
+        logger.info(f"Will run digitizer for 20 seconds...")
+        digi.run_digitizer(20, rootfilename=_j(outdir,'example.root'),\
                            read_waveforms=args.read_waveforms)
         del digi
         sys.exit(0)

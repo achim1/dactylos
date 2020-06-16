@@ -47,13 +47,14 @@ void CaenN6725::connect()
     if (current_error_ == -1)
         {
             std::cout << "Can not find digitizer at USB bus 0, trying others" << std::endl;
+            std::cout << "Trying ... "
             for (int busnr=1; busnr<200; busnr++)
-            //while (current_error_ !=0 )
                 {
-                 std::cout << "Trying ..." << busnr << std::endl;
+                 std::cout << busnr << "..";
                  current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, busnr, 0, 0, &handle_);
                  if (current_error_ == 0)  break;
                 }
+            std::cout << ".. found!" << std::endl;
         }
     if (current_error_ !=0 ) throw std::runtime_error("Can not open digitizer err code: " + std::to_string(current_error_));
 
@@ -108,8 +109,16 @@ void CaenN6725::configure(DigitizerParams_t params)
     if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP acquisition mode err code:" + std::to_string(current_error_));
     std::cout << "Setting record length " << params.RecordLength << std::endl;
     // Set the number of samples for each waveform
+    // Not sure, but this might be needed to be done per each channel pair
     current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set record length err code: " + std::to_string(current_error_));
+    current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength,2);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set record length err code: " + std::to_string(current_error_));
+    current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength,4);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set record length err code: " + std::to_string(current_error_));
+    current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength,6);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set record length err code: " + std::to_string(current_error_));
+
 
     // also set the record length internally
     recordlength_ = params.RecordLength;
@@ -329,6 +338,15 @@ void CaenN6725::set_channel_dc_offset(int channel, int offset)
 
 void CaenN6725::allocate_memory()
 {
+    // This is for Mengjiao's test of the trapezoidal shaper!
+    // The post trigger size is in percent.
+    //uint32_t posttrigs;
+    //current_error_ = CAEN_DGTZ_GetPostTriggerSize(handle_, &posttrigs);
+    //if (current_error_ !=0 ) throw std::runtime_error("Getting the post trigger size failed! err code:" + std::to_string(current_error_));
+    //std::cout << "Post trigger size has been found yo be " << std::to_string(posttrigs);
+
+    //current_error_ = CAEN_DGTZ_SetPostTriggerSize(handle_, posttrigs);
+    //if (current_error_ !=0 ) throw std::runtime_error("Setting the post trigger size failed! err code:" + std::to_string(current_error_));
     //if (!configured_) throw std::runtime_error("ERROR: The mallocs MUST be done after the digitizer programming because the following functions needs to know the digitizer configuration to allocate the right memory amount");
     current_error_ = CAEN_DGTZ_MallocReadoutBuffer(handle_, &buffer_, &allocated_size_);
     if (current_error_ != 0) throw std::runtime_error("Error while allocating readout buffer, err code " + std::to_string(current_error_));
@@ -338,6 +356,14 @@ void CaenN6725::allocate_memory()
     /* Allocate memory for the waveforms */
     current_error_ = CAEN_DGTZ_MallocDPPWaveforms(handle_, (void**)(&waveform_), &allocated_size_);
     if (current_error_ != 0) throw std::runtime_error("Error while allocating DPP waveform buffer, err code " + std::to_string(current_error_));
+
+}
+
+/***************************************************************/
+
+uint32_t CaenN6725::get_allocated_buffer_size()
+{
+    return allocated_size_;
 }
 
 /***************************************************************/
@@ -352,6 +378,7 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data(int dis
             // nothing to readout
             current_error_ = CAEN_DGTZ_ReadRegister(handle_, 0x8104, &acqstatus);
         }
+
     //if (! ( acqstatus && (1 << 4))) // the 3rd bit is the acquisition status
     //    {
     //        return; // no channel in full status
@@ -366,7 +393,7 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data(int dis
     current_error_ = CAEN_DGTZ_ReadData(handle_, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer_, &buffer_size_);
     if (current_error_ != 0) 
         {
-            std::cout << "error while getting data" << current_error_ << std::endl;
+            std::cout << "error while reading data" << current_error_ << std::endl;
             return thisevents;
         }
     if (buffer_size_ == 0)
@@ -379,7 +406,7 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data(int dis
 
     if (current_error_ != 0)
         {
-            std::cout << "error while getting data" << current_error_ << std::endl;
+            std::cout << "error while getting DPP events" << current_error_ << std::endl;
             return thisevents;
         }
 
@@ -445,10 +472,25 @@ std::vector<long> CaenN6725::get_n_events_tot()
 
 /***************************************************************/
 
+std::vector<long> CaenN6725::get_n_triggers_tot()
+{
+    return channel_triggers_;
+}
+
+/***************************************************************/
+
+std::vector<long> CaenN6725::get_n_lost_triggers_tot()
+{
+    return channel_lost_triggers_;
+}
+
+/***************************************************************/
+
 void CaenN6725::fast_readout_()
 {
     // check the readout status
     uint32_t acqstatus;
+    
     current_error_ = CAEN_DGTZ_ReadRegister(handle_, 0x8104, &acqstatus);
     if (! ( acqstatus & (1 << 3))) // the 3rd bit is the acquisition status
         {
@@ -465,7 +507,7 @@ void CaenN6725::fast_readout_()
     current_error_ = CAEN_DGTZ_ReadData(handle_, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer_, &buffer_size_);
     if (current_error_ != 0) 
         {
-            std::cout << "error while getting data" << current_error_ << std::endl;
+            std::cout << "error while reading data" << current_error_ << std::endl;
             return;
         }
     if (buffer_size_ == 0)
@@ -476,7 +518,7 @@ void CaenN6725::fast_readout_()
     current_error_ =  CAEN_DGTZ_GetDPPEvents(handle_, buffer_, buffer_size_, (void**)(events_),num_events_);
     if (current_error_ != 0)
         {
-            std::cout << "error while getting data" << current_error_ << std::endl;
+            std::cout << "error while getting DPP data" << current_error_ << std::endl;
             return;
         }
 
@@ -488,21 +530,30 @@ void CaenN6725::fast_readout_()
         //trigger_ch_ = std::vector<int>(8,0);
         trigger_ch_.clear();
         trigger_ch_.reserve(get_nchannels());
+        saturated_ch_.clear();
+        saturated_ch_.reserve(get_nchannels());
+
         for (int k=0; k<get_nchannels(); k++)
             {waveform_ch_.push_back({});
-             trigger_ch_.push_back(-1);}
+             trigger_ch_.push_back(-1);
+             saturated_ch_.push_back(0);}
     }
     for (int ch=0;ch<get_nchannels();ch++)
       {
         for (int ev=0;ev<num_events_[ch];ev++)
           {
+            // this is ok, because the energy gets then
+            // written to the root file imediatly
             energy_ch_[ch] = events_[ch][ev].Energy;
+            if (events_[ch][ev].Extras & (1<<4))
+                    {saturated_ch_[ch] = 1;}
             //energy_        = events_[ch][ev].Energy;
             if (decode_waveforms_)
               {
                   CAEN_DGTZ_DecodeDPPWaveforms(handle_, &events_[ch][ev], waveform_);
                   // fast mode, only do trace1
                   trace_ns_ = waveform_->Ns;
+                  // set the saturated flag if saturated
                   fill_analog_trace1_();
                   fill_digital_trace2_();
                   trigger_ch_.at(ch)  = get_trigger_point(); 
@@ -643,10 +694,12 @@ void CaenN6725::start_acquisition()
     energy_ch_.clear();
     waveform_ch_.clear();
     trigger_ch_.clear();
+    saturated_ch_.clear();
     energy_ch_.reserve(8);
     waveform_ch_.reserve(8);
     channel_trees_.reserve(8);
     trigger_ch_.reserve(8);
+    saturated_ch_.reserve(8);
     std::string ch_name = "ch";
     for (int k=0;k<8;k++)
         {
@@ -655,8 +708,9 @@ void CaenN6725::start_acquisition()
             channel_trees_[k]->Branch("energy", &energy_ch_[k]);
             if (decode_waveforms_)
                 {
-                    channel_trees_[k]->Branch("waveform", &waveform_ch_[k]);
-                    channel_trees_[k]->Branch("trigger", &trigger_ch_[k]);
+                    channel_trees_[k]->Branch("waveform",  &waveform_ch_[k]);
+                    channel_trees_[k]->Branch("trigger",   &trigger_ch_[k]);
+                    channel_trees_[k]->Branch("saturated", &saturated_ch_[k]);
                 }
         } 
     n_events_acq_ = std::vector<long>(get_nchannels(), 0);

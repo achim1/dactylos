@@ -9,10 +9,10 @@
 
 namespace py = pybind11;
 
-std::string to_string(char c_string[])
-{
-    return std::string(c_string);
-}
+//std::string to_string(char c_string[])
+//{
+//    return std::string(c_string);
+//}
 
 PYBIND11_MODULE(_pyCaenN6725, m) {
     m.doc() = "Pybindings for CaenN6725 digitizer library";
@@ -570,6 +570,7 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .def("get_last_error",      &CaenN6725::get_last_error)
         .def("get_board_info",      &CaenN6725::get_board_info)
         .def("allocate_memory",     &CaenN6725::allocate_memory)
+        .def("get_allocated_buffer_size", &CaenN6725::get_allocated_buffer_size)
         .def("start_acquisition",   &CaenN6725::start_acquisition)
         .def("end_acquisition",     &CaenN6725::end_acquisition)
         .def("get_nchannels",       &CaenN6725::get_nchannels)
@@ -594,6 +595,8 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .def("get_channel_dc_offset", &CaenN6725::get_channel_dc_offset)
         .def("get_n_events",        &CaenN6725::get_n_events)
         .def("get_n_events_tot",        &CaenN6725::get_n_events_tot)
+        .def("get_n_triggers_tot",      &CaenN6725::get_n_triggers_tot)
+        .def("get_n_lost_triggers_tot", &CaenN6725::get_n_lost_triggers_tot)
         .def("get_energy",              &CaenN6725::get_energy)
         .def("set_input_dynamic_range", &CaenN6725::set_input_dynamic_range)
         .def("get_input_dynamic_range", &CaenN6725::get_input_dynamic_range);

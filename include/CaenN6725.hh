@@ -162,12 +162,19 @@ class CaenN6725 {
 
         // return the current error state
         CAEN_DGTZ_ErrorCode get_last_error() const;
+
+        // information about the board. Installed firmware version
         CAEN_DGTZ_BoardInfo_t get_board_info();
 
         // this needs to be called before any 
         // acquisition is started
         // to allocate the internal buffers
         void allocate_memory();
+
+        // return the size of the allocated buffer in 
+        //  
+        uint32_t get_allocated_buffer_size();
+        
 
         // prepare acquisition
         // don't acquire anything yet
@@ -200,6 +207,12 @@ class CaenN6725 {
         
         // get the number of events acquired per acquisition call
         std::vector<long> get_n_events_tot();
+
+        // get the number of event triggered per acquisition call
+        std::vector<long> get_n_triggers_tot();
+
+        // get the number of triggers lost due to deadtime etc. per acquisition call
+        std::vector<long> get_n_lost_triggers_tot();
 
         // the input dynamic range is the peak-to-peak voltage
         // the digitizer is able to measure. the 14 bits are 
@@ -303,8 +316,8 @@ class CaenN6725 {
         /* Buffers to store the data. The memory must be allocated using the appropriate
         CAENDigitizer API functions (see below), so they must not be initialized here
         NB: you must use the right type for different DPP analysis (in this case PHA) */
-        uint32_t                        allocated_size_;
-        uint32_t                        buffer_size_;
+        uint32_t                        allocated_size_ = 0;
+        uint32_t                        buffer_size_ = 0;
         char*                           buffer_ = nullptr; // readout buffer
         CAEN_DGTZ_DPP_PHA_Event_t*      events_[max_n_channels_];  // events buffer
         CAEN_DGTZ_DPP_PHA_Waveforms_t*  waveform_ = nullptr;     // waveforms buffer
@@ -318,6 +331,8 @@ class CaenN6725 {
         TFile*                             root_file_      = nullptr;
         std::vector<uint16_t>              energy_ch_      = {};
         std::vector<int>                   trigger_ch_     = {};
+        std::vector<uint8_t>               saturated_ch_   = {};
+
         std::vector<std::vector<int16_t>>  waveform_ch_    = {};
         std::vector<TTree*>                channel_trees_  = {};
 
@@ -333,5 +348,10 @@ class CaenN6725 {
         uint8_t* dtrace1_;
         uint8_t* dtrace2_;
         uint32_t trace_ns_;
-        uint16_t energy_;
+        uint16_t energy_; // the last seen energy 
+        
+        // aggregate quantities for all readout events
+        std::vector<long> channel_triggers_;
+        std::vector<long> channel_lost_triggers_;
+
 #endif

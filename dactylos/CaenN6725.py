@@ -104,6 +104,12 @@ class CaenN6725(object):
         #print (f"Calculated dc offset of {val}")
         return val
 
+    def get_board_info(self):
+        """
+        Show information about digitizer model and firmware version
+        """
+        return self.digitizer.get_board_info()
+
     def set_vprobe1(self, vprobe1):
         self.digitizer.set_vprobe1(vprobe1)
 
