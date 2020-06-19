@@ -238,7 +238,8 @@ def first_guess(bincenters, bincontent, roi_right_edge=700):
               (left_10_percent, peakval-2*peak_fwhm),\
               (1, shoulder_fwhm*2),
               (1, peak_amp/2))
-    print (limits)
+    for i,k in enumerate(limits):
+        logger.debug(f"Setting limit on parameter {i} of {k}")
     return first_guess_params, limits    
 
 
