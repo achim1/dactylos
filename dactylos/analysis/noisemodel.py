@@ -46,6 +46,65 @@ class Constants:
 
 CONSTANTS = Constants()
 
+########################################################################
+
+def extract_parameters_from_noisemodel(noisemodel):
+    """
+    After fitting the noisemodel, get the detector
+    relevant parameters out of the fit parameters
+    Multiply with the orders of magnitude to get reasonable units.
+
+    Args:
+        noisemodel (HErmes.fiting.Model) : noisemodel after fitting
+
+    Returns (dict)                       : the relevant paramters
+    """
+
+    factor = (2.355*CONSTANTS.eps*1e-3/CONSTANTS.q)*(2.355*CONSTANTS.eps*1e-3/CONSTANTS.q)
+
+    # this is necessary in case we did not use
+    # minuit for the fitting, then we do have 
+    # a different structure for the error dict
+    print (noisemodel.errors)
+    if isinstance(noisemodel.errors, list):
+        tmpdict = dict()
+        tmpdict['par00'] = noisemodel.errors[0]
+        tmpdict['par10'] = noisemodel.errors[1]
+        tmpdict['par20'] = noisemodel.errors[2]
+        noisemodel.errors = tmpdict
+
+    p0  = noisemodel.best_fit_params[0]/factor;
+    ep0 = noisemodel.errors['par00']/factor;
+    p1  = noisemodel.best_fit_params[1]/factor;
+    ep1 = noisemodel.errors['par10']/factor;
+    p2  = noisemodel.best_fit_params[2]/factor;
+    ep2 = noisemodel.errors['par20']/factor;
+    
+    Ileak = (p0/CONSTANTS.Fi-4*CONSTANTS.k*CONSTANTS.T(-37)/CONSTANTS.Rp)/2/CONSTANTS.q;  # A
+    eIleak = ep0/p0*Ileak;  # A
+    Rs = p1/CONSTANTS.Rs_denom(-37) # temperature -37
+    if Rs < 0 : Rs = 0
+    eRs = ep1/p1*Rs  # Ohm
+
+    Af = p2/CONSTANTS.Ctot/CONSTANTS.Ctot/CONSTANTS.Fvf/2/CONSTANTS.pi 
+    eAf = ep2/p2*Af
+
+
+    result = {'p0'     : p0*factor,\
+              'ep0'    : ep0*factor,\
+              'p1'     : p1*factor,\
+              'ep1'    : ep1*factor,\
+              'p2'     : p2*factor,\
+              'ep2'    : ep2*factor,\
+              'Ileak'  : Ileak*1e9,\
+              'eIleak' : eIleak*1e9,\
+              'Rs'     : Rs,\
+              'eRs'    : eRs,\
+              'Af'     : Af*1e13,\
+              'eAf'    : eAf*1e13\
+             }
+    return result
+
 
 ########################################################################
 
@@ -70,6 +129,63 @@ def noise_model(xs, par0, par1, par2):
     # transform into u space
     #result = np.sqrt(par0)*u**2 + np.sqrt(par1)* u + np.sqrt(par2)
     return result
+
+########################################################################
+
+def enc2_trapezoid(xs, par0, par1, par2):
+    """
+    Noise model as to be fit to the resolution vs shaping times
+    plot.
+    
+    Args:
+        xs (ndarray)    : input data
+        par0 (float)
+        par1 (float)
+        par2 (float)
+    """
+    raise NotImplementedError
+    # weighting coefficients
+    Aw_1 = 2    # series white
+    Aw_2 = 1.67 # series parallel
+    Aw_3 = 1.37 # series 1/f        
+
+    # mus -> s
+    xs = 1e-6*xs
+    result = np.sqrt((par0*xs) + (par1/xs) + (np.ones(len(xs))*par2))
+    # fit C_in2, A_f and I_0 directly
+    # coefficients
+    a_0 = 0.5
+
+    #u = 1/np.sqrt(xs)
+    # transform into u space
+    #result = np.sqrt(par0)*u**2 + np.sqrt(par1)* u + np.sqrt(par2)
+    return result
+
+########################################################################
+
+def enc2_semigauss4(xs, par0, par1, par2):
+    """
+    Noise model as to be fit to the resolution vs shaping times
+    plot.
+    
+    Args:
+        xs (ndarray)    : input data
+        par0 (float)
+        par1 (float)
+        par2 (float)
+    """
+    raise NotImplementedError
+    # from root script 
+    # sqrt([0]*x*1e-6+[1]/(x*1e-6)+[2])
+
+    # mus -> s
+    xs = 1e-6*xs
+    result = np.sqrt((par0*xs) + (par1/xs) + (np.ones(len(xs))*par2))
+    #u = 1/np.sqrt(xs)
+    # transform into u space
+    #result = np.sqrt(par0)*u**2 + np.sqrt(par1)* u + np.sqrt(par2)
+    return result
+
 
 ########################################################################
 
@@ -222,61 +338,4 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
     return noisemodel_fig, noisemodel
 
 ########################################################################
-
-def extract_parameters_from_noisemodel(noisemodel):
-    """
-    After fitting the noisemodel, get the detector
-    relevant parameters out of the fit parameters
-    Multiply with the orders of magnitude to get reasonable units.
-
-    Args:
-        noisemodel (HErmes.fiting.Model) : noisemodel after fitting
-
-    Returns (dict)                       : the relevant paramters
-    """
-
-    factor = (2.355*CONSTANTS.eps*1e-3/CONSTANTS.q)*(2.355*CONSTANTS.eps*1e-3/CONSTANTS.q)
-
-    # this is necessary in case we did not use
-    # minuit for the fitting, then we do have 
-    # a different structure for the error dict
-    print (noisemodel.errors)
-    if isinstance(noisemodel.errors, list):
-        tmpdict = dict()
-        tmpdict['par00'] = noisemodel.errors[0]
-        tmpdict['par10'] = noisemodel.errors[1]
-        tmpdict['par20'] = noisemodel.errors[2]
-        noisemodel.errors = tmpdict
-
-    p0  = noisemodel.best_fit_params[0]/factor;
-    ep0 = noisemodel.errors['par00']/factor;
-    p1  = noisemodel.best_fit_params[1]/factor;
-    ep1 = noisemodel.errors['par10']/factor;
-    p2  = noisemodel.best_fit_params[2]/factor;
-    ep2 = noisemodel.errors['par20']/factor;
-    
-    Ileak = (p0/CONSTANTS.Fi-4*CONSTANTS.k*CONSTANTS.T(-37)/CONSTANTS.Rp)/2/CONSTANTS.q;  # A
-    eIleak = ep0/p0*Ileak;  # A
-    Rs = p1/CONSTANTS.Rs_denom(-37) # temperature -37
-    if Rs < 0 : Rs = 0
-    eRs = ep1/p1*Rs  # Ohm
-
-    Af = p2/CONSTANTS.Ctot/CONSTANTS.Ctot/CONSTANTS.Fvf/2/CONSTANTS.pi 
-    eAf = ep2/p2*Af
-
-
-    result = {'p0'     : p0*factor,\
-              'ep0'    : ep0*factor,\
-              'p1'     : p1*factor,\
-              'ep1'    : ep1*factor,\
-              'p2'     : p2*factor,\
-              'ep2'    : ep2*factor,\
-              'Ileak'  : Ileak*1e9,\
-              'eIleak' : eIleak*1e9,\
-              'Rs'     : Rs,\
-              'eRs'    : eRs,\
-              'Af'     : Af*1e13,\
-              'eAf'    : eAf*1e13\
-             }
-    return result
 

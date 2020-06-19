@@ -50,7 +50,7 @@ def read_waveform(infile, ch):
     # an int 16
     if sh.WAVEFORMTYPE == 'ARRAY':
         data = np.asarray(data, dtype=np.int16)
-    print (f'Read out {len(data)} events for channel {ch}')    
+    logger.info(f'Read out {len(data)} events for channel {ch}')    
     return ch, data
 
 ########################################################################
