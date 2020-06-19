@@ -11,46 +11,237 @@
 // a string represenation of the error codes
 std::string error_code_to_string(CAEN_DGTZ_ErrorCode err)
 {
+std::string retval;
+switch((int)err) 
+  {
+    case 0 :
+      { 
+        retval =  "Err code : 0 -- 'Operation completed sucessfully'";
+        break;
+      }
+    case -1:
+      { 
+        retval =  "Err code : -1 -- 'Communication error'";
+        break;
+      }
+    case -2: 
+      { 
+        retval = "Err code : -2 -- 'Unspecified error'";
+        break;
+      }
+    case -3: 
+      { 
+        retval = "Err code : -3 -- 'Invalid parameter'";
+        break;
+      }
+    case -4:
+      { 
+        retval = "Err code : -4 -- 'Invalid link type'";
+        break;
+      }
+    case -5: 
+      { 
+        retval = "Err code : -5 -- 'Invalid device handle'";
+        break;
+      }
+    case -6: 
+      { 
+        retval = "Err code : -6 -- 'Maximum number of devices exceeded'";
+        break;
+      }
+    case -7: 
+      { 
+        retval =  "Err code : -7 -- 'Operation not allowed on this board'";
+        break;
+      }
+    case -8:
+      { 
+        retval = "Err code : -8 -- 'The interrupt level is bad'" ;
+        break;
+      }
+    case -9: 
+      { 
+        retval = "Err code : -9 -- 'The event number is bad'";
+        break;
+      }
+    case -10: 
+      { 
+        retval = "Err code : -10 -- 'Unable to read the registry'";
+        break;
+      }
+    case -11:
+      { 
+        retval = "Err code : -11 -- 'Unable to write into the registry'";
+        break;
+      }
+    case -13:
+      { 
+        retval = "Err code : -13 -- 'The channel number is invalid'";
+        break;
+      }
+    case -14:
+      { 
+        retval = "Err code : -14 -- 'The channel is busy'";
+        break;
+      }
+    case -15:
+      { 
+        retval = "Err code : -15 -- 'Invalid FPIO mode'";
+        break;
+      }
+    case-16: 
+      { 
+        retval = "Err code : -16 -- 'Wrong acquisitiion mode'";
+        break;
+      }
+    case -17: 
+      { 
+        retval = "Err code : -17 -- 'The function is not allowed for this module'";
+        break;
+      }
+    case -18: 
+      { 
+        retval = "Err code : -18 -- 'Communication Timeout'";
+        break;
+      }
+    case -19: 
+      { 
+        retval = "Err code : -19 -- 'The buffer is invalid'";
+        break;
+      }
+    case -20: 
+      { 
+        retval = "Err code : -20 -- 'The event is not found'";
+        break;
+      }
+    case -21: 
+      { 
+        retval = "Err code : -21 -- 'The event is invalid'";
+        break;
+      }
+    case -22: 
+      { 
+        retval = "Err code : -22 -- 'Out of memory'";
+        break;
+      }
+    case -23: 
+      { 
+        retval = "Err code : -23 -- 'Unable to calibrate the board'";
+        break;
+      }
+    case -24: 
+      { 
+        retval = "Err code : -24 -- 'Unable to open the digitizer'";
+        break;
+      }
+    case -25: 
+      { 
+        retval = "Err code : -25 -- 'The digitizer is already open'";
+        break;
+      }
+    case -26:
+      { 
+        retval = "Err code : -26 -- 'The digitizer is not ready to operate'";
+        break;
+      }
+    case -27:
+      { 
+        retval = "Err code : -27 -- 'The digitizer has not the IRQ configure'";
+        break;
+      }
+    case -28:
+      { 
+        retval = "Err code : -28 -- 'The digitizer flash memory is corrupted'";
+        break;
+      }
+    case -29: 
+      { 
+        retval = "Err code : -29 -- 'The digitizer dpp firmware is not supported in this library'";
+        break;
+      }
+    case -30: 
+      { 
+        retval = "Err code : -30 -- 'Invalid firmware license'";
+        break;
+      }
+    case -31:
+      { 
+        retval = "Err code : -31 -- 'The digitizer is found in a corrupted state'";
+        break;
+      }
+    case -32: 
+      { 
+        retval = "Err code : -32 -- 'The given trace is not supported by the digitizer'";
+        break;
+      }
+    case -33: 
+      { 
+        retval = "Err code : -33 -- 'The given probe is not supported for the given digitizer trace'";
+        break;
+      }
+    case -34: 
+      { 
+        retval = "Err code : -34 -- 'The base address is not supported, is it a desktop device?'";
+        break;
+      }
+    case -99: 
+      { 
+        retval = "Err code : -99 -- 'The function is not yet implemented'";
+        break;
+      }
+    default:
+      {
+        retval = "UNREGISTERED Err code : " + std::to_string( (int)err) + " UNKNOWN ";
+        break;
+      }
+  }
+  return retval;
+}
+
+std::ostream& operator<<(std::ostream& os, const CAEN_DGTZ_ErrorCode& err)
+{
+  os << error_code_to_string(err);
+  return os;
 //switch((int)err) 
 //  {
 //    case 0 :
 //        { 
-//            os << "Err code : 0 -- 'Operation completed sucessfully'";
+//            os << "Err code : 0 -- 'Operation completed sucessfully'" << std::endl;
 //            break;
 //        }
 //    case -1:
 //        { 
-//            os << "Err code : -1 -- 'Communication error'";
+//            os << "Err code : -1 -- 'Communication error'" << std::endl;
 //            break;
 //        }
 //    case -2: 
 //        { 
-//            os << "Err code : -2 -- 'Unspecified error'";
+//            os << "Err code : -2 -- 'Unspecified error'" << std::endl;
 //            break;
 //        }
 //    case -3: 
 //        { 
-//            os << "Err code : -3 -- 'Invalid parameter'";
+//            os << "Err code : -3 -- 'Invalid parameter'" << std::endl;
 //            break;
 //        }
 //    case -4:
 //        { 
-//            os << "Err code : -4 -- 'Invalid link type'";
+//            os << "Err code : -4 -- 'Invalid link type'" << std::endl;
 //            break;
 //        }
 //    case -5: 
 //        { 
-//            os << "Err code : -5 -- 'Invalid device handle'";
+//            os << "Err code : -5 -- 'Invalid device handle'" << std::endl;
 //            break;
 //        }
 //    case -6: 
 //        { 
-//            os << "Err code : -6 -- 'Maximum number of devices exceeded'";
+//            os << "Err code : -6 -- 'Maximum number of devices exceeded'" << std::endl;
 //            break;
 //        }
 //    case -7: 
 //        { 
-//            os << "Err code : -7 -- 'Operation not allowed on this board'";
+//            os << "Err code : -7 -- 'Operation not allowed on this board'" << std::endl;
 //            break;
 //        }
 //    case -8:
@@ -194,210 +385,477 @@ std::string error_code_to_string(CAEN_DGTZ_ErrorCode err)
 //            break;
 //        }
 //  }
-//    return os;
-//
-//
-return "";
-}
-
-std::ostream& operator<<(std::ostream& os, const CAEN_DGTZ_ErrorCode& err)
-{
-switch((int)err) 
-  {
-    case 0 :
-        { 
-            os << "Err code : 0 -- 'Operation completed sucessfully'" << std::endl;
-            break;
-        }
-    case -1:
-        { 
-            os << "Err code : -1 -- 'Communication error'" << std::endl;
-            break;
-        }
-    case -2: 
-        { 
-            os << "Err code : -2 -- 'Unspecified error'" << std::endl;
-            break;
-        }
-    case -3: 
-        { 
-            os << "Err code : -3 -- 'Invalid parameter'" << std::endl;
-            break;
-        }
-    case -4:
-        { 
-            os << "Err code : -4 -- 'Invalid link type'" << std::endl;
-            break;
-        }
-    case -5: 
-        { 
-            os << "Err code : -5 -- 'Invalid device handle'" << std::endl;
-            break;
-        }
-    case -6: 
-        { 
-            os << "Err code : -6 -- 'Maximum number of devices exceeded'" << std::endl;
-            break;
-        }
-    case -7: 
-        { 
-            os << "Err code : -7 -- 'Operation not allowed on this board'" << std::endl;
-            break;
-        }
-    case -8:
-        { 
-            os << "Err code : -8 -- 'The interrupt level is bad'" << std::endl;
-            break;
-        }
-    case -9: 
-        { 
-            os << "Err code : -9 -- 'The event number is bad'" << std::endl;
-            break;
-        }
-    case -10: 
-        { 
-            os << "Err code : -10 -- 'Unable to read the registry'" << std::endl;
-            break;
-        }
-    case -11:
-        { 
-            os << "Err code : -11 -- 'Unable to write into the registry'" << std::endl;
-            break;
-        }
-    case -13:
-        { 
-            os << "Err code : -13 -- 'The channel number is invalid'" << std::endl;
-            break;
-        }
-    case -14:
-        { 
-            os << "Err code : -14 -- 'The channel is busy'" << std::endl;
-            break;
-        }
-    case -15:
-        { 
-            os << "Err code : -15 -- 'Invalid FPIO mode'" << std::endl;
-            break;
-        }
-    case-16: 
-        { 
-            os << "Err code : -16 -- 'Wrong acquisitiion mode'" << std::endl;
-            break;
-        }
-    case -17: 
-        { 
-            os << "Err code : -17 -- 'The function is not allowed for this module'" << std::endl;
-            break;
-        }
-    case -18: 
-        { 
-            os << "Err code : -18 -- 'Communication Timeout'" << std::endl;
-            break;
-        }
-    case -19: 
-        { 
-            os << "Err code : -19 -- 'The buffer is invalid'" << std::endl;
-            break;
-        }
-    case -20: 
-        { 
-            os << "Err code : -20 -- 'The event is not found'" << std::endl;
-            break;
-        }
-    case -21: 
-        { 
-            os << "Err code : -21 -- 'The event is invalid'" << std::endl;
-            break;
-        }
-    case -22: 
-        { 
-            os << "Err code : -22 -- 'Out of memory'" << std::endl;
-            break;
-        }
-    case -23: 
-        { 
-            os << "Err code : -23 -- 'Unable to calibrate the board'" << std::endl;
-            break;
-        }
-    case -24: 
-        { 
-            os << "Err code : -24 -- 'Unable to open the digitizer'" << std::endl;
-            break;
-        }
-    case -25: 
-        { 
-            os << "Err code : -25 -- 'The digitizer is already open'" << std::endl;
-            break;
-        }
-    case -26:
-        { 
-            os << "Err code : -26 -- 'The digitizer is not ready to operate'" << std::endl;
-            break;
-        }
-    case -27:
-        { 
-            os << "Err code : -27 -- 'The digitizer has not the IRQ configure'" << std::endl;
-            break;
-        }
-    case -28:
-        { 
-            os << "Err code : -28 -- 'The digitizer flash memory is corrupted'" << std::endl;
-            break;
-        }
-    case -29: 
-        { 
-            os << "Err code : -29 -- 'The digitizer dpp firmware is not supported in this library'" << std::endl;
-            break;
-        }
-    case -30: 
-        { 
-            os << "Err code : -30 -- 'Invalid firmware license'" << std::endl;
-            break;
-        }
-    case -31:
-        { 
-            os << "Err code : -31 -- 'The digitizer is found in a corrupted state'" << std::endl;
-            break;
-        }
-    case -32: 
-        { 
-            os << "Err code : -32 -- 'The given trace is not supported by the digitizer'" << std::endl;
-            break;
-        }
-    case -33: 
-        { 
-            os << "Err code : -33 -- 'The given probe is not supported for the given digitizer trace'" << std::endl;
-            break;
-        }
-    case -34: 
-        { 
-            os << "Err code : -34 -- 'The base address is not supported, is it a desktop device?'" << std::endl;
-            break;
-        }
-    case -99: 
-        { 
-            os << "Err code : -99 -- 'The function is not yet implemented'" << std::endl;
-            break;
-        }
-    default:
-        {
-            os << "UNREGISTERED Err code : " << (int)err << " UNKNOWN " <<std::endl;
-            break;
-        }
-  }
     return os;
 }
 
+/***************************************************************/
+
+CaenN6725WF::CaenN6725WF()
+{
+}
 
 /***************************************************************/
 
-CaenN6725::CaenN6725()
+CaenN6725WF::CaenN6725WF(DigitizerParams_t pars)
+{
+}
+
+/***************************************************************/
+
+CaenN6725WF::~CaenN6725WF()
+{
+  if (is_connected_)
+    {
+      std::cout << "Closing digitizer..." << std::endl;
+      CAEN_DGTZ_SWStopAcquisition(handle_);
+      CAEN_DGTZ_FreeReadoutBuffer(&buffer_);
+      CAEN_DGTZ_CloseDigitizer(handle_);
+    }
+}
+
+/***************************************************************/
+
+bool CaenN6725WF::is_active(int channel) const
+{
+    return (active_channel_bitmask_ & (1<<channel)); 
+}
+
+/***************************************************************/
+
+void CaenN6725WF::connect()
+{
+  // make this specific for our case
+  // third 0 is VMEBaseAddress, which must be 0 for direct USB connections
+  current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 0, 0, 0, &handle_);
+  if (current_error_ == -1)
+    {
+      std::cout << "Can not find digitizer at USB bus 0, trying others" << std::endl;
+      std::cout << "Trying ... ";
+      for (int busnr=1; busnr<128; busnr++)
+          {
+           std::cout << busnr << "..";
+           current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, busnr, 0, 0, &handle_);
+           if (current_error_ == 0)  break;
+          }
+      std::cout << ".. found!" << std::endl;
+    }
+  if (current_error_ !=0 ) throw std::runtime_error("Can not open digitizer! " + error_code_to_string(current_error_));
+
+  /* Reset the digitizer */
+  current_error_ = CAEN_DGTZ_Reset(handle_);
+  if (current_error_ !=0 ) throw std::runtime_error("Can not reset digitizer! " + error_code_to_string(current_error_));
+
+  // Set the digitizer acquisition mode (CAEN_DGTZ_SW_CONTROLLED or CAEN_DGTZ_S_IN_CONTROLLED)
+  // That this software works as intended, that currently has to be software controlled
+  current_error_ = CAEN_DGTZ_SetAcquisitionMode(handle_, CAEN_DGTZ_SW_CONTROLLED);
+  if (current_error_ !=0 ) throw std::runtime_error("Can not set acquisition mode to SW_CONTROLLED! "
+                                                     + error_code_to_string(current_error_));
+
+  //see CAENDigitizer user manual, chapter "Trigger configuration" for details */
+  current_error_ = CAEN_DGTZ_SetExtTriggerInputMode(handle_, CAEN_DGTZ_TRGMODE_ACQ_ONLY);
+  if (current_error_ !=0 ) throw std::runtime_error("Can not set trigger input mode ACQ_ONLY! "
+                                                     + error_code_to_string(current_error_));
+
+  /* Set the mode used to syncronize the acquisition between different boards.
+  In this example the sync is disabled */
+  current_error_ = CAEN_DGTZ_SetRunSynchronizationMode(handle_, CAEN_DGTZ_RUN_SYNC_Disabled);
+  if (current_error_ !=0 ) throw std::runtime_error("Can not set run synchronisation mode to Disabled! " 
+                                                     + error_code_to_string(current_error_));
+
+  is_connected_ = true;
+}
+
+
+void CaenN6725WF::configure(DigitizerParams_t params)
+{
+  current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength);
+  if (current_error_ !=0 ) throw std::runtime_error("Can not set record length! "
+                                                     + error_code_to_string(current_error_));
+  current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength,2);
+  if (current_error_ !=0 ) throw std::runtime_error("Can not set record length for ch 2,3 "
+                                                     + error_code_to_string(current_error_));
+  current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength,4);
+  if (current_error_ !=0 ) throw std::runtime_error("Can not set record length for ch 4,5 "
+                                                     + error_code_to_string(current_error_));
+  current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength,6);
+  if (current_error_ !=0 ) throw std::runtime_error("Can not set record length for ch 6,7 "
+                                                     + error_code_to_string(current_error_));
+
+
+  // also set the record length internally
+  recordlength_ = params.RecordLength;
+
+  // Set the I/O level (CAEN_DGTZ_IOLevel_NIM or CAEN_DGTZ_IOLevel_TTL)
+  current_error_ = CAEN_DGTZ_SetIOLevel(handle_, params.IOlev);
+  if (current_error_ !=0 ) throw std::runtime_error("Can not set IO level "
+                                                     + error_code_to_string(current_error_));
+
+  // Set the enabled channels
+  // remember the active cannels
+  active_channel_bitmask_  = params.ChannelMask;
+  //std::cout << "Setting channel mask " << params.ChannelMask << std::endl;
+  current_error_ = CAEN_DGTZ_SetChannelEnableMask(handle_, params.ChannelMask);
+  if (current_error_ !=0 ) throw std::runtime_error("Can not set channel enable mask! "
+                                                     + error_code_to_string(current_error_));
+
+  for(unsigned int i=0; i<max_n_channels_; i++) {
+      if (is_active(i)) {
+          // Set the polarity for the given channel (CAEN_DGTZ_PulsePolarityPositive or CAEN_DGTZ_PulsePolarityNegative)
+          current_error_ = CAEN_DGTZ_SetChannelPulsePolarity(handle_, i, params.PulsePolarity);
+          if (current_error_ !=0 ) throw std::runtime_error("Can not set pulse polarity! "
+                                                             + error_code_to_string(current_error_));
+      }
+  }
+}
+
+/***************************************************************/
+
+void CaenN6725WF::set_handle(int handle)
+{
+  handle_ = handle;
+}
+
+/***************************************************************/
+
+int CaenN6725WF::get_handle() const
+{
+  return handle_;
+}
+
+/***************************************************************/
+
+/*! \fn      static long get_time()
+*   \brief   Get time in milliseconds
+*   \return  time in msec */
+// stolen from CAEN examples
+long CaenN6725WF::get_time() const
+{
+  long time_ms;
+  #ifdef WIN32
+  struct _timeb timebuffer;
+  _ftime( &timebuffer );
+  time_ms = (long)timebuffer.time * 1000 + (long)timebuffer.millitm;
+  #else
+  struct timeval t1;
+  struct timezone tz;
+  gettimeofday(&t1, &tz);
+  time_ms = (t1.tv_sec) * 1000 + t1.tv_usec / 1000;
+  #endif
+  return time_ms;
+}
+
+/***************************************************************/
+
+/**
+ * Set a DC offset to the input signal to adapt it to digitizer's dynamic range
+ * from the manual:
+ * This function sets the 16-bit DAC that adds a DC offset to the input signal to adapt
+ * it to the dynamic range of the ADC.
+ * By default, the DAC is set to middle scale (0x7FFF) which corresponds to a DC offset
+ * of -Vpp/2, where Vpp is the voltage
+ * range (peak to peak) of the ADC. This means that the input signal
+ * can range from -Vpp/2 to +Vpp/2. If the DAC is set to
+ * 0x0000, then no DC offset is added, and the range of the input signal
+ * goes from -Vpp to 0. Conversely, when the DAC is
+ * set to 0xFFFF, the DC offset is –Vpp and the range goes from 0 to +Vpp.
+ * The DC offset can be set on channel basis except
+ * for the x740 in which it is set on group basis;
+ * in this case, you must use the Set / GetGroupDCOffset functions.
+ *
+ * @param: offset - channel dc offset in 0-32767 (0 - 100%)
+ */
+void CaenN6725WF::set_channel_dc_offset(int channel, int offset)
+{
+  // FIXME: make sure the range of the dc offset is fine 
+  //        and make it more clear that this is NOT in percent, but is 15 (!) bits
+  //        (digitizer is 14 bit
+  current_error_ = CAEN_DGTZ_SetChannelDCOffset(handle_, channel, offset);
+  if (current_error_ !=0 ) throw std::runtime_error("Can not set channel dc offset! "
+                                                     + error_code_to_string(current_error_));
+}
+
+/***************************************************************/
+
+uint32_t CaenN6725WF::get_channel_dc_offset(int channel)
+{
+  uint32_t offset;
+  current_error_ = CAEN_DGTZ_GetChannelDCOffset(handle_, channel, &offset);
+  if (current_error_ != 0) throw std::runtime_error("Can not get baseline offset for ch "
+                                                    + std::to_string(channel)
+                                                    + " ! " + error_code_to_string(current_error_));
+  return offset;
+}
+
+/***************************************************************/
+
+void CaenN6725WF::set_rootfilename(std::string fname)
+{
+    rootfile_name_ = fname;
+}
+
+/***************************************************************/
+
+void CaenN6725WF::set_channel_trigger_threshold(int channel, int threshold)
+{
+  if ((threshold < 0) || (threshold > 16383))
+      {throw std::runtime_error("Trigger threshold has to be in the interval [0,16383]");};
+  current_error_ = CAEN_DGTZ_SetChannelTriggerThreshold(handle_, channel, threshold);
+  // FIXME - hoepfully this might be obsolete
+  switch (channel)
+    {
+      case 0: current_error_ = CAEN_DGTZ_WriteRegister(handle_, 0x1080, threshold); break;
+      case 1: current_error_ = CAEN_DGTZ_WriteRegister(handle_, 0x1180, threshold); break;
+      case 2: current_error_ = CAEN_DGTZ_WriteRegister(handle_, 0x1280, threshold); break;
+      case 3: current_error_ = CAEN_DGTZ_WriteRegister(handle_, 0x1380, threshold); break;
+      case 4: current_error_ = CAEN_DGTZ_WriteRegister(handle_, 0x1480, threshold); break;
+      case 5: current_error_ = CAEN_DGTZ_WriteRegister(handle_, 0x1580, threshold); break;
+      case 6: current_error_ = CAEN_DGTZ_WriteRegister(handle_, 0x1680, threshold); break;
+      case 7: current_error_ = CAEN_DGTZ_WriteRegister(handle_, 0x1780, threshold); break;
+      default: throw std::runtime_error("Can not identify channel " + std::to_string(channel));
+    }
+  if (current_error_ != 0) throw std::runtime_error("Can not set trigger threshold for ch "
+                                 + std::to_string(channel)
+                                 + " ! "
+                                 + error_code_to_string(current_error_));
+}
+
+/***************************************************************/
+
+CAEN_DGTZ_ErrorCode CaenN6725WF::get_last_error() const
+{
+  return current_error_;
+}
+
+/***************************************************************/
+
+CAEN_DGTZ_BoardInfo_t CaenN6725WF::get_board_info()
+{
+  current_error_ = CAEN_DGTZ_GetInfo(handle_, &board_info_);
+  if (current_error_ != 0) throw std::runtime_error("Error while getting board info! "
+                                                     + error_code_to_string(current_error_));
+  return board_info_;
+}
+
+/***************************************************************/
+
+void CaenN6725WF::allocate_memory()
+{
+  current_error_ = CAEN_DGTZ_MallocReadoutBuffer(handle_, &buffer_, &allocated_size_);
+  if (current_error_ != 0) throw std::runtime_error("Error while allocating readout buffer! " 
+                                                    + error_code_to_string(current_error_));
+}
+
+/***************************************************************/
+
+uint32_t CaenN6725WF::get_allocated_buffer_size()
+{
+  return allocated_size_;
+}
+
+/***************************************************************/
+
+void CaenN6725WF::prepare_rootfile()
+{
+  int nchan = get_nchannels();
+
+  // create a new root file
+  root_file_   = new TFile(rootfile_name_.c_str(), "RECREATE");
+  if (!root_file_) throw std::runtime_error("Problems creating/overwriting root file "
+                                            + rootfile_name_);
+  waveform_ch_.clear();
+  waveform_ch_.reserve(nchan);
+  channel_trees_.clear();
+  channel_trees_.reserve(nchan);
+  std::string ch_name = "ch";
+  for (int k=0; k<get_nchannels(); k++)
+      {waveform_ch_.push_back({});
+       ch_name = "ch" + std::to_string(k);
+       channel_trees_.push_back(new TTree(ch_name.c_str(), ch_name.c_str()));}
+  for (int k=0;k<nchan;k++)
+    {
+      channel_trees_[k]->Branch("waveform",  &waveform_ch_[k]);
+    } 
+}
+
+/***************************************************************/
+
+void CaenN6725WF::start_acquisition()
+{
+  prepare_rootfile();
+  n_events_acq_  = std::vector<long>(get_nchannels(), 0);
+  current_error_ = CAEN_DGTZ_SWStartAcquisition(handle_);
+}
+
+/***************************************************************/
+
+void CaenN6725WF::end_acquisition()
+{
+  CAEN_DGTZ_SWStopAcquisition(handle_);
+  root_file_->Close();
+}
+
+/***************************************************************/
+
+int CaenN6725WF::get_nchannels() const
+{
+  return max_n_channels_;
+}
+
+/***************************************************************/
+
+std::vector<int> CaenN6725WF::get_temperatures() const
+{
+  std::vector<int> temperatures({});
+  uint32_t temp;
+  for (uint ch=0; ch<get_nchannels(); ch++)
+    {
+      CAEN_DGTZ_ReadTemperature(handle_, ch, &temp);
+      temperatures.push_back(temp);   
+    }
+  return temperatures;
+}
+
+/***************************************************************/
+
+void CaenN6725WF::calibrate()
+{
+  current_error_ = CAENDGTZ_API CAEN_DGTZ_Calibrate(handle_);
+  if (current_error_ != 0) throw std::runtime_error("Problem during calibration! "
+                                                    + error_code_to_string(current_error_));
+}
+
+/***************************************************************/
+
+void CaenN6725WF::set_input_dynamic_range(DynamicRange range)
+{
+  current_error_ = CAEN_DGTZ_WriteRegister(handle_,0x8028, (uint32_t) range);
+  if (current_error_ != 0) throw std::runtime_error("Problems setting dynamic range! "
+                                                     + error_code_to_string(current_error_));
+}
+
+/***************************************************************/
+
+std::vector<uint32_t> CaenN6725WF::get_input_dynamic_range()
+{
+  uint32_t drange;
+  std::vector<uint32_t> channel_registers({0x1028, 0x1128, 0x1228, 0x1328, 0x1428, 0x1528, 0x1628, 0x1728});
+  std::vector<uint32_t> dranges;
+  for (auto ch : channel_registers)
+      {
+          current_error_ = CAEN_DGTZ_ReadRegister(handle_, ch, &drange);
+          if (current_error_ != 0) throw std::runtime_error("Can not get  dynamic range for ch address " + std::to_string(ch) + " err code " + std::to_string(current_error_));
+          dranges.push_back(drange);
+       }
+  return dranges;
+}
+
+/***************************************************************/
+
+std::vector<long> CaenN6725WF::get_n_events_tot()
+{
+    return n_events_acq_;
+}
+
+/***************************************************************/
+
+void CaenN6725WF::readout_and_save(unsigned int seconds)
+{
+  // check the readout status
+  uint32_t acqstatus;
+
+  // timing variables
+  long now_time = get_time()/1000;
+  long last_time = now_time;
+  long delta_t = 0;
+  std::cout << "Starting readout" << std::endl;
+  while (delta_t < seconds)
+    {
+      current_error_ = CAEN_DGTZ_ReadRegister(handle_, 0x8104, &acqstatus);
+      if (! ( acqstatus & (1 << 3))) // the 3rd bit is the acquisition status
+        {
+            return; // nothing to readout
+        }
+      // wait till the buffer is full
+      if (! ( acqstatus & (1 << 4))) // the 3rd bit is the acquisition status
+        {
+            return; // no channel in full status
+        }
+      for (int k = 0; k<get_nchannels(); k++)
+        {num_events_[k] = 0;}
+
+      current_error_ = CAEN_DGTZ_ReadData(handle_, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT,
+                                          buffer_, &buffer_size_);
+      if (current_error_ != 0) 
+        {
+            // just inform the user, nothing dramatic if it only happens once
+            std::cout << "error while reading data" << current_error_ << std::endl;
+            return;
+        }
+      if (buffer_size_ == 0)
+        {
+            return;
+        }
+      uint32_t events_in_buffer;
+      current_error_ =  CAEN_DGTZ_GetNumEvents(handle_, buffer_, buffer_size_ ,&events_in_buffer);
+      if (current_error_ != 0)
+        {
+            // also not too dramatic yet, just inform the user
+            std::cout << "error while getting the number of events! " << current_error_ << std::endl;
+            return;
+        }
+
+      for (unsigned ch=0; ch<get_nchannels(); ch++)
+        {
+            if (!(is_active(ch))) continue;
+            //n_events_acq_[ch] += num_events_[ch];
+            n_events_acq_[ch] += events_in_buffer;
+        }
+      now_time = get_time()/1000;
+      delta_t +=  now_time  - last_time;
+      last_time = now_time;
+    } // end while time loop    
+  //if (root_file_) root_file_->cd();
+  //  waveform_ch_.clear();
+  //  waveform_ch_.reserve(get_nchannels());
+
+  //  for (int k=0; k<get_nchannels(); k++)
+  //      {waveform_ch_.push_back({});}
+  //  }
+  //for (int ch=0;ch<get_nchannels();ch++)
+  //  {
+  //    for (int ev=0;ev<num_events_[ch];ev++)
+  //      {
+  //              CAEN_DGTZ_DecodeDPPWaveforms(handle_, &events_[ch][ev], waveform_);
+  //              // fast mode, only do trace1
+  //              trace_ns_ = waveform_->Ns;
+  //              // set the saturated flag if saturated
+  //          }
+  //      }
+  //    channel_trees_[ch]->Fill();
+  //    channel_trees_[ch]->Write();
+  //    n_events_acq_[ch] += num_events_[ch];
+  //  }
+  return;
+}
+
+/***************************************************************/
+
+//----------------------------------------------------------
+// In the following, these are methods for the digitizer
+// with the DPP-PHA firmware installed
+//
+//
+//---------------------------------------------------------
+
+/***************************************************************/
+
+CaenN6725DPPPHA::CaenN6725DPPPHA()
 {
 };
 
 /***************************************************************/
 
-CaenN6725::CaenN6725(DigitizerParams_t params) : CaenN6725()
+CaenN6725DPPPHA::CaenN6725DPPPHA(DigitizerParams_t params) : CaenN6725DPPPHA()
 {
     connect();
     configure(params);
@@ -405,21 +863,21 @@ CaenN6725::CaenN6725(DigitizerParams_t params) : CaenN6725()
 
 /***************************************************************/
 
-int CaenN6725::get_handle()
+int CaenN6725DPPPHA::get_handle()
 {
     return handle_;
 }
 
 /***************************************************************/
 
-void CaenN6725::set_handle(int handle)
+void CaenN6725DPPPHA::set_handle(int handle)
 {
     handle_ = handle;
 }
 
 /***************************************************************/
 
-void CaenN6725::connect()
+void CaenN6725DPPPHA::connect()
 {
     // make this specific for our case
     // third 0 is VMEBaseAddress, which must be 0 for direct USB connections
@@ -495,7 +953,7 @@ void CaenN6725::connect()
 
 /***************************************************************/
 
-void CaenN6725::configure(DigitizerParams_t params)
+void CaenN6725DPPPHA::configure(DigitizerParams_t params)
 {
     std::cout << "Setting record length " << params.RecordLength << std::endl;
     // Set the number of samples for each waveform
@@ -553,7 +1011,7 @@ void CaenN6725::configure(DigitizerParams_t params)
 
 /***************************************************************/
 
-void CaenN6725::show_supported_probes()
+void CaenN6725DPPPHA::show_supported_probes()
 {
     // get information about the available virtual probes
     int probes[MAX_SUPPORTED_PROBES];
@@ -585,7 +1043,7 @@ void CaenN6725::show_supported_probes()
 
 /***************************************************************/
 
-void CaenN6725::set_virtualprobe1(DPPVirtualProbe1 vprobe1)
+void CaenN6725DPPPHA::set_virtualprobe1(DPPVirtualProbe1 vprobe1)
 {
     current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, ANALOG_TRACE_1, (int)vprobe1);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP virtual probe for trace 1 err ode: " + std::to_string(current_error_));
@@ -593,7 +1051,7 @@ void CaenN6725::set_virtualprobe1(DPPVirtualProbe1 vprobe1)
 
 /***************************************************************/
 
-void CaenN6725::set_virtualprobe2(DPPVirtualProbe2 vprobe2)
+void CaenN6725DPPPHA::set_virtualprobe2(DPPVirtualProbe2 vprobe2)
 {
     current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, ANALOG_TRACE_2, (int)vprobe2);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP virtual probe for trace 2 err ode: " + std::to_string(current_error_));
@@ -601,14 +1059,14 @@ void CaenN6725::set_virtualprobe2(DPPVirtualProbe2 vprobe2)
 
 /***************************************************************/
 
-void CaenN6725::set_digitalprobe1(DPPDigitalProbe1 dprobe1)
+void CaenN6725DPPPHA::set_digitalprobe1(DPPDigitalProbe1 dprobe1)
 {
     current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, DIGITAL_TRACE_1, (int)dprobe1);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP digital probe for dtrace 1 err ode: " + std::to_string(current_error_));
 }
 /***************************************************************/
 
-void CaenN6725::set_digitalprobe2(DPPDigitalProbe2 dprobe2)
+void CaenN6725DPPPHA::set_digitalprobe2(DPPDigitalProbe2 dprobe2)
 {
     current_error_ = CAEN_DGTZ_SetDPP_VirtualProbe(handle_, DIGITAL_TRACE_2, (int)dprobe2);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set DPP ditial probe for dtrace 2 err ode: " + std::to_string(current_error_));
@@ -616,14 +1074,14 @@ void CaenN6725::set_digitalprobe2(DPPDigitalProbe2 dprobe2)
 
 /***************************************************************/
 
-CAEN_DGTZ_ErrorCode CaenN6725::get_last_error() const
+CAEN_DGTZ_ErrorCode CaenN6725DPPPHA::get_last_error() const
 {
     return current_error_;
 }
 
 /***************************************************************/
 
-inline void CaenN6725::fill_analog_trace1_()
+inline void CaenN6725DPPPHA::fill_analog_trace1_()
 {
     atrace1_ = waveform_->Trace1;
     analog_trace1_ = std::vector<int16_t>(atrace1_, atrace1_ + trace_ns_);
@@ -631,7 +1089,7 @@ inline void CaenN6725::fill_analog_trace1_()
 
 /***************************************************************/
 
-inline void CaenN6725::fill_analog_trace2_()
+inline void CaenN6725DPPPHA::fill_analog_trace2_()
 {
     atrace2_ = waveform_->Trace2;
     analog_trace2_ = std::vector<int16_t>(atrace2_, atrace2_ + trace_ns_);
@@ -639,7 +1097,7 @@ inline void CaenN6725::fill_analog_trace2_()
 
 /***************************************************************/
 
-inline void CaenN6725::fill_digital_trace1_()
+inline void CaenN6725DPPPHA::fill_digital_trace1_()
 {
     dtrace1_ = waveform_->DTrace1;
     digital_trace1_ = std::vector<uint8_t>(dtrace1_, dtrace1_ + trace_ns_);
@@ -647,7 +1105,7 @@ inline void CaenN6725::fill_digital_trace1_()
 
 /***************************************************************/
 
-inline void CaenN6725::fill_digital_trace2_()
+inline void CaenN6725DPPPHA::fill_digital_trace2_()
 {
     dtrace2_ = waveform_->DTrace2;
     digital_trace2_ = std::vector<uint8_t>(dtrace2_, dtrace2_ + trace_ns_);
@@ -655,7 +1113,7 @@ inline void CaenN6725::fill_digital_trace2_()
 
 /***************************************************************/
 
-int CaenN6725::get_trigger_point()
+int CaenN6725DPPPHA::get_trigger_point()
 {
     for (int k=0; k<digital_trace2_.size(); k++)
         {   //std::cout << digital_trace2_[k] << std::endl;
@@ -666,7 +1124,7 @@ int CaenN6725::get_trigger_point()
 
 /***************************************************************/
 
-CAEN_DGTZ_BoardInfo_t CaenN6725::get_board_info()
+CAEN_DGTZ_BoardInfo_t CaenN6725DPPPHA::get_board_info()
 {
     current_error_ = CAEN_DGTZ_GetInfo(handle_, &board_info_);
     if (current_error_ != 0) throw std::runtime_error("Error while getting board infoe, err code " + std::to_string(current_error_));
@@ -675,41 +1133,41 @@ CAEN_DGTZ_BoardInfo_t CaenN6725::get_board_info()
 
 /***************************************************************/
 
-std::vector<int16_t> CaenN6725::get_analog_trace1()
+std::vector<int16_t> CaenN6725DPPPHA::get_analog_trace1()
 {
     return analog_trace1_;
 }
 /***************************************************************/
 
-std::vector<int16_t> CaenN6725::get_analog_trace2()
+std::vector<int16_t> CaenN6725DPPPHA::get_analog_trace2()
 {
     return analog_trace2_;
 }
 
 /***************************************************************/
 
-std::vector<uint8_t> CaenN6725::get_digital_trace1()
+std::vector<uint8_t> CaenN6725DPPPHA::get_digital_trace1()
 {
     return digital_trace1_;
 }
 
 /***************************************************************/
 
-std::vector<uint8_t> CaenN6725::get_digital_trace2()
+std::vector<uint8_t> CaenN6725DPPPHA::get_digital_trace2()
 {
     return digital_trace2_;
 }
 
 /***************************************************************/
 
-uint16_t CaenN6725::get_energy()
+uint16_t CaenN6725DPPPHA::get_energy()
 {
     return energy_;
 }
 
 /***************************************************************/
 
-void CaenN6725::set_channel_dc_offset(int channel, int offset)
+void CaenN6725DPPPHA::set_channel_dc_offset(int channel, int offset)
 {
     // Set a DC offset to the input signal to adapt it to digitizer's dynamic range
     // from the manual:
@@ -728,7 +1186,7 @@ void CaenN6725::set_channel_dc_offset(int channel, int offset)
 
 /***************************************************************/
 
-void CaenN6725::allocate_memory()
+void CaenN6725DPPPHA::allocate_memory()
 {
     // This is for Mengjiao's test of the trapezoidal shaper!
     // The post trigger size is in percent.
@@ -753,14 +1211,14 @@ void CaenN6725::allocate_memory()
 
 /***************************************************************/
 
-uint32_t CaenN6725::get_allocated_buffer_size()
+uint32_t CaenN6725DPPPHA::get_allocated_buffer_size()
 {
     return allocated_size_;
 }
 
 /***************************************************************/
 
-std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data(int display_channel)
+std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725DPPPHA::read_data(int display_channel)
 {
     // check the readout status
     uint32_t acqstatus;
@@ -845,7 +1303,7 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725::read_data(int dis
 
 /***************************************************************/
 
-std::vector<int> CaenN6725::get_n_events()
+std::vector<int> CaenN6725DPPPHA::get_n_events()
 {
     std::vector<int> n_events({});
     for (uint ch=0; ch<get_nchannels(); ch++)
@@ -857,7 +1315,7 @@ std::vector<int> CaenN6725::get_n_events()
 
 /***************************************************************/
 
-std::vector<long> CaenN6725::get_n_events_tot()
+std::vector<long> CaenN6725DPPPHA::get_n_events_tot()
 {
     return n_events_acq_;
 }
@@ -865,21 +1323,21 @@ std::vector<long> CaenN6725::get_n_events_tot()
 
 /***************************************************************/
 
-std::vector<long> CaenN6725::get_n_triggers_tot()
+std::vector<long> CaenN6725DPPPHA::get_n_triggers_tot()
 {
     return channel_triggers_;
 }
 
 /***************************************************************/
 
-std::vector<long> CaenN6725::get_n_lost_triggers_tot()
+std::vector<long> CaenN6725DPPPHA::get_n_lost_triggers_tot()
 {
     return channel_lost_triggers_;
 }
 
 /***************************************************************/
 
-void CaenN6725::fast_readout_()
+void CaenN6725DPPPHA::fast_readout_()
 {
     // check the readout status
     uint32_t acqstatus;
@@ -963,7 +1421,7 @@ void CaenN6725::fast_readout_()
 
 /***************************************************************/
 
-void CaenN6725::end_acquisition()
+void CaenN6725DPPPHA::end_acquisition()
 {
     CAEN_DGTZ_SWStopAcquisition(handle_);
     root_file_->Close();
@@ -971,21 +1429,21 @@ void CaenN6725::end_acquisition()
 
 /***************************************************************/
 
-int CaenN6725::get_nchannels() const
+int CaenN6725DPPPHA::get_nchannels() const
 {
     return max_n_channels_;
 }
 
 /***************************************************************/
 
-bool CaenN6725::is_active(int channel) const
+bool CaenN6725DPPPHA::is_active(int channel) const
 {
     return (active_channel_bitmask_ & (1<<channel)); 
 }
 
 /***************************************************************/
 
-std::vector<int> CaenN6725::get_temperatures() const
+std::vector<int> CaenN6725DPPPHA::get_temperatures() const
 {
     std::vector<int> temperatures({});
     uint32_t temp;
@@ -1005,7 +1463,7 @@ std::vector<int> CaenN6725::get_temperatures() const
 *   \brief   Get time in milliseconds
 *   \return  time in msec */
 // stolen from CAEN examples
-long CaenN6725::get_time() const
+long CaenN6725DPPPHA::get_time() const
 {
     long time_ms;
 #ifdef WIN32
@@ -1023,7 +1481,7 @@ long CaenN6725::get_time() const
 
 /*******************************************************************/
 
-void CaenN6725::enable_waveform_decoding()
+void CaenN6725DPPPHA::enable_waveform_decoding()
 {
   decode_waveforms_ = true;
   // set a number of settings
@@ -1041,7 +1499,7 @@ void CaenN6725::enable_waveform_decoding()
 
 /*******************************************************************/
 
-void CaenN6725::set_input_dynamic_range(DynamicRange range)
+void CaenN6725DPPPHA::set_input_dynamic_range(DynamicRange range)
 {
     // 32 bit mask, but only bit0 caries information
     // settings for bit 0
@@ -1060,7 +1518,7 @@ void CaenN6725::set_input_dynamic_range(DynamicRange range)
 
 /*******************************************************************/
 
-std::vector<uint32_t>CaenN6725::get_input_dynamic_range()
+std::vector<uint32_t>CaenN6725DPPPHA::get_input_dynamic_range()
 {
     uint32_t drange;
     std::vector<uint32_t> channel_registers({0x1028, 0x1128, 0x1228, 0x1328, 0x1428, 0x1528, 0x1628, 0x1728});
@@ -1077,7 +1535,7 @@ std::vector<uint32_t>CaenN6725::get_input_dynamic_range()
 
 /*******************************************************************/
 
-void CaenN6725::configure_channel(unsigned int channel,CAEN_DGTZ_DPP_PHA_Params_t* params)
+void CaenN6725DPPPHA::configure_channel(unsigned int channel,CAEN_DGTZ_DPP_PHA_Params_t* params)
 {
     // channel mask 0xff means all channels ( 8bit set)
     if (channel > 7) throw std::runtime_error("Channel has to be < 8");
@@ -1090,7 +1548,7 @@ void CaenN6725::configure_channel(unsigned int channel,CAEN_DGTZ_DPP_PHA_Params_
 
 /*******************************************************************/
 
-void CaenN6725::start_acquisition()
+void CaenN6725DPPPHA::start_acquisition()
 {
     if (current_error_ != 0) throw std::runtime_error("Problems configuring all channels, err code " + std::to_string(current_error_));
     root_file_   = new TFile(rootfile_name_.c_str(), "RECREATE");
@@ -1124,7 +1582,7 @@ void CaenN6725::start_acquisition()
 
 /*******************************************************************/
 
-int CaenN6725::get_current_sampling_rate() 
+int CaenN6725DPPPHA::get_current_sampling_rate() 
 {
     int sampling_rate = 250e6;
     int probe;
@@ -1139,7 +1597,7 @@ int CaenN6725::get_current_sampling_rate()
 
 /*******************************************************************/
 
-void CaenN6725::calibrate()
+void CaenN6725DPPPHA::calibrate()
 {
     current_error_ = CAENDGTZ_API CAEN_DGTZ_Calibrate(handle_);
     if (current_error_ != 0) throw std::runtime_error("Issue during calibration err code: " + std::to_string(current_error_));
@@ -1149,7 +1607,7 @@ void CaenN6725::calibrate()
 
 /*******************************************************************/
 
-uint32_t CaenN6725::get_channel_dc_offset(int channel)
+uint32_t CaenN6725DPPPHA::get_channel_dc_offset(int channel)
 {
     // offset has to be in DAC values!
     uint32_t offset;
@@ -1160,7 +1618,7 @@ uint32_t CaenN6725::get_channel_dc_offset(int channel)
 
 /*******************************************************************/
 
-void CaenN6725::set_channel_trigger_threshold(int channel, int threshold)
+void CaenN6725DPPPHA::set_channel_trigger_threshold(int channel, int threshold)
 {
     if ((threshold < 0) || (threshold > 16383))
         {throw std::runtime_error("Trigger threshold has to be in the interval [0,16383]");};
@@ -1182,7 +1640,7 @@ void CaenN6725::set_channel_trigger_threshold(int channel, int threshold)
 
 /*******************************************************************/
 
-void CaenN6725::continuous_readout(unsigned int seconds)
+void CaenN6725DPPPHA::continuous_readout(unsigned int seconds)
 {
     // this is meant for fast continueous readout
     // set second vprobe to None, so we get the full 
@@ -1228,7 +1686,7 @@ void CaenN6725::continuous_readout(unsigned int seconds)
 
 /*******************************************************************/
 
-void CaenN6725::set_rootfilename(std::string fname)
+void CaenN6725DPPPHA::set_rootfilename(std::string fname)
 {
     rootfile_name_ = fname;
 
@@ -1237,7 +1695,7 @@ void CaenN6725::set_rootfilename(std::string fname)
 /*******************************************************************/
 
 // FIXME: pro;er close function
-CaenN6725::~CaenN6725()
+CaenN6725DPPPHA::~CaenN6725DPPPHA()
 {
     if (is_connected_)
     {

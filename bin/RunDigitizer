@@ -91,6 +91,8 @@ if __name__ == '__main__':
     parser.add_argument('--detector-name', type=str, default='', help='add the id/name of the detector for identification. This is a MUST')
     parser.add_argument('--run-config', type=str, default='', help='path to a run configuration file')
     parser.add_argument('--digitizer-config', type=str, default='config_x.json', help='path to a digitizer configuration file')
+    parser.add_argument('--wf-readout-fw-test', action='store_true', default=False, help='test the functionality for the wf fw. DEVELOPMENT ONLY!')
+
 
     args = parser.parse_args()
     logger = hep.logger.get_logger(args.loglevel)
@@ -136,6 +138,12 @@ if __name__ == '__main__':
     except Exception as e:
         logger.warning(f'Can not create {outdir} - exception {e}!')
     
+    if args.wf_readout_fw_test:
+        logger.warning('Just for testing...')
+        digi = dact.CaenN6725(dact.CaenN6725.parse_configfile(config), logger=logger, has_dpp_pha_firmware=False)
+        digi.run_digitizer(20, rootfilename=_j(outdir,'example.root'))
+        del digi
+        sys.exit(0)
     if args.test:
         logger.info('Starting test session...')
         digi = dact.CaenN6725(dact.CaenN6725.parse_configfile(config), logger=logger)

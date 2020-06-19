@@ -136,13 +136,149 @@ std::ostream& operator<<(std::ostream& os, const CAEN_DGTZ_ErrorCode& err);
 
 /************************************************************************/
 
+/**
+ * The digitizer with the waveform recording firmware
+ *
+ */
+class CaenN6725WF {
+    
+  public:
+    CaenN6725WF();
+    CaenN6725WF(DigitizerParams_t pars);
+    ~CaenN6725WF();
 
-class CaenN6725 {
+    void connect();
+    void configure(DigitizerParams_t params);
+    void set_handle(int handle);
+    int get_handle() const;
+    long get_time() const;
+
+    // set the 16bit dac value for the DC offset
+    void set_channel_dc_offset(int channel, int offset);
+    uint32_t  get_channel_dc_offset(int channel);
+
+    // this trigger threshold is applied on the waveform
+    // that means it is the minimum bin the waveform has
+    // to reach (depending on the dc offset)
+    void set_channel_trigger_threshold(int channel, int threshold);
+
+    // return the current error state
+    CAEN_DGTZ_ErrorCode get_last_error() const;
+
+    // information about the board. Installed firmware version
+    CAEN_DGTZ_BoardInfo_t get_board_info();
+
+    // this needs to be called before any 
+    // acquisition is started
+    // to allocate the internal buffers
+    void allocate_memory();
+
+    // return the size of the allocated buffer in 
+    //  
+    uint32_t get_allocated_buffer_size();
+    
+    // the name of the file containing waveforms + energy
+    void set_rootfilename(std::string fname);
+
+    // prepare acquisition
+    // don't acquire anything yet
+    void start_acquisition();
+    
+    // end acquistion mode
+    void end_acquisition();
+
+    // number of digitizer channels
+    int get_nchannels() const;
+    
+    // the current temperatures
+    std::vector<int> get_temperatures() const;
+    // temperature calibrabion
+    void calibrate();
+    // the input dynamic range is the peak-to-peak voltage
+    // the digitizer is able to measure. the 14 bits are 
+    // distributed over -vpp to +vpp
+    // it is either -0.5 to 0.5 or -1 to 1 Volt
+    void set_input_dynamic_range(DynamicRange range);
+
+    // returns a 32 bit per channel but only LSB of these is relevant
+    // 0 -> 2 Vpp
+    // 1 ->0.5 Vpp 
+    std::vector<uint32_t> get_input_dynamic_range();
+
+    // get the number of events from a single
+    // run - that is from acquistiion start - stop
+    std::vector<long> get_n_events_tot();
+
+    void readout_and_save(unsigned int seconds);
+
+  private:
+
+    // before recording data, start/overwrite a 
+    // new rootfile and set up the trees in it
+    void prepare_rootfile();
+    // check if certain channel is active
+    bool is_active(int channel) const;
+
+    // the handle is an unique identifier to this specific board
+    // two boards can not be connected via the same handle!
+    int handle_;
+    // connection status of the digitizer - will be true after
+    // the link to the digitizer has been established correctly
+    bool is_connected_;
+    // last seen error, 0 - success, negative are error codes
+    CAEN_DGTZ_ErrorCode current_error_;
+
+    // hold  the board info internally
+    // FIXME: why?
+    CAEN_DGTZ_BoardInfo_t board_info_;
+
+    // buffer for the storage of events
+    uint32_t  allocated_size_ = 0;
+    uint32_t  buffer_size_ = 0;
+    char*     buffer_ = nullptr; // readout buffer
+
+
+    // output to a root file
+    std::string rootfile_name_  = "digitizer_output.root";
+    TFile*      root_file_      = nullptr;
+    std::vector<TTree*> channel_trees_ = {};
+
+    // NB: the following define MUST specify the ACTUAL max allowed number of board's channels
+    // it is needed for consistency inside the CAENDigitizer's functions used to allocate the memory
+    static const uint32_t max_n_channels_ = 8;
+
+    // number of acquired events per acquistion interval
+    // [start acqusitizion , stop acquisitioin
+    std::vector<long> n_events_acq_ = {};
+
+    uint32_t num_events_[max_n_channels_];
+
+    // data structures to store the waveforms
+    std::vector<std::vector<int16_t>> waveform_ch_ = {};
+
+
+    // keep some configuration settings
+    int recordlength_;
+
+    // active channel bitmask - compare with it to check
+    // if a particular channel is active
+    uint8_t active_channel_bitmask_;
+
+};
+
+/************************************************************************/
+
+/**
+ * The digitizer with the DPP-PHA recording firwmare
+ * [This firmware has to be purchased seperatly]
+ * 
+ */
+class CaenN6725DPPPHA {
 
     public:
-        CaenN6725();
-        CaenN6725(DigitizerParams_t pars);
-        ~CaenN6725();
+        CaenN6725DPPPHA();
+        CaenN6725DPPPHA(DigitizerParams_t pars);
+        ~CaenN6725DPPPHA();
 
         // open the link to the digitizer
         void connect();

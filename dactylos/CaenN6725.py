@@ -65,20 +65,44 @@ class CaenN6725(object):
             config = config['CaenN6725']
         return config
         
-    def __init__(self, config, shaping_time=None, logger=None, loglevel=30):
+    def __init__(self,
+                 config,
+                 has_dpp_pha_firmware=True,
+                 shaping_time=None,
+                 logger=None,
+                 loglevel=30):
         """
-        Keyword args:
-            config (dict) : This is the parsed result of a complex configfile
-                            typically stored in .json format
+        Instantiate a new Caen digitizer object. This allows to interace with 
+        the CaenN6725 digitizer. 
 
+        Args:
+            config (dict) : This is the parsed result of a complex configfile
+                            typically stored in .json format. The config shall 
+                            contain parameters such as sample length, pulse 
+                            polarity and so on.
+                            In case the digitizer has a DPP_PHA firmware, the 
+                            config shall contain the DPP_PHA parameters as well
+        Keyword args:
+            has_dpp_pha_firmware (bool) : True if the digitizer has the DPP_PHA firware
+                                          (has to be purchased seperatly)
+
+            shaping_time (int)          : In case the digitizer has a pulse shaping firmware
+                                          the shaping time can already be set here.
+            logger (logging.logger)     : A logging instance
+            loglevel (int)              : log severity. 10 - debug, 20 - info, 30 - warn 
         """
-        self.digitizer = _cn.CaenN6725()
+        if has_dpp_pha_firmware:
+            self.digitizerr = _cn.CaenN6725DPPPHA()
+        else:
+            self.digitizer = _cn.CaenN6725WF()
         self.recordlength = None
         self.config = config
         self.trigger_thresholds = dict()
         self.dc_offsets = dict()
         self.dynamic_range = list()
+        self.has_dpp_pha_firmware = has_dpp_pha_firmware
         self.shaping_time = shaping_time
+        
         if logger is None:
             self.logger = hep.logger.get_logger(loglevel)
         else:
@@ -184,8 +208,9 @@ class CaenN6725(object):
             self.dc_offsets[ch] = offset
             # configure each channel individually
             #threshold = 
-            dpp_params = self.extract_dpp_pha_parameters(ch, config, offset) 
-            self.digitizer.configure_channel(ch, dpp_params)
+            if has_dpp_pha_firmware:
+                dpp_params = self.extract_dpp_pha_parameters(ch, config, offset) 
+                self.digitizer.configure_channel(ch, dpp_params)
 
         for ch, val in enumerate(self.digitizer.get_temperatures()):
             self.logger.debug(f'Chan: {ch} -  {val}\N{DEGREE SIGN}C')
@@ -354,7 +379,8 @@ class CaenN6725(object):
             rootfilename  (str)   : filename of the output root file
             read_waveforms (bool) : sawe waveform data to the output root file
         """
-        if read_waveforms:
+        if read_waveforms and self.has_dpp_pha_firmware:
+            # for the other firmware, it can ONLY read out waveforms
             self.digitizer.enable_waveform_decoding()
             #self.digitizer.set_dprobe2(_cn.DPPDigitalProbe2.Trigger)
         
@@ -364,7 +390,10 @@ class CaenN6725(object):
         self.digitizer.calibrate()
         self.logger.info("Starting run")
         self.digitizer.start_acquisition()
-        self.digitizer.continuous_readout(seconds)
+        if not self.has_dpp_pha_firmware:
+            self.readout_and_save(seconds)
+        else:
+            self.digitizer.continuous_readout(seconds)
         self.digitizer.end_acquisition()
         self.logger.info(f"We saw {self.digitizer.get_n_events_tot()} events!")
         return
