@@ -208,7 +208,7 @@ class CaenN6725(object):
             self.dc_offsets[ch] = offset
             # configure each channel individually
             #threshold = 
-            if has_dpp_pha_firmware:
+            if self.has_dpp_pha_firmware:
                 dpp_params = self.extract_dpp_pha_parameters(ch, config, offset) 
                 self.digitizer.configure_channel(ch, dpp_params)
 
@@ -391,7 +391,7 @@ class CaenN6725(object):
         self.logger.info("Starting run")
         self.digitizer.start_acquisition()
         if not self.has_dpp_pha_firmware:
-            self.readout_and_save(seconds)
+            self.digitizer.readout_and_save(seconds)
         else:
             self.digitizer.continuous_readout(seconds)
         self.digitizer.end_acquisition()

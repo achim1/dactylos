@@ -237,6 +237,11 @@ class CaenN6725WF {
     uint32_t  buffer_size_ = 0;
     char*     buffer_ = nullptr; // readout buffer
 
+    // structures for individual events
+    CAEN_DGTZ_EventInfo_t event_info_;
+    CAEN_DGTZ_UINT16_EVENT_t* this_event_ = nullptr;
+    char * evt_bytestream_ = nullptr;
+
 
     // output to a root file
     std::string rootfile_name_  = "digitizer_output.root";
@@ -254,7 +259,7 @@ class CaenN6725WF {
     uint32_t num_events_[max_n_channels_];
 
     // data structures to store the waveforms
-    std::vector<std::vector<int16_t>> waveform_ch_ = {};
+    std::vector<std::vector<uint16_t>> waveform_ch_ = {};
 
 
     // keep some configuration settings
