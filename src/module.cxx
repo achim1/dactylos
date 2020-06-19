@@ -593,6 +593,7 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .def("set_rootfilename",      &CaenN6725::set_rootfilename)
         .def("set_channel_dc_offset", &CaenN6725::set_channel_dc_offset)
         .def("get_channel_dc_offset", &CaenN6725::get_channel_dc_offset)
+        .def("set_channel_trigger_threshold", &CaenN6725::set_channel_trigger_threshold)
         .def("get_n_events",        &CaenN6725::get_n_events)
         .def("get_n_events_tot",        &CaenN6725::get_n_events_tot)
         .def("get_n_triggers_tot",      &CaenN6725::get_n_triggers_tot)

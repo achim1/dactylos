@@ -6,6 +6,7 @@ import _pyCaenN6725 as _cn
 
 import hepbasestack as hep
 import hepbasestack.layout as lo
+import hepbasestack.visual as vs
 hep.visual.set_style_default()
 
 from HErmes.visual.canvases import YStackedCanvas
@@ -100,14 +101,15 @@ class CaenN6725(object):
         Convert the value of the baseline offset from 
         percentage to something the digitizer can understand
         """
-        val = int(((2**16)/100)*percent)
-        #print (f"Calculated dc offset of {val}")
+        val = int((((2**16) -1)/100)*percent)
         return val
 
     def get_board_info(self):
         """
         Show information about digitizer model and firmware version
         """
+        binfo = self.digitizer.get_board_info()
+        self.logger.info(f"Found board with ROC FW: {binfo.get_model_roc_firmware_rel()} AMC FW: {binfo.get_amc_firmware_rel()} family code: {binfo.family_code} and serial number {binfo.serial_number}")
         return self.digitizer.get_board_info()
 
     def set_vprobe1(self, vprobe1):
@@ -142,7 +144,11 @@ class CaenN6725(object):
         
         # baseline offset for active digitizier channels
         digitizer_baseline_offset = config['baseline-offset']
-        assert len(digitizer_baseline_offset) == len(active_digitizer_channels), "The number of active channels does not match the number of baseline offsets give!"
+        assert len(digitizer_baseline_offset) == len(active_digitizer_channels), "The number of active channels does not match the number of baseline offsets given!"
+
+        # the trigger thresholds for the active digitizer channels
+        trigger_thresholds = config['trigger-threshold']
+        assert len(trigger_thresholds) == len(active_digitizer_channels), "The number of active channels does not match the number of given trigger thresholds!"
 
         # dynamic range 
         digitizer_dynamic_range = config['dynamic-range']
@@ -154,7 +160,6 @@ class CaenN6725(object):
             digitizer_dynamic_range = _cn.DynamicRange.VPP05
             self.dynamic_range = [-0.5, 0.5]
         
-
         # as an example, for now just take data with the digitzer
         digi_pars = self.extract_digitizer_parameters(config)
     
@@ -172,9 +177,13 @@ class CaenN6725(object):
         # baseline offset has to go extra, for some reason CAEN treats this separatly
         for i,ch in enumerate(active_digitizer_channels):
             offset = self.baseline_offset_percent_to_val(digitizer_baseline_offset[i]) 
+            self.logger.debug(f"Calculated dc offset for channel {ch} of {offset}")
             self.digitizer.set_channel_dc_offset(ch,offset)
+
+            self.digitizer.set_channel_trigger_threshold(ch, trigger_thresholds[ch])
             self.dc_offsets[ch] = offset
             # configure each channel individually
+            #threshold = 
             dpp_params = self.extract_dpp_pha_parameters(ch, config, offset) 
             self.digitizer.configure_channel(ch, dpp_params)
 
@@ -192,22 +201,27 @@ class CaenN6725(object):
         for the digitizer from a config file 
         read by json
         """
-        pars               = _cn.DigitizerParams()
-        # the enums we fix forcn
-        pars.LinkType      = _cn.ConnectionType.USB
-        pars.IOlev         = _cn.IOLevel.NIM
-        pars.PulsePolarity = _cn.PulsePolarity.Positive
-        pars.DPPAcqMode    = _cn.DPPAcqMode.Mixed
-        active_channels    = config['active-channels']
-        channelmask        = 0
+        pars                    = _cn.DigitizerParams()
+        # the enums we fix      forcn
+        pars.LinkType           = _cn.ConnectionType.USB
+        pars.IOlev              = _cn.IOLevel.NIM
+        pars.PulsePolarity      = _cn.PulsePolarity.Positive
+        # Fix this in the C++ code
+        # pars.DPPAcqMode       = _cn.DPPAcqMode.Mixed
+        active_channels         = config['active-channels']
+        channelmask  = 0
         for ch in active_channels:
             channelmask += (1 << ch)
-        pars.ChannelMask = channelmask
-        pars.VMEBaseAddress = config['VMEBaseAddress']
-        pars.RecordLength = config['RecordLength']
+        pars.ChannelMask        = channelmask
+        pars.VMEBaseAddress     = config['VMEBaseAddress']
+        pars.RecordLength       = config['RecordLength']
         # also stroe in own field
-        self.recordlength = config['RecordLength']
-        pars.EventAggr = config['EventAggr']
+        self.recordlength       = config['RecordLength']
+        # this trigger threshold has NOTHING to do with the 
+        # DPP-PHA trigger threshold, that is configured 
+        # with the dpp-pha parameters later on 
+        self.trigger_thresholds = config['trigger-threshold'] 
+        pars.EventAggr          = config['EventAggr']
         return pars
 
     def get_temperatures(self):
@@ -237,19 +251,19 @@ class CaenN6725(object):
         pars = _cn.DPPPHAParams()
         nchan = 8
         channel_key     = "ch" + str(channel)
-        self.logger.debug(f"Got trigger threshold : {config[channel_key]['trigger-threshold']}")
+        #self.logger.debug(f"Got trigger threshold : {config[channel_key]['trigger-threshold']}")
         trigger_threshold = config[channel_key]['trigger-threshold'] #in minivolts, neeed to convert to bin
-        # resolution is 14 bit
-        fsr = dynamic_range[1] - dynamic_range[0]
-        lsb = fsr/2**14
-        trigger_threshold = 1e-3*trigger_threshold # convert to volt
-        trigger_threshold = int(trigger_threshold/lsb)
-        self.logger.debug(f"Calculated value for {trigger_threshold}")
-        self.logger.debug(f"Found a dc offset of {dc_offset}")
-        #trigger_threshold += dc_offset/4 
-        trigger_threshold = int(trigger_threshold)
+        ## resolution is 14 bit
+        #fsr = dynamic_range[1] - dynamic_range[0]
+        #lsb = fsr/2**14
+        #trigger_threshold = 1e-3*trigger_threshold # convert to volt
+        #trigger_threshold = int(trigger_threshold/lsb)
+        #self.logger.debug(f"Calculated value for {trigger_threshold}")
+        #self.logger.debug(f"Found a dc offset of {dc_offset}")
+        ##trigger_threshold += dc_offset/4 
+        #trigger_threshold = int(trigger_threshold)
         self.logger.debug(f"This means we have a trigger threshold after applying the dc offset of {trigger_threshold}")
-        self.trigger_thresholds[channel] = trigger_threshold
+        #self.trigger_thresholds[channel] = trigger_threshold
 
         # check if the trapezoid is short enough to fit into the record length
         # reminder, the trapezoid rise time is our SHAPINGTIME
@@ -513,8 +527,8 @@ class CaenN6725(object):
 
         #canvas.figure.tight_layout()
 
-        plt.adjust_minor_ticks(trace1_axes, which = 'both')
-        plt.adjust_minor_ticks(trace2_axes, which = 'y')
+        vs.adjust_minor_ticks(trace1_axes, which = 'both')
+        vs.adjust_minor_ticks(trace2_axes, which = 'y')
         #plt.adjust_minor_ticks(dtrace1_axes, which = 'y')
         #plt.adjust_minor_ticks(dtrace2_axes, which = 'y')
                 

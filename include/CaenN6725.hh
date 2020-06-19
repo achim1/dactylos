@@ -2,6 +2,7 @@
 #define CLCAEN6725_H_INCLUDED
 
 #include <vector>
+#include <iostream>
 
 //#define CAEN_DGTZ_BoardInfo_t _TRASH_
 
@@ -128,6 +129,14 @@ struct DigitizerParams_t
 
 /************************************************************************/
 
+// string representation for numerical error codes
+std::string error_code_to_string(CAEN_DGTZ_ErrorCode err);
+// string representation coined into an operator
+std::ostream& operator<<(std::ostream& os, const CAEN_DGTZ_ErrorCode& err);
+
+/************************************************************************/
+
+
 class CaenN6725 {
 
     public:
@@ -157,6 +166,11 @@ class CaenN6725 {
         // set the 16bit dac value for the DC offset
         void set_channel_dc_offset(int channel, int offset);
         uint32_t  get_channel_dc_offset(int channel);
+
+        // this trigger threshold is applied on the waveform
+        // that means it is the minimum bin the waveform has
+        // to reach (depending on the dc offset)
+        void set_channel_trigger_threshold(int channel, int threshold);
 
         void enable_waveform_decoding();
 
@@ -312,6 +326,11 @@ class CaenN6725 {
         // is opened
         int handle_;
         CAEN_DGTZ_ErrorCode current_error_;
+
+        // since event aggregate has to be set after the
+        // acquisition mode, save this value in case the acquisition mode
+        // gets changed.
+        int event_aggregate_ = 0;
 
         /* Buffers to store the data. The memory must be allocated using the appropriate
         CAENDigitizer API functions (see below), so they must not be initialized here
