@@ -108,7 +108,7 @@ class CaenN6725(object):
         else:
             self.logger = logger
         self.setup()
-        self.logger.info("Caen N6725 initialized")
+        self.logger.info("Caen N6725 initialization finished!")
 
     def __del__(self):
         del self.digitizer
@@ -204,7 +204,8 @@ class CaenN6725(object):
             self.logger.debug(f"Calculated dc offset for channel {ch} of {offset}")
             self.digitizer.set_channel_dc_offset(ch,offset)
 
-            self.digitizer.set_channel_trigger_threshold(ch, trigger_thresholds[ch])
+            if not self.has_dpp_pha_firmware:
+                self.digitizer.set_channel_trigger_threshold(ch, trigger_thresholds[ch])
             self.dc_offsets[ch] = offset
             # configure each channel individually
             #threshold = 
@@ -389,8 +390,10 @@ class CaenN6725(object):
         # run calibration before readout
         self.digitizer.calibrate()
         self.logger.info("Starting run")
+        self.logger.info(f'This digitizer does have DPP PHA fw {self.has_dpp_pha_firmware}')
         self.digitizer.start_acquisition()
         if not self.has_dpp_pha_firmware:
+
             self.digitizer.readout_and_save(seconds)
         else:
             self.digitizer.continuous_readout(seconds)

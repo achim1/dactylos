@@ -209,6 +209,7 @@ class CaenN6725WF {
     // run - that is from acquistiion start - stop
     std::vector<long> get_n_events_tot();
 
+    void readout_routine();
     void readout_and_save(unsigned int seconds);
 
   private:

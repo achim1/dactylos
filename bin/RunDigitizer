@@ -141,6 +141,8 @@ if __name__ == '__main__':
     if args.wf_readout_fw_test:
         logger.warning('Just for testing...')
         digi = dact.CaenN6725(dact.CaenN6725.parse_configfile(config), logger=logger, has_dpp_pha_firmware=False)
+        logger.info(f"Got handle {digi.get_handle()}")
+
         digi.run_digitizer(20, rootfilename=_j(outdir,'example.root'))
         del digi
         sys.exit(0)
