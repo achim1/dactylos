@@ -92,7 +92,7 @@ class CaenN6725(object):
             loglevel (int)              : log severity. 10 - debug, 20 - info, 30 - warn 
         """
         if has_dpp_pha_firmware:
-            self.digitizerr = _cn.CaenN6725DPPPHA()
+            self.digitizer = _cn.CaenN6725DPPPHA()
         else:
             self.digitizer = _cn.CaenN6725WF()
         self.recordlength = None
