@@ -14,12 +14,11 @@ import hjson
 p.ion()
 from os.path import join as _j
 from skippylab.controllers import PrologixUsbGPIBController
+ROOT_FOUND = True
 try:
     import ROOT
 except ImportError as e:
-    print ("Failed to import root.... Some functionality might not be available")
-    print ("Make sure $ROOTSYS/lib is in your $PYTHONPATH")
-    raise ImportError("This requires CERN's root python library to run!")
+    ROOT_FOUND = False
 use_chamber = True
 scope = False
 shaping_spree  = True
@@ -49,6 +48,12 @@ def setup_root_histos():
     """
     Prepare energy histograms in ROOT.TH1D style.
     """
+    if not ROOT_FOUND:
+        print ("Failed to import root.... Some functionality might not be available")
+        print ("Make sure $ROOTSYS/lib is in your $PYTHONPATH")
+        raise ImportError("This requires CERN's root python library to run!")
+
+
     histos = []
     for i in range(NCHANNELS):
         h = ROOT.TH1D()
@@ -62,6 +67,11 @@ def histogram_energy(input_file):
     """
     Create root TH1D histograms for the energy
     """
+    if not ROOT_FOUND:
+        print ("Failed to import root.... Some functionality might not be available")
+        print ("Make sure $ROOTSYS/lib is in your $PYTHONPATH")
+        raise ImportError("This requires CERN's root python library to run!")
+
     f = ROOT.TFile(input_file,"UPDATE")        
     f.cd()
     histos = setup_root_histos()

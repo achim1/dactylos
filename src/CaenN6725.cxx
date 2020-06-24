@@ -846,20 +846,18 @@ void CaenN6725WF::readout_routine()
       current_error_ = CAEN_DGTZ_DecodeEvent(handle_,
                                              evt_bytestream_,
                                              (void**)&this_event_);
-      this_wf = std::vector<uint16_t>(this_event_->DataChannel[0],this_event_->DataChannel[0] + this_event_->ChSize[0]);
-      waveform_ch_.at(0) = this_wf;
-      channel_trees_[0]->Fill(); 
-      current_error_ = CAEN_DGTZ_FreeEvent(handle_,
+      for (unsigned ch=0; ch<get_nchannels(); ch++)
+        {
+          if (!(is_active(ch))) return;
+          this_wf = std::vector<uint16_t>(this_event_->DataChannel[ch],this_event_->DataChannel[ch] + this_event_->ChSize[ch]);
+          waveform_ch_.at(ch) = this_wf;
+          channel_trees_[ch]->Fill(); 
+          current_error_ = CAEN_DGTZ_FreeEvent(handle_,
                                            (void**)&this_event_);
-      }
-
-   for (unsigned ch=0; ch<get_nchannels(); ch++)
-     {
-       if (!(is_active(ch))) return;
-       
+          n_events_acq_[ch] += 1;
+        }
 
        //n_events_acq_[ch] += num_events_[ch];
-       n_events_acq_[ch] += events_in_buffer;
      }
 
 }
