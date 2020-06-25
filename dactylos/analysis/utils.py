@@ -21,7 +21,7 @@ class Measurment:
     filename      : str = ''
     statistics    : int = -1
 
-
+#################################################################
 
 def get_data_from_summaryfile(sfile, mtype):
     """

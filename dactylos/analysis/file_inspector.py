@@ -31,8 +31,20 @@ def inspect_file(filename):
         chdata = f.get(f'ch{k}')
         ch_inspect = ChannelInspector()
         ch_inspect.channel_id  = k
-        ch_inspect.n_energies  = len(chdata.get(ENERGY).array())
-        ch_inspect.n_waveforms = len(chdata.get(WAVEFORM).array())
-        ch_inspect.n_trigger   = len(chdata.get(TRIGGER).array())
+        ch_inspect.n_energies  = 0
+        ch_inspect.n_waveforms = 0 
+        ch_inspect.n_trigger   = 0
+        try:
+            ch_inspect.n_energies  = len(chdata.get(ENERGY).array())
+        except Exception as e:
+            print (f'Can not get energies, exception {e}')
+        try:
+            ch_inspect.n_waveforms = len(chdata.get(WAVEFORM).array())
+        except Exception as e:
+            print (f'Can not get waveforms, exception {e}')
+        try:
+            ch_inspect.n_trigger   = len(chdata.get(TRIGGER).array())
+        except Exception as e:
+            print (f'Can not get triggers, exception {e}')
         inspector[k] = ch_inspect
     return inspector
