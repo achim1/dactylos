@@ -236,7 +236,8 @@ class CaenN6725WF {
     // buffer for the storage of events
     uint32_t  allocated_size_ = 0;
     uint32_t  buffer_size_ = 0;
-    char*     buffer_ = nullptr; // readout buffer
+    //char*     buffer_ = nullptr; // readout buffer
+    char* buffer_;
 
     // structures for individual events
     CAEN_DGTZ_EventInfo_t event_info_;
