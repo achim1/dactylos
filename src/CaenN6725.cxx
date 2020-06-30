@@ -841,7 +841,7 @@ void CaenN6725WF::readout_routine()
                                            buffer_,
                                            buffer_size_,
                                            &events_in_buffer);
-   std::cout << "We found " << events_in_buffer << " events" << std::endl;
+  //std::cout << "We found " << events_in_buffer << " events" << std::endl;
 
   if (current_error_ != 0)
     {
@@ -851,7 +851,7 @@ void CaenN6725WF::readout_routine()
         return;
     }
 
-  uint32_t channelmask = 0;
+  //uint32_t channelmask = 0;
   int channel = 0;
   for (uint ev=0; ev<events_in_buffer; ev++)
     {
@@ -863,52 +863,60 @@ void CaenN6725WF::readout_routine()
                                               &event_info_,
                                               &evt_bytestream_);
 
-      channelmask =  event_info_.ChannelMask;
+      //channelmask =  event_info_.ChannelMask;
       //std::cout << "Attempting to decode event" << std::endl;
       current_error_ = CAEN_DGTZ_DecodeEvent(handle_,
                                              evt_bytestream_,
                                              (void**)&this_event_);
 
-      if (channelmask      == pow(2,0))
-        {channel = 0;}
-      else if (channelmask == pow(2,1))
-        {channel = 1;}
-      else if (channelmask == pow(2,2))
-        {channel = 2;}
-      else if (channelmask == pow(2,3))
-        {channel = 3;}
-      else if (channelmask == pow(2,4))
-        {channel = 4;}
-      else if (channelmask == pow(2,5))
-        {channel = 5;}
-      else if (channelmask == pow(2,6))
-        {channel = 6;}
-      else if (channelmask == pow(2,7))
-        {channel = 7;}
-      else 
-        {
-          std::cout << "invalid channel " << channel << " for mask " << channelmask << " "  << std::endl; 
-
-          //CAEN_DGTZ_FreeReadoutBuffer(&buffer_);
-
-          //current_error_ = CAEN_DGTZ_FreeEvent(handle_,
-          //                                 (void**)&this_event_);
-          //return;
-          channel = 0;
-        }
-       std::cout << "channel " << channel << " for mask " << channelmask << " "  << std::endl; 
-
-      //for (unsigned ch=0; ch<get_nchannels(); ch++)
+      //if (channelmask      == pow(2,0))
+      //  {channel = 0;}
+      //else if (channelmask == pow(2,1))
+      //  {channel = 1;}
+      //else if (channelmask == pow(2,2))
+      //  {channel = 2;}
+      //else if (channelmask == pow(2,3))
+      //  {channel = 3;}
+      //else if (channelmask == pow(2,4))
+      //  {channel = 4;}
+      //else if (channelmask == pow(2,5))
+      //  {channel = 5;}
+      //else if (channelmask == pow(2,6))
+      //  {channel = 6;}
+      //else if (channelmask == pow(2,7))
+      //  {channel = 7;}
+      //else 
       //  {
-          //std::cout << "Trying to access event" << std::endl;
-          this_wf = std::vector<uint16_t>(this_event_->DataChannel[0],this_event_->DataChannel[0] + this_event_->ChSize[0]);
-          waveform_ch_.at(channel) = this_wf;
-          channel_trees_[channel]->Fill(); 
-          current_error_ = CAEN_DGTZ_FreeEvent(handle_,
-                                           (void**)&this_event_);
-          n_events_acq_[channel] += 1;
-      //  }
+      //    std::cout << "invalid channel " << channel << " for mask " << channelmask << " "  << std::endl; 
 
+      //    //CAEN_DGTZ_FreeReadoutBuffer(&buffer_);
+
+      //    //current_error_ = CAEN_DGTZ_FreeEvent(handle_,
+      //    //                                 (void**)&this_event_);
+      //    //return;
+      //    channel = 0;
+      //  }
+      // std::cout << "channel " << channel << " for mask " << channelmask << " "  << std::endl; 
+
+      uint32_t channel_size;
+      for (unsigned ch=0; ch<get_nchannels(); ch++)
+        {
+          // check if the cannel has seen data
+          channel_size = this_event_->ChSize[ch];
+          //std::cout << "Found channel size of " << channel_size << " for channel " << ch << std::endl;
+          if (channel_size == 0) continue;
+
+          //std::cout << "Trying to access event" << std::endl;
+          this_wf = std::vector<uint16_t>(this_event_->DataChannel[ch],this_event_->DataChannel[ch] + this_event_->ChSize[ch]);
+          waveform_ch_.at(ch) = this_wf;
+          channel_trees_[ch]->Fill(); 
+          n_events_acq_[ch] += 1;
+        }
+        if (this_event_ != nullptr)
+          {
+            current_error_ = CAEN_DGTZ_FreeEvent(handle_,
+                                (void**)&this_event_);
+          }
        //n_events_acq_[ch] += num_events_[ch];
      }
      //CAEN_DGTZ_FreeReadoutBuffer(&buffer_);
