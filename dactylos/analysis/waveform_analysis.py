@@ -282,10 +282,12 @@ class WaveformAnalysis(object):
         if lines == 0 : lines = 1
         nwaveforms = lines*3
 
-        times = np.array([k for k in range(len(self.channel_data[ch][0]))])
+        #times = np.array([k for k in range(len(self.channel_data[ch][0]))])
         for i in tqdm.tqdm(range(nwaveforms), total=nwaveforms):
             ax = wfplot.add_subplot(lines, 3, i+1)
             volts = self.channel_data[ch][i]
+            # FIXME - temporary workaround
+            times = np.array([k for k in range(len(volts))])
             ax = plot_waveform(ax, times, volts)     
             # plot the axes only on the leftmost plots
             # and the downmost
