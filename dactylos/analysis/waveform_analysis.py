@@ -28,21 +28,23 @@ logger = hep.logger.get_logger(dactylos.LOGLEVEL)
 
 ########################################################################
 
-def read_waveform(infile, ch):
+def read_waveform(infile, ch, entrystop=None):
     """
     Return waveform data from a rootfile with uproot
 
     Args:
-        infile (str) : filename
-        ch (int)     : digitizer channel
+        infile (str)    : filename
+        ch (int)        : digitizer channel
 
+    Keyword Args:
+        entrystop (int) : last entry - if None, read all
     Returns:
         ndarray : numpy array with waveform data. Waveform data is in
                   digitizer channels and of length of the record length
                   as set when configuring the digitizer
     """
     f = up.open(infile)
-    data = f.get('ch' + str(ch)).get('waveform').array()
+    data = f.get('ch' + str(ch)).get('waveform').array(entrystop=entrystop)
     data = [baseline_correction(k, nsamples=1000)[0] for k in data]
     #if sh.WAVEFORMTYPE == 'ARRAY':
     #    data = np.array(data, dtype=np.int16)
@@ -226,9 +228,12 @@ class WaveformAnalysis(object):
         """
         self.files = infiles
 
-    def read_waveforms(self):
+    def read_waveforms(self, entrystop=None):
         """
         Read the waveforms from the files
+
+        Keyword Args:
+            entrystop (int)   : if not None, read only entrystop waveforms
 
         Returns:
             None
@@ -239,7 +244,7 @@ class WaveformAnalysis(object):
             # read out every file once per channel
             for ch in self.active_channels:
                 #read_waveform(fname, ch)
-                future_to_fname[self.tpexecutor.submit(read_waveform, fname, ch)] = fname
+                future_to_fname[self.tpexecutor.submit(read_waveform, fname, ch, entrystop = entrystop)] = fname
 
         logger.info("Readout jobs submitted..")
         init_ch = [False]*8
