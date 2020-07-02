@@ -495,9 +495,10 @@ void CaenN6725WF::configure(DigitizerParams_t params)
   // Post trigger size (that is the possiton of the trigger within the event
   current_error_ = CAEN_DGTZ_GetPostTriggerSize(handle_, &posttrigs);
   if (current_error_ !=0 ) throw std::runtime_error("Getting the post trigger size failed! " + error_code_to_string(current_error_));
-  std::cout << "Post trigger size has been found yo be " << std::to_string(posttrigs);
+  std::cout << "Found post trigger size of : " << std::to_string(posttrigs);
 
-  current_error_ = CAEN_DGTZ_SetPostTriggerSize(handle_, 90);
+  std::cout << "Will set post trigger size to : " << params.PostTriggerPercent << std::endl;
+  current_error_ = CAEN_DGTZ_SetPostTriggerSize(handle_, params.PostTriggerPercent);
   if (current_error_ !=0 ) throw std::runtime_error("Setting the post trigger size failed! " + error_code_to_string(current_error_));
 
 

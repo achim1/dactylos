@@ -121,6 +121,7 @@ struct DigitizerParams_t
     uint32_t RecordLength;
     uint32_t ChannelMask;
     int EventAggr;
+    int PostTriggerPercent; 
     CAEN_DGTZ_PulsePolarity_t PulsePolarity;
     CAEN_DGTZ_DPP_AcqMode_t AcqMode;
     CAEN_DGTZ_IOLevel_t IOlev;

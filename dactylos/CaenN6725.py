@@ -206,6 +206,7 @@ class CaenN6725(object):
 
             if not self.has_dpp_pha_firmware:
                 self.digitizer.set_channel_trigger_threshold(ch, trigger_thresholds[ch])
+                
             self.dc_offsets[ch] = offset
             # configure each channel individually
             #threshold = 
@@ -248,6 +249,10 @@ class CaenN6725(object):
         # with the dpp-pha parameters later on 
         self.trigger_thresholds = config['trigger-threshold'] 
         pars.EventAggr          = config['EventAggr']
+        if 'PostTriggerPercent' in config:
+            pars.PostTriggerPercent = config['PostTriggerPercent']
+        else:
+            pars.PostTriggerPercent = 90
         return pars
 
     def get_temperatures(self):

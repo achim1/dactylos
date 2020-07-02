@@ -491,6 +491,7 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .def_readwrite("RecordLength", &DigitizerParams_t::RecordLength)
         .def_readwrite("ChannelMask", &DigitizerParams_t::ChannelMask)
         .def_readwrite("EventAggr", &DigitizerParams_t::EventAggr)
+        .def_readwrite("PostTriggerPercent", &DigitizerParams_t::PostTriggerPercent)
         .def_readwrite("PulsePolarity", &DigitizerParams_t::PulsePolarity)
         .def_readwrite("DPPAcqMode", &DigitizerParams_t::AcqMode)
         .def_readwrite("IOlev", &DigitizerParams_t::IOlev)
