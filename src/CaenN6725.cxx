@@ -900,9 +900,10 @@ void CaenN6725WF::readout_routine()
       // std::cout << "channel " << channel << " for mask " << channelmask << " "  << std::endl; 
 
       uint32_t channel_size;
-      for (unsigned ch=0; ch<get_nchannels(); ch++)
+      for (unsigned int ch=0; ch<get_nchannels(); ch++)
         {
           // check if the cannel has seen data
+          if (!(is_active(ch))) continue;
           channel_size = this_event_->ChSize[ch];
           //std::cout << "Found channel size of " << channel_size << " for channel " << ch << std::endl;
           if (channel_size == 0) continue;
@@ -911,6 +912,7 @@ void CaenN6725WF::readout_routine()
           this_wf = std::vector<uint16_t>(this_event_->DataChannel[ch],this_event_->DataChannel[ch] + this_event_->ChSize[ch]);
           waveform_ch_.at(ch) = this_wf;
           channel_trees_[ch]->Fill(); 
+          channel_trees_[ch]->Write();
           n_events_acq_[ch] += 1;
         }
         if (this_event_ != nullptr)
