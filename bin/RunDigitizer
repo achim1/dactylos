@@ -13,13 +13,12 @@ import hjson
 
 p.ion()
 from os.path import join as _j
-from skippylab.controllers import PrologixUsbGPIBController
 ROOT_FOUND = True
 try:
     import ROOT
 except ImportError as e:
     ROOT_FOUND = False
-use_chamber = True
+
 scope = False
 shaping_spree  = True
 runtime = 240
@@ -92,7 +91,6 @@ if __name__ == '__main__':
     parser.add_argument('--shaping-spree', action='store_true', default=False, help='Take data for different shaping times from a pre-defined (currently hardcoded) list')
     parser.add_argument('--test', action='store_true', default=False)
     parser.add_argument('--scope', action='store_true', default=False)
-    parser.add_argument('--use-chamber', action='store_true', default=False, help="Use the SUN chamber to cooldown between different parts of the run.")
     parser.add_argument('--read-waveforms', action='store_true', default=False, help='Save the waveforms as well.')
     parser.add_argument('-o','--outdir', type=str, default='outdir')
     parser.add_argument('-i','--infile', type=str, default='infile', help='Only to use in combination with --create-histograms-only')
@@ -109,14 +107,12 @@ if __name__ == '__main__':
     config = args.digitizer_config
     if not args.run_config:
         shaping_spree = args.shaping_spree
-        use_chamber   = args.use_chamber
         #shaping_times = [100, 500, 1000, 1500, 2000, 3000, 5000, 6000, 7000, 10000]
         #shaping_times = [4000]
         shaping_times = [500,1000, 2000, 4000, 5000, 8000, 12000, 16000, 20000, 30000]
         detector_sequence = False
     else:
         run_config = hjson.load(open(args.run_config)) 
-        use_chamber = run_config['use-chamber']
         args.read_waveforms = run_config['save-waveforms']
         shaping_spree = len(run_config['peaking-times']) > 0
         if shaping_spree:
@@ -137,12 +133,6 @@ if __name__ == '__main__':
 
     outfilename = _j(outdir, f"det{args.detector_name}")
 
-    #sys.exit()
-    if use_chamber:
-        from skippylab.instruments.climate_chambers import SunChamber
-        SUNPORT='/dev/serial/by-id/usb-Prologix_Prologix_GPIB-USB_Controller_PX30FLUZ-if00-port0'
-        sunec = SunChamber(PrologixUsbGPIBController(port=SUNPORT),
-                                                 publish=False,                                             port=SUNPORT)
     try:
         os.mkdir(outdir)
     except Exception as e:
@@ -156,6 +146,7 @@ if __name__ == '__main__':
         digi.run_digitizer(20, rootfilename=_j(outdir,'example.root'))
         del digi
         sys.exit(0)
+
     if args.test:
         logger.info('Starting test session...')
         digi = dact.CaenN6725(dact.CaenN6725.parse_configfile(config), logger=logger)
@@ -189,18 +180,6 @@ if __name__ == '__main__':
                       # can be open.
             #ex.shutdown()
 
-            if use_chamber:
-
-                #cooldown
-                print (f".. done. Cooling down!")
-                if MPI:
-                    EXECUTOR.submit(cooldown, sunec)
-                histogram_energy(outfile)
-                if not MPI:
-                    sunec.ON
-                    sunec.monitor_temperatures(target_temp=-37,
-                                               activate=True)
-                    sunec.OFF
     
     if scope:
         try:
