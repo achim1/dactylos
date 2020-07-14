@@ -641,6 +641,7 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         //.def("get_n_lost_triggers_tot",       &CaenN6725WF::get_n_lost_triggers_tot)
         //.def("get_energy",                    &CaenN6725WF::get_energy)
         .def("readout_and_save",              &CaenN6725WF::readout_and_save)
+        .def("readout_and_return",            &CaenN6725WF::readout_and_return)
         .def("set_input_dynamic_range",       &CaenN6725WF::set_input_dynamic_range)
         .def("get_input_dynamic_range",       &CaenN6725WF::get_input_dynamic_range);
 };

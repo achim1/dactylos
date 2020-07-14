@@ -210,9 +210,12 @@ class CaenN6725WF {
     // run - that is from acquistiion start - stop
     std::vector<long> get_n_events_tot();
 
-    void readout_routine();
+    void readout_routine(bool write_root=true);
     void readout_and_save(unsigned int seconds);
-
+    
+    // for 'oscilloscope' use -> return the seen waveforms
+    std::vector<std::vector<uint16_t>> readout_and_return();
+    
   private:
 
     // before recording data, start/overwrite a 

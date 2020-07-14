@@ -19,7 +19,6 @@ try:
 except ImportError as e:
     ROOT_FOUND = False
 
-scope = False
 shaping_spree  = True
 runtime = 240
 outdir = 'run12-Wed03052020'
@@ -119,7 +118,6 @@ if __name__ == '__main__':
             shaping_times = run_config['peaking-times'] 
         detector_sequence = run_config['detector-sequence']        
 
-    scope         = args.scope
     outdir        = args.outdir
 
     if args.create_histograms_only:
@@ -142,8 +140,13 @@ if __name__ == '__main__':
         logger.warning('Just for testing...')
         digi = dact.CaenN6725(dact.CaenN6725.parse_configfile(config), logger=logger, has_dpp_pha_firmware=False)
         logger.info(f"Got handle {digi.get_handle()}")
-
-        digi.run_digitizer(20, rootfilename=_j(outdir,'example.root'))
+        if args.scope:
+            for wf in digi.live_view(20):
+                print (wf)
+        else:
+            logger.info("Will run digitizer for 20 seconds and store to file 'example.root'")
+            digi.run_digitizer(20, rootfilename=_j(outdir,'example.root'))
+            logger.info("...done")
         del digi
         sys.exit(0)
 
@@ -181,7 +184,10 @@ if __name__ == '__main__':
             #ex.shutdown()
 
     
-    if scope:
+    if args.scope:
+        if args.wf_readout_fw_test:
+            print ('Not implemented yet')
+            sys.exit(1)
         try:
             os.mkdir(outdir)
         except Exception as e:
