@@ -428,6 +428,7 @@ class CaenN6725(object):
         while delta_t <= seconds:
             events = self.digitizer.readout_and_return()
             delta_t += time.monotonic() - last 
+            last = time.monotonic()
             yield events
         self.digitizer.end_acquisition()
         self.logger.info(f"We saw {self.digitizer.get_n_events_tot()} events!")
