@@ -715,7 +715,11 @@ void CaenN6725WF::prepare_rootfile()
 void CaenN6725WF::start_acquisition()
 {
   std::cout << "Preparing to start acquisition...";
-  prepare_rootfile();
+  if (rootfile_name_ != "") {
+    prepare_rootfile();
+  } else {
+    std::cout << ".. [WARN] : no rootfilename set, will not write to file ..";
+  }
   n_events_acq_  = std::vector<long>(get_nchannels(), 0);
   current_error_ = CAEN_DGTZ_SWStartAcquisition(handle_);
   std::cout << "...started!" << std::endl;

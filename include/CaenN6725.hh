@@ -250,7 +250,7 @@ class CaenN6725WF {
 
 
     // output to a root file
-    std::string rootfile_name_  = "digitizer_output.root";
+    std::string rootfile_name_  = "";
     TFile*      root_file_      = nullptr;
     std::vector<TTree*> channel_trees_ = {};
 
