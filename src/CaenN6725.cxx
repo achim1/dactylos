@@ -730,7 +730,9 @@ void CaenN6725WF::start_acquisition()
 void CaenN6725WF::end_acquisition()
 {
   CAEN_DGTZ_SWStopAcquisition(handle_);
-  root_file_->Close();
+  if (root_file_) {
+    root_file_->Close();
+  }
 }
 
 /***************************************************************/
@@ -804,6 +806,11 @@ void CaenN6725WF::readout_routine(bool write_root)
   uint32_t acqstatus;
   std::vector<uint16_t> this_wf = {};
   this_wf.reserve(recordlength_);
+
+  waveform_ch_.clear();
+  for (int k=0;k<8;k++)
+    {waveform_ch_.push_back({});}
+
   // FIXME acquisition status not working
   //current_error_ = CAEN_DGTZ_ReadRegister(handle_, 0x8104, &acqstatus);
   //if (! ( acqstatus & (1 << 3))) // the 3rd bit is the acquisition status
@@ -860,7 +867,7 @@ void CaenN6725WF::readout_routine(bool write_root)
   int channel = 0;
   for (uint ev=0; ev<events_in_buffer; ev++)
     {
-      //std::cout << "Attempting to get event info" << std::endl;
+//      //std::cout << "Attempting to get event info" << std::endl;
       current_error_ = CAEN_DGTZ_GetEventInfo(handle_,
                                               buffer_,
                                               buffer_size_,
@@ -874,33 +881,6 @@ void CaenN6725WF::readout_routine(bool write_root)
                                              evt_bytestream_,
                                              (void**)&this_event_);
 
-      //if (channelmask      == pow(2,0))
-      //  {channel = 0;}
-      //else if (channelmask == pow(2,1))
-      //  {channel = 1;}
-      //else if (channelmask == pow(2,2))
-      //  {channel = 2;}
-      //else if (channelmask == pow(2,3))
-      //  {channel = 3;}
-      //else if (channelmask == pow(2,4))
-      //  {channel = 4;}
-      //else if (channelmask == pow(2,5))
-      //  {channel = 5;}
-      //else if (channelmask == pow(2,6))
-      //  {channel = 6;}
-      //else if (channelmask == pow(2,7))
-      //  {channel = 7;}
-      //else 
-      //  {
-      //    std::cout << "invalid channel " << channel << " for mask " << channelmask << " "  << std::endl; 
-
-      //    //CAEN_DGTZ_FreeReadoutBuffer(&buffer_);
-
-      //    //current_error_ = CAEN_DGTZ_FreeEvent(handle_,
-      //    //                                 (void**)&this_event_);
-      //    //return;
-      //    channel = 0;
-      //  }
       // std::cout << "channel " << channel << " for mask " << channelmask << " "  << std::endl; 
 
       uint32_t channel_size;
@@ -1553,7 +1533,9 @@ void CaenN6725DPPPHA::fast_readout_()
 void CaenN6725DPPPHA::end_acquisition()
 {
     CAEN_DGTZ_SWStopAcquisition(handle_);
-    root_file_->Close();
+    if (root_file_) {
+      root_file_->Close();
+    }
 }
 
 /***************************************************************/
