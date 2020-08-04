@@ -154,6 +154,10 @@ class CaenN6725WF {
     int get_handle() const;
     long get_time() const;
 
+    // get the expected baseline in ADU based on the set dc offset
+    float get_expected_baseline(int channel);
+
+
     // set the 16bit dac value for the DC offset
     void set_channel_dc_offset(int channel, int offset);
     uint32_t  get_channel_dc_offset(int channel);
@@ -215,7 +219,8 @@ class CaenN6725WF {
     
     // for 'oscilloscope' use -> return the seen waveforms
     std::vector<std::vector<uint16_t>> readout_and_return();
-    
+    // free all event buffers and reallocate them
+    void reset_memory(); 
   private:
 
     // before recording data, start/overwrite a 
