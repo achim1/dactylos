@@ -85,6 +85,7 @@ if __name__ == '__main__':
     parser.add_argument('-i','--infile', type=str, default='infile', help='Only to use in combination with --create-histograms-only')
     parser.add_argument('--create-histograms-only', action='store_true', default=False, help='add histograms to the outfile after the run. Basically, histogram the "energy" field in the root file. Requires -i infile to be given.')
     parser.add_argument('--loglevel', type=int, default='20', help='loglevel ')
+    parser.add_argument('-r','--runtime', type=int, default=20, help='runtime in seconds, default 20')
     #parser.add_argument('--detector-name', type=str, default='', help='add the id/name of the detector for identification. This is a MUST')
     #parser.add_argument('--run-config', type=str, default='', help='path to a run configuration file')
     parser.add_argument('--digitizer-config', type=str, default='config_x.json', help='path to a digitizer configuration file')
@@ -134,8 +135,9 @@ if __name__ == '__main__':
             for wf in digi.live_view(20):
                 print (wf)
         else:
-            logger.info("Will run digitizer for 20 seconds and store to file 'example.root'")
-            digi.run_digitizer(20, rootfilename=_j(outdir,'example.root'))
+            runtime = args.runtime
+            logger.info(f"Will run digitizer for {runtime} seconds and store to file 'example.root'")
+            digi.run_digitizer(runtime, rootfilename=_j(outdir,'example.root'))
             logger.info("...done")
         del digi
         sys.exit(0)
