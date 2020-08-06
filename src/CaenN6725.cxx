@@ -408,6 +408,8 @@ CaenN6725WF::~CaenN6725WF()
     {
       std::cout << "Closing digitizer..." << std::endl;
       CAEN_DGTZ_SWStopAcquisition(handle_);
+      if (this_event_)
+        {CAEN_DGTZ_FreeEvent(handle_, (void**)&this_event_);}
       if (allocated_size_ > 0) 
         {CAEN_DGTZ_FreeReadoutBuffer(&buffer_);}
       CAEN_DGTZ_CloseDigitizer(handle_);
@@ -495,7 +497,7 @@ void CaenN6725WF::configure(DigitizerParams_t params)
   // Post trigger size (that is the possiton of the trigger within the event
   current_error_ = CAEN_DGTZ_GetPostTriggerSize(handle_, &posttrigs);
   if (current_error_ !=0 ) throw std::runtime_error("Getting the post trigger size failed! " + error_code_to_string(current_error_));
-  std::cout << "Found post trigger size of : " << std::to_string(posttrigs);
+  std::cout << "Found post trigger size of : " << std::to_string(posttrigs) << std::endl;
 
   std::cout << "Will set post trigger size to : " << params.PostTriggerPercent << std::endl;
   current_error_ = CAEN_DGTZ_SetPostTriggerSize(handle_, params.PostTriggerPercent);
@@ -670,12 +672,26 @@ CAEN_DGTZ_BoardInfo_t CaenN6725WF::get_board_info()
 
 /***************************************************************/
 
+float CaenN6725WF::get_expected_baseline(int channel)
+{
+  uint32_t offset = get_channel_dc_offset(channel);
+  float dco_percent = (float)offset / 65535.;
+  float expected_baseline = pow(2, 14.0) * (1.0 - dco_percent);
+  return expected_baseline;
+}
+
+
+
+/***************************************************************/
+
 void CaenN6725WF::allocate_memory()
 {
+  current_error_ = CAEN_DGTZ_AllocateEvent(handle_,
+                                (void**)&this_event_);
+  if (current_error_ != 0) throw std::runtime_error("Error while allocating event! " + error_code_to_string(current_error_));
   current_error_ = CAEN_DGTZ_MallocReadoutBuffer(handle_, &buffer_, &allocated_size_);
-  if (current_error_ != 0) throw std::runtime_error("Error while allocating readout buffer! " 
-                                                    + error_code_to_string(current_error_));
-  std::cout << "Allocated .. " << allocated_size_ << std::endl;
+  if (current_error_ != 0) throw std::runtime_error("Error while allocating readout buffer! " + error_code_to_string(current_error_));
+  //std::cout << "Allocated .. " << allocated_size_ << std::endl;
 }
 
 /***************************************************************/
@@ -715,7 +731,11 @@ void CaenN6725WF::prepare_rootfile()
 void CaenN6725WF::start_acquisition()
 {
   std::cout << "Preparing to start acquisition...";
-  prepare_rootfile();
+  if (rootfile_name_ != "") {
+    prepare_rootfile();
+  } else {
+    std::cout << ".. [WARN] : no rootfilename set, will not write to file ..";
+  }
   n_events_acq_  = std::vector<long>(get_nchannels(), 0);
   current_error_ = CAEN_DGTZ_SWStartAcquisition(handle_);
   std::cout << "...started!" << std::endl;
@@ -726,7 +746,9 @@ void CaenN6725WF::start_acquisition()
 void CaenN6725WF::end_acquisition()
 {
   CAEN_DGTZ_SWStopAcquisition(handle_);
-  root_file_->Close();
+  if (root_file_) {
+    root_file_->Close();
+  }
 }
 
 /***************************************************************/
@@ -793,13 +815,35 @@ std::vector<long> CaenN6725WF::get_n_events_tot()
 
 /***************************************************************/
 
-void CaenN6725WF::readout_routine()
+void CaenN6725WF::reset_memory()
+{
+  //if current_error_ == CAEN_DGTZ_ErrorCode::CAEN_DGTZ_ErrorCode;
+  if (current_error_ == -22)
+    {
+        // reset all memory
+        //if (buffer_)
+        // {
+             //CAEN_DGTZ_ClearData(handle_);
+             CAEN_DGTZ_FreeReadoutBuffer(&buffer_);
+             allocate_memory();
+        // }
+    }
+}
+
+/***************************************************************/
+
+void CaenN6725WF::readout_routine(bool write_root)
 {
   //CAEN_DGTZ_SendSWtrigger(handle_);
   // check the readout status
   uint32_t acqstatus;
   std::vector<uint16_t> this_wf = {};
   this_wf.reserve(recordlength_);
+
+  waveform_ch_.clear();
+  for (int k=0;k<8;k++)
+    {waveform_ch_.push_back({});}
+
   // FIXME acquisition status not working
   //current_error_ = CAEN_DGTZ_ReadRegister(handle_, 0x8104, &acqstatus);
   //if (! ( acqstatus & (1 << 3))) // the 3rd bit is the acquisition status
@@ -817,8 +861,6 @@ void CaenN6725WF::readout_routine()
   for (int k = 0; k<get_nchannels(); k++)
     {num_events_[k] = 0;}
 
-  //buffer_size_ = 0;
-  //buffer_ = nullptr;
   //std::cout << "Attempting to read data" << std::endl;
   current_error_ = CAEN_DGTZ_ReadData(handle_, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT,
   //current_error_ = CAEN_DGTZ_ReadData(handle_, CAEN_DGTZ_POLLING_MBLT,
@@ -826,8 +868,14 @@ void CaenN6725WF::readout_routine()
   if (current_error_ != 0) 
     {
         // just inform the user, nothing dramatic if it only happens once
-        std::cout << "error while reading data " << current_error_ << std::endl;
+        //std::cout << "error while reading data " << current_error_ << std::endl;
         //CAEN_DGTZ_FreeReadoutBuffer(&buffer_);
+        // ReadData can cause a -22 Memory error, and in consecutive sometimes 
+        // a seqfault. The only explanation I have here is that it corrupts the
+        // buffer pointer, in which we simply reset it. 
+        // This will probably lead to a memory leak. Right now, we only focus on 
+        // getting things going, so there is definitly room for improvement
+        reset_memory();
         return;
     }
   if (buffer_size_ == 0)
@@ -849,6 +897,7 @@ void CaenN6725WF::readout_routine()
         // also not too dramatic yet, just inform the user
         //std::cout << "error while getting the number of events! " << current_error_ << std::endl;
         //CAEN_DGTZ_FreeReadoutBuffer(&buffer_);
+
         return;
     }
 
@@ -856,7 +905,7 @@ void CaenN6725WF::readout_routine()
   int channel = 0;
   for (uint ev=0; ev<events_in_buffer; ev++)
     {
-      //std::cout << "Attempting to get event info" << std::endl;
+//      //std::cout << "Attempting to get event info" << std::endl;
       current_error_ = CAEN_DGTZ_GetEventInfo(handle_,
                                               buffer_,
                                               buffer_size_,
@@ -866,53 +915,36 @@ void CaenN6725WF::readout_routine()
 
       //channelmask =  event_info_.ChannelMask;
       //std::cout << "Attempting to decode event" << std::endl;
+      if (!(evt_bytestream_)) continue;
+      if (current_error_ != 0)
+        {
+            //std::cout << "error while getting event info! " << current_error_ << std::endl;
+            continue;
+        }
       current_error_ = CAEN_DGTZ_DecodeEvent(handle_,
                                              evt_bytestream_,
                                              (void**)&this_event_);
 
-      //if (channelmask      == pow(2,0))
-      //  {channel = 0;}
-      //else if (channelmask == pow(2,1))
-      //  {channel = 1;}
-      //else if (channelmask == pow(2,2))
-      //  {channel = 2;}
-      //else if (channelmask == pow(2,3))
-      //  {channel = 3;}
-      //else if (channelmask == pow(2,4))
-      //  {channel = 4;}
-      //else if (channelmask == pow(2,5))
-      //  {channel = 5;}
-      //else if (channelmask == pow(2,6))
-      //  {channel = 6;}
-      //else if (channelmask == pow(2,7))
-      //  {channel = 7;}
-      //else 
-      //  {
-      //    std::cout << "invalid channel " << channel << " for mask " << channelmask << " "  << std::endl; 
-
-      //    //CAEN_DGTZ_FreeReadoutBuffer(&buffer_);
-
-      //    //current_error_ = CAEN_DGTZ_FreeEvent(handle_,
-      //    //                                 (void**)&this_event_);
-      //    //return;
-      //    channel = 0;
-      //  }
       // std::cout << "channel " << channel << " for mask " << channelmask << " "  << std::endl; 
 
       uint32_t channel_size;
       for (unsigned int ch=0; ch<get_nchannels(); ch++)
         {
           // check if the cannel has seen data
+          if (!(this_event_)) continue;
           if (!(is_active(ch))) continue;
           channel_size = this_event_->ChSize[ch];
-          //std::cout << "Found channel size of " << channel_size << " for channel " << ch << std::endl;
+          std::cout << "Found channel size of " << channel_size << " for channel " << ch << std::endl;
           if (channel_size == 0) continue;
 
           //std::cout << "Trying to access event" << std::endl;
           this_wf = std::vector<uint16_t>(this_event_->DataChannel[ch],this_event_->DataChannel[ch] + this_event_->ChSize[ch]);
           waveform_ch_.at(ch) = this_wf;
-          channel_trees_[ch]->Fill(); 
-          channel_trees_[ch]->Write();
+          if (write_root)
+            {
+              channel_trees_[ch]->Fill(); 
+              channel_trees_[ch]->Write();
+            }
           n_events_acq_[ch] += 1;
         }
         if (this_event_ != nullptr)
@@ -923,6 +955,8 @@ void CaenN6725WF::readout_routine()
        //n_events_acq_[ch] += num_events_[ch];
      }
      //CAEN_DGTZ_FreeReadoutBuffer(&buffer_);
+  // clear data for the next cycle
+  current_error_ = CAEN_DGTZ_ClearData(handle_);
 
 }
 
@@ -939,100 +973,25 @@ void CaenN6725WF::readout_and_save(unsigned int seconds)
   if (root_file_) root_file_->cd();
   while (delta_t < seconds)
     {
-      readout_routine();
-      //current_error_ = CAEN_DGTZ_ReadRegister(handle_, 0x8104, &acqstatus);
-      //if (! ( acqstatus & (1 << 3))) // the 3rd bit is the acquisition status
-      //  {
-      //      continue; // nothing to readout
-      //  }
-      //// wait till the buffer is full
-      //if (! ( acqstatus & (1 << 4))) // the 3rd bit is the acquisition status
-      //  {
-      //      continue; // no channel in full status
-      //  }
-      //for (int k = 0; k<get_nchannels(); k++)
-      //  {num_events_[k] = 0;}
-
-      //current_error_ = CAEN_DGTZ_ReadData(handle_, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT,
-      //                                    buffer_, &buffer_size_);
-      //if (current_error_ != 0) 
-      //  {
-      //      // just inform the user, nothing dramatic if it only happens once
-      //      std::cout << "error while reading data" << current_error_ << std::endl;
-      //      continue;
-      //  }
-      //if (buffer_size_ == 0)
-      //  {
-      //      continue;
-      //  }
-      //uint32_t events_in_buffer;
-      //current_error_ =  CAEN_DGTZ_GetNumEvents(handle_,
-      //                                         buffer_,
-      //                                         buffer_size_,
-      //                                         &events_in_buffer);
-      //if (current_error_ != 0)
-      //  {
-      //      // also not too dramatic yet, just inform the user
-      //      std::cout << "error while getting the number of events! " << current_error_ << std::endl;
-      //      continue;
-      //  }
-      //  for (uint ev=0; ev<events_in_buffer; ev++)
-      //    {
-      //      current_error_ = CAEN_DGTZ_GetEventInfo(handle_,
-      //                                              buffer_,
-      //                                              buffer_size_,
-      //                                              ev,
-      //                                              &event_info_,
-      //                                              &evt_bytestream_);
-      //      current_error_ = CAEN_DGTZ_DecodeEvent(handle_,
-      //                                             evt_bytestream_,
-      //                                             (void**)&this_event_);
-      //      current_error_ = CAEN_DGTZ_FreeEvent(handle_,
-      //                                           (void**)&this_event_);
-      //      this_wf = std::vector<uint16_t>(this_event_->DataChannel[0],this_event_->DataChannel[0] + this_event_->ChSize[0]);
-      //      waveform_ch_.at(0) = this_wf;
-      //      channel_trees_[0]->Fill(); 
-      //    }
-
-      //for (unsigned ch=0; ch<get_nchannels(); ch++)
-      //  {
-      //      if (!(is_active(ch))) continue;
-      //      
-
-      //      //n_events_acq_[ch] += num_events_[ch];
-      //      n_events_acq_[ch] += events_in_buffer;
-      //  }
+      readout_routine(true);
       now_time = get_time()/1000;
       delta_t +=  now_time  - last_time;
         
       //std::cout << ".";
       last_time = now_time;
     } // end while time loop    
-  //if (root_file_) root_file_->cd();
-  //  waveform_ch_.clear();
-  //  waveform_ch_.reserve(get_nchannels());
-
-  //  for (int k=0; k<get_nchannels(); k++)
-  //      {waveform_ch_.push_back({});}
-  //  }
-  //for (int ch=0;ch<get_nchannels();ch++)
-  //  {
-  //    for (int ev=0;ev<num_events_[ch];ev++)
-  //      {
-  //              CAEN_DGTZ_DecodeDPPWaveforms(handle_, &events_[ch][ev], waveform_);
-  //              // fast mode, only do trace1
-  //              trace_ns_ = waveform_->Ns;
-  //              // set the saturated flag if saturated
-  //          }
-  //      }
-  //    channel_trees_[ch]->Fill();
-  //    channel_trees_[ch]->Write();
-  //    n_events_acq_[ch] += num_events_[ch];
-  //  }
   std::cout << "done!" << std::endl;
   root_file_->Write();
   root_file_->Close();
   return;
+}
+
+/***************************************************************/
+
+std::vector<std::vector<uint16_t>> CaenN6725WF::readout_and_return()
+{
+  readout_routine(false);
+  return waveform_ch_;
 }
 
 /***************************************************************/
@@ -1621,7 +1580,9 @@ void CaenN6725DPPPHA::fast_readout_()
 void CaenN6725DPPPHA::end_acquisition()
 {
     CAEN_DGTZ_SWStopAcquisition(handle_);
-    root_file_->Close();
+    if (root_file_) {
+      root_file_->Close();
+    }
 }
 
 /***************************************************************/

@@ -101,6 +101,7 @@ class CaenN6725(object):
         self.dc_offsets = dict()
         self.dynamic_range = list()
         self.has_dpp_pha_firmware = has_dpp_pha_firmware
+        self.acquisition_started = False
         self.shaping_time = shaping_time
         
         if logger is None:
@@ -111,6 +112,8 @@ class CaenN6725(object):
         self.logger.info("Caen N6725 initialization finished!")
 
     def __del__(self):
+        if self.acquisition_started:
+            self.digitizer.end_acquisition()
         del self.digitizer
 
     def get_handle(self):
@@ -375,16 +378,19 @@ class CaenN6725(object):
     def run_digitizer(self,\
                       seconds,\
                       rootfilename=None,\
+                      scope_mode=False,\
                       read_waveforms=False):
         """
         For the interactive use in an ipython notebook
     
         Args:
-            digitizer (CaenN1471) : a pre configured digitizer instance
             seconds   (int)       : runtime in seconds
+
+        Keyword Args:
             rootfilename  (str)   : filename of the output root file
             read_waveforms (bool) : sawe waveform data to the output root file
         """
+        self.logger.info('Setting up digitizer...')
         if read_waveforms and self.has_dpp_pha_firmware:
             # for the other firmware, it can ONLY read out waveforms
             self.digitizer.enable_waveform_decoding()
@@ -397,14 +403,36 @@ class CaenN6725(object):
         self.logger.info("Starting run")
         self.logger.info(f'This digitizer does have DPP PHA fw {self.has_dpp_pha_firmware}')
         self.digitizer.start_acquisition()
+        self.acquisition_started = True
         if not self.has_dpp_pha_firmware:
-
             self.digitizer.readout_and_save(seconds)
         else:
             self.digitizer.continuous_readout(seconds)
         self.digitizer.end_acquisition()
         self.logger.info(f"We saw {self.digitizer.get_n_events_tot()} events!")
         return
+
+    def live_view(self,\
+                  seconds):
+        """
+        Return events for seconds. Use for oscilloscope live view
+        
+        Args:
+            seconds (int) : Stop acquisition after seconds.
+        """
+
+        self.digitizer.calibrate()
+        self.digitizer.start_acquisition()
+        delta_t = 0
+        last = time.monotonic()
+        while delta_t <= seconds:
+            events = self.digitizer.readout_and_return()
+            delta_t += time.monotonic() - last 
+            last = time.monotonic()
+            yield events
+        self.digitizer.end_acquisition()
+        self.logger.info(f"We saw {self.digitizer.get_n_events_tot()} events!")
+
 
     def init_scope(self):
         self.canvas = YStackedCanvas(subplot_yheights=(0.1, 0.1, 0.2, 0.5),

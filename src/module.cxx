@@ -616,6 +616,7 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .def("end_acquisition",               &CaenN6725WF::end_acquisition)
         .def("get_nchannels",                 &CaenN6725WF::get_nchannels)
         .def("get_temperatures",              &CaenN6725WF::get_temperatures)
+        .def("get_expected_baseline",         &CaenN6725WF::get_expected_baseline)
         //.def("configure_channel",             &CaenN6725WF::configure_channel)
         .def("calibrate",                     &CaenN6725WF::calibrate)
         //.def("read_data",                     &CaenN6725WF::read_data)
@@ -641,6 +642,7 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         //.def("get_n_lost_triggers_tot",       &CaenN6725WF::get_n_lost_triggers_tot)
         //.def("get_energy",                    &CaenN6725WF::get_energy)
         .def("readout_and_save",              &CaenN6725WF::readout_and_save)
+        .def("readout_and_return",            &CaenN6725WF::readout_and_return)
         .def("set_input_dynamic_range",       &CaenN6725WF::set_input_dynamic_range)
         .def("get_input_dynamic_range",       &CaenN6725WF::get_input_dynamic_range);
 };

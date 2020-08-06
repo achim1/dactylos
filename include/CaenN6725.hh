@@ -154,6 +154,10 @@ class CaenN6725WF {
     int get_handle() const;
     long get_time() const;
 
+    // get the expected baseline in ADU based on the set dc offset
+    float get_expected_baseline(int channel);
+
+
     // set the 16bit dac value for the DC offset
     void set_channel_dc_offset(int channel, int offset);
     uint32_t  get_channel_dc_offset(int channel);
@@ -210,9 +214,13 @@ class CaenN6725WF {
     // run - that is from acquistiion start - stop
     std::vector<long> get_n_events_tot();
 
-    void readout_routine();
+    void readout_routine(bool write_root=true);
     void readout_and_save(unsigned int seconds);
-
+    
+    // for 'oscilloscope' use -> return the seen waveforms
+    std::vector<std::vector<uint16_t>> readout_and_return();
+    // free all event buffers and reallocate them
+    void reset_memory(); 
   private:
 
     // before recording data, start/overwrite a 
@@ -247,7 +255,7 @@ class CaenN6725WF {
 
 
     // output to a root file
-    std::string rootfile_name_  = "digitizer_output.root";
+    std::string rootfile_name_  = "";
     TFile*      root_file_      = nullptr;
     std::vector<TTree*> channel_trees_ = {};
 
