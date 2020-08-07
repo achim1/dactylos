@@ -1,4 +1,4 @@
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 from _pyCaenN6725 import DPPVirtualProbe1, DPPVirtualProbe2
 from _pyCaenN6725 import DPPDigitalProbe1, DPPDigitalProbe2
