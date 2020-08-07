@@ -1114,14 +1114,16 @@ void CaenN6725DPPPHA::configure(DigitizerParams_t params)
     std::cout << "Setting record length for DPP-PHA " << params.RecordLength << std::endl;
     // Set the number of samples for each waveform
     // Not sure, but this might be needed to be done per each channel pair
-    current_error_ = CAEN_DGTZ_SetRecordLength(handle_, (uint32_t)params.RecordLength);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not set record length err code: " + error_code_to_string(current_error_));
-    current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength,2);
+    //current_error_ = CAEN_DGTZ_SetRecordLength(handle_, (uint32_t)params.RecordLength);
+    //if (current_error_ !=0 ) throw std::runtime_error("Can not set record length err code: " + error_code_to_string(current_error_));
+    current_error_ = CAEN_DGTZ_SetRecordLength(handle_, (uint32_t)params.RecordLength,0);
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set record length for channel pair 0 err code: " + error_code_to_string(current_error_));
+    current_error_ = CAEN_DGTZ_SetRecordLength(handle_, (uint32_t)params.RecordLength,2);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set record length for channel pair 2 err code: " + error_code_to_string(current_error_));
     current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength,4);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not set record length err code: " + std::to_string(current_error_));
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set record length or channel pair 4 err code: " + std::to_string(current_error_));
     current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength,6);
-    if (current_error_ !=0 ) throw std::runtime_error("Can not set record length err code: " + std::to_string(current_error_));
+    if (current_error_ !=0 ) throw std::runtime_error("Can not set record length for channel pair 6 err code: " + std::to_string(current_error_));
 
 
     // also set the record length internally
