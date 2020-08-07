@@ -1111,10 +1111,10 @@ void CaenN6725DPPPHA::connect()
 
 void CaenN6725DPPPHA::configure(DigitizerParams_t params)
 {
-    std::cout << "Setting record length for DPP-PHA" << params.RecordLength << std::endl;
+    std::cout << "Setting record length for DPP-PHA " << params.RecordLength << std::endl;
     // Set the number of samples for each waveform
     // Not sure, but this might be needed to be done per each channel pair
-    current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength);
+    current_error_ = CAEN_DGTZ_SetRecordLength(handle_, (uint32_t)params.RecordLength);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set record length err code: " + error_code_to_string(current_error_));
     current_error_ = CAEN_DGTZ_SetRecordLength(handle_, params.RecordLength,2);
     if (current_error_ !=0 ) throw std::runtime_error("Can not set record length for channel pair 2 err code: " + error_code_to_string(current_error_));
