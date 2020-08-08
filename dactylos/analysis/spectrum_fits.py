@@ -222,6 +222,9 @@ def first_guess(bincenters, bincontent, roi_right_edge=700):
     mod = he.fitting.Model(he.fitting.fwhm_gauss)
     mod.startparams = (shoulder_peak, 10, shoulder_amp) # 10 is arbitrary
     mod.add_data(bincontent, xs=bincenters, create_distribution=False)
+    if peak_amp <=1:
+        logger.warning("Estimate for the  peak amplitutde is doubtful...")
+        peak_amp = 100 
     mod.fit_to_data(silent=True,\
                     errors=(1,1,1,1,1,1),\
                     limits=((left_10_percent, peakval - peak_fwhm),\
