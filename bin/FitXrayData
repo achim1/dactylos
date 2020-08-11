@@ -351,7 +351,7 @@ if __name__ == '__main__':
 
         try:
             # do not use minuit right now until we have understood the errors
-            fit_noisemodel(xs, ys, ys_err, ch, detid, use_minuit=False, plotdir=args.outdir)
+            fit_noisemodel(xs, ys, ys_err, ch, detid, use_minuit=True, plotdir=args.outdir)
         except Exception as e:
             logger.warning(f"Can not fit noisemodel for {detid} ch {ch}, exception {e}")
             continue

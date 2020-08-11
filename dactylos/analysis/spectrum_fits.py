@@ -160,6 +160,7 @@ def create_model(energy, bins, startparams,\
     # and shoulder peak should not interfere
     peakmod.fit_to_data(silent=True,\
                         errors=(1,1,1,1,1,1),\
+                        use_minuit=True,\
                         limits = limits)
     
     return peakmod
