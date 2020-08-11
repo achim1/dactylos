@@ -1,0 +1,5 @@
+include CMakeLists.txt
+include README.md
+include LICENSE
+recursive-include include *
+include dactylos/analysis/shaping/trapezoidal_shaper.h
