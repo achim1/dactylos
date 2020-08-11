@@ -45,7 +45,9 @@ def read_waveform(infile, ch, entrystop=None):
     """
     f = up.open(infile)
     data = f.get('ch' + str(ch)).get('waveform').array(entrystop=entrystop)
-    data = [baseline_correction(k, nsamples=1000)[0] for k in data]
+    # we omit empty events here. This should not happen
+    # but might happen during digitizer software debugging
+    data = [baseline_correction(k, nsamples=1000)[0] for k in data if len(k) > 0]
     #if sh.WAVEFORMTYPE == 'ARRAY':
     #    data = np.array(data, dtype=np.int16)
     # data is in counts here, so it is still technichally not more precise than
@@ -304,12 +306,15 @@ class WaveformAnalysis(object):
         wfplot.savefig(savename)
         return savename 
 
-    def analyze(self, channel):
+    def analyze(self, channel, save_shp_file=False):
         """
         Applyt the gaussian shaping algorithm on the waveform data.
         
         Args:
-            channel (int)    : Select the channel
+            channel (int)        : Select the channel
+
+        Keyword Args:
+            save_shp_file (bool) : Save a file with the shaping times
 
         """
         ptime_energies = dict()
