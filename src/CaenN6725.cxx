@@ -1378,7 +1378,7 @@ uint32_t CaenN6725DPPPHA::get_allocated_buffer_size()
 
 /***************************************************************/
 
-std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725DPPPHA::read_data(int display_channel, bool fill_histogram)
+std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725DPPPHA::read_data(bool fill_histogram)
 {
     // check the readout status
     uint32_t acqstatus;

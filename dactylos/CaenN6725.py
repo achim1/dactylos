@@ -413,12 +413,16 @@ class CaenN6725(object):
         return
 
     def live_view(self,\
-                  seconds):
+                  seconds,
+                  fill_histogram=False):
         """
         Return events for seconds. Use for oscilloscope live view
         
         Args:
-            seconds (int) : Stop acquisition after seconds.
+            seconds (int)         : Stop acquisition after seconds.
+        
+        Keyword Args:
+            fill_histogram (bool) : Fill the internal energy histogram
         """
 
         self.digitizer.calibrate()
@@ -427,7 +431,7 @@ class CaenN6725(object):
         last = time.monotonic()
         while delta_t <= seconds:
             if self.has_dpp_pha_firmware:
-                events = self.digitizer.read_data()
+                events = self.digitizer.read_data(fill_histogram)
             else:
                 events = self.digitizer.readout_and_return()
             delta_t += time.monotonic() - last 

@@ -366,7 +366,7 @@ class CaenN6725DPPPHA {
         // display channel is used for the scope mode
         // and determines which channels shall be available
         // for the get_traces functions
-        std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> read_data(int display_channel = 0, bool fill_histogram = false);
+        std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> read_data(bool fill_histogram = false);
 
         // get the number of events acquired per read_data call
         std::vector<int> get_n_events();
