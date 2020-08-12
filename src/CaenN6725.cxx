@@ -1463,8 +1463,11 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725DPPPHA::read_data(b
                     if (root_file_) channel_trees_[ch]->Fill();
                 }
 
-            channel_trees_[ch]->Write();
-            n_events_acq_[ch] += num_events_[ch]; 
+            if (root_file_)
+                {
+                    channel_trees_[ch]->Write();
+                    n_events_acq_[ch] += num_events_[ch]; 
+                }
             thisevents.push_back(channel_events);
         }
     //CAEN_DGTZ_DPP_PHA_Event_t (*thisevents)[]
