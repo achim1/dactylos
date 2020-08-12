@@ -366,7 +366,7 @@ class CaenN6725DPPPHA {
         // display channel is used for the scope mode
         // and determines which channels shall be available
         // for the get_traces functions
-        std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> read_data(int display_channel = 0);
+        std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> read_data(int display_channel = 0, bool fill_histogram = false);
 
         // get the number of events acquired per read_data call
         std::vector<int> get_n_events();
@@ -428,6 +428,12 @@ class CaenN6725DPPPHA {
         // the trigger point?
         // this requires the digital trace2 to be filled
         int get_trigger_point();
+
+        // clear the energy histogram
+        void clear_energy_histogram();
+
+        // get the energy histogram
+        std::vector<uint32_t> get_energy_histogram(int channel);
 
     private:
 
@@ -525,4 +531,8 @@ class CaenN6725DPPPHA {
         std::vector<long> channel_triggers_;
         std::vector<long> channel_lost_triggers_;
 
+        // a simle energy histogram
+        std::vector<std::vector<uint32_t>> energy_histogram_;
+        // this is basically the overflow bin for the energy histogram
+        std::vector<uint32_t>fail_events_;
 #endif

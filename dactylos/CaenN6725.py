@@ -426,7 +426,10 @@ class CaenN6725(object):
         delta_t = 0
         last = time.monotonic()
         while delta_t <= seconds:
-            events = self.digitizer.readout_and_return()
+            if self.has_dpp_pha_firmware:
+                events = self.digitizer.read_data()
+            else:
+                events = self.digitizer.readout_and_return()
             delta_t += time.monotonic() - last 
             last = time.monotonic()
             yield events

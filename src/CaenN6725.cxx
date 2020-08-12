@@ -1378,7 +1378,7 @@ uint32_t CaenN6725DPPPHA::get_allocated_buffer_size()
 
 /***************************************************************/
 
-std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725DPPPHA::read_data(int display_channel)
+std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725DPPPHA::read_data(int display_channel, bool fill_histogram)
 {
     // check the readout status
     uint32_t acqstatus;
@@ -1438,6 +1438,16 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725DPPPHA::read_data(i
                     channel_events.push_back(events_[ch][ev]);
                     energy_ch_[ch] = events_[ch][ev].Energy;
                     energy_        = events_[ch][ev].Energy;
+                    if (fill_histogram)
+                        {
+                            if (energy_ > 16384) 
+                                {
+                                    fail_events_[ch] += 1;
+                                } else {
+                                    energy_histogram_[ch][energy_] += 1; 
+                                }
+                                
+                        }
                     if (decode_waveforms_)
                         {
                             CAEN_DGTZ_DecodeDPPWaveforms(handle_, &events_[ch][ev], waveform_);
@@ -1859,6 +1869,26 @@ void CaenN6725DPPPHA::set_rootfilename(std::string fname)
 {
     rootfile_name_ = fname;
 
+}
+
+/*******************************************************************/
+
+void CaenN6725DPPPHA::clear_energy_histogram()
+{
+    energy_histogram_.clear();
+    // 14bit digitizer
+    std::vector<uint32_t> histo = std::vector<uint32_t>(16384,0);
+    energy_histogram_ = std::vector<std::vector<uint32_t>>();
+    fail_events_ = std::vector<uint32_t>(8,0);
+    for (int k=0; k<get_nchannels(); k++)
+        {energy_histogram_.push_back(histo);}
+}
+
+/*******************************************************************/
+
+std::vector<uint32_t> CaenN6725DPPPHA::get_energy_histogram(int channel)
+{
+    return energy_histogram_[channel];
 }
 
 /*******************************************************************/
