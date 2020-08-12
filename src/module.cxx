@@ -575,6 +575,7 @@ PYBIND11_MODULE(_pyCaenN6725, m) {
         .def("configure_channel",             &CaenN6725DPPPHA::configure_channel)
         .def("calibrate",                     &CaenN6725DPPPHA::calibrate)
         .def("read_data",                     &CaenN6725DPPPHA::read_data)
+        .def("get_last_waveform",             &CaenN6725DPPPHA::get_last_waveform)
         .def("clear_energy_histogram",        &CaenN6725DPPPHA::clear_energy_histogram)
         .def("get_energy_histogram",          &CaenN6725DPPPHA::get_energy_histogram)
         .def("get_current_sampling_rate",     &CaenN6725DPPPHA::get_current_sampling_rate)

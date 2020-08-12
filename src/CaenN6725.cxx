@@ -1008,6 +1008,7 @@ std::vector<std::vector<uint16_t>> CaenN6725WF::readout_and_return()
 
 CaenN6725DPPPHA::CaenN6725DPPPHA()
 {
+  rootfile_name_ = "";
 };
 
 /***************************************************************/
@@ -1015,6 +1016,7 @@ CaenN6725DPPPHA::CaenN6725DPPPHA()
 CaenN6725DPPPHA::CaenN6725DPPPHA(DigitizerParams_t params) : CaenN6725DPPPHA()
 {
     std::cout << "[INFO] - DACTYLOS" << ".. connecting digitizer instance with DPP-PHA firmware" << std::endl;
+    rootfile_name_ = "";
     connect();
     configure(params);
 };
@@ -1476,6 +1478,14 @@ std::vector<std::vector<CAEN_DGTZ_DPP_PHA_Event_t>> CaenN6725DPPPHA::read_data(b
 
 /***************************************************************/
 
+std::vector<int16_t> CaenN6725DPPPHA::get_last_waveform(int channel)
+{
+    return waveform_ch_[channel];
+}
+
+
+/***************************************************************/
+
 std::vector<int> CaenN6725DPPPHA::get_n_events()
 {
     std::vector<int> n_events({});
@@ -1733,8 +1743,11 @@ void CaenN6725DPPPHA::start_acquisition()
 {
     std::cout << "dpp-pha start acquistion..." << std::endl;
     if (current_error_ != 0) throw std::runtime_error("Problems configuring all channels, err code " + std::to_string(current_error_));
-    root_file_   = new TFile(rootfile_name_.c_str(), "RECREATE");
-    if (!root_file_) throw std::runtime_error("Problems with root file " + rootfile_name_);
+    root_file_        = nullptr;
+    if (rootfile_name_ != "")
+        {root_file_   = new TFile(rootfile_name_.c_str(), "RECREATE");
+         if (!root_file_) throw std::runtime_error("Problems with root file " + rootfile_name_);
+        }
     channel_trees_.clear();
     energy_ch_.clear();
     waveform_ch_.clear();

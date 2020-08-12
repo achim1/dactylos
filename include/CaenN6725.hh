@@ -409,6 +409,8 @@ class CaenN6725DPPPHA {
         // acces the last seen energy
         uint16_t get_energy();
 
+
+        std::vector<int16_t> get_last_waveform(int channel);
         // set the virtualprobes for traces 1 and 2
         // this defines what will be stored in the waveform field 
         // of the dpp event

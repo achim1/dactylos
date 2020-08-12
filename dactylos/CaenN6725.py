@@ -427,11 +427,18 @@ class CaenN6725(object):
 
         self.digitizer.calibrate()
         self.digitizer.start_acquisition()
+        if self.has_dpp_pha_firmware:
+            self.digitizer.clear_energy_histogram()
         delta_t = 0
         last = time.monotonic()
         while delta_t <= seconds:
             if self.has_dpp_pha_firmware:
                 events = self.digitizer.read_data(fill_histogram)
+                events = []
+                for ch in range(8):
+                    events.append(self.digitizer.get_last_waveform(ch))
+                time.sleep(1)
+                delta_t += 1 
             else:
                 events = self.digitizer.readout_and_return()
             delta_t += time.monotonic() - last 
