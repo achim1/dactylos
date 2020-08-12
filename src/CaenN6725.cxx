@@ -429,6 +429,7 @@ void CaenN6725WF::connect()
 {
   // make this specific for our case
   // third 0 is VMEBaseAddress, which must be 0 for direct USB connections
+  std::cout << "[INFO] - DACTYLOS" << ".. connecting digitizer instance with waveform recording firmware" << std::endl;
   current_error_ = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 0, 0, 0, &handle_);
   if (current_error_ == -1)
     {
@@ -1013,6 +1014,7 @@ CaenN6725DPPPHA::CaenN6725DPPPHA()
 
 CaenN6725DPPPHA::CaenN6725DPPPHA(DigitizerParams_t params) : CaenN6725DPPPHA()
 {
+    std::cout << "[INFO] - DACTYLOS" << ".. connecting digitizer instance with DPP-PHA firmware" << std::endl;
     connect();
     configure(params);
 };
@@ -1549,6 +1551,7 @@ void CaenN6725DPPPHA::fast_readout_()
       }
     for (int ch=0;ch<get_nchannels();ch++)
       {
+        if (!(is_active(ch))) continue;
         for (int ev=0;ev<num_events_[ch];ev++)
           {
             // this is ok, because the energy gets then
@@ -1568,9 +1571,14 @@ void CaenN6725DPPPHA::fast_readout_()
                   trigger_ch_.at(ch)  = get_trigger_point(); 
                   //std::cout << get_trigger_point() << std::endl;
                   waveform_ch_.at(ch) = get_analog_trace1();
+                  channel_trees_[ch]->Fill();
+              }
+            else 
+              {
+                  channel_trees_[ch]->Fill();
               }
           }
-        channel_trees_[ch]->Fill();
+        //channel_trees_[ch]->Fill();
         channel_trees_[ch]->Write();
         n_events_acq_[ch] += num_events_[ch];
       }
