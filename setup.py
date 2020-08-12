@@ -18,6 +18,7 @@ import platform
 import subprocess
 import shlex
 from pathlib import Path
+from glob import glob
 
 from distutils.version import LooseVersion
 from setuptools import setup, Extension, find_packages
@@ -126,13 +127,14 @@ class CMakeExtension(Extension):
 
     def __init__(self, name, **kwargs):
         Extension.__init__(self, name, **kwargs)
+        print (f'Found extension with neame {name}')
         if name.startswith('_py'):
-            self._cfilename = name + '.so'
+            self._cfilename = name# + '.so'
         elif name.startswith('_tr'):
-            self._cfilename = name + '.so'
+            self._cfilename = name# + '.so'
         else:
-            self._cfilename = 'lib' + name + '.so'
-
+            self._cfilename = 'lib' + name# + '.so'
+        print (f'library name {self._cfilename}')
         self.has_explicit_destination = False
 
 
@@ -193,35 +195,24 @@ class CMakeBuild(build_ext):
         # Move from build temp to final position
         #print (self.extensions)
         for ext in self.extensions:
-            self.move_output(ext)
-
-    def move_output(self, ext):
-        build_temp = Path(self.build_temp).resolve()
-        print (Path(self.get_ext_fullpath(ext._cfilename)).resolve())
-        dest_path = Path(os.path.split(os.path.split(Path(self.get_ext_fullpath(ext._cfilename)).resolve())[0])[0])
-        #source_path = build_temp / self.get_ext_filename(ext._cfilename)
-        try:
-            os.mkdir(dest_path)
-        except Exception as e:
-            print (e)
-        source_path = build_temp / ext._cfilename
-
-        dest_directory = dest_path.parents[0]
-
-        # FIXME : not here
-        # we have to branch this in case for the 
-        # the analysis library, this should go directly in the python-package
-        print (ext.name)
-        if ext.name.startswith('_trp') or ext.name.startswith('DactylosAnalysis'):
-            dest_directory = dest_directory / 'analysis' / 'dactylos' / 'shaping'
-        dest_directory.mkdir(parents=True, exist_ok=True)
-        print (f"Trying to copy {ext.name} from {source_path} to {dest_path}")
-        try:
-            self.copy_file(source_path, dest_path/ext._cfilename)
-        except Exception as e:
-            print (f"Failed, raised {e}. Trying again..")
-            self.copy_file(build_temp/self.get_ext_filename(ext.name), dest_path)        
-
+            build_temp = Path(self.build_temp).resolve(ext.name)
+            print (f'Found build dir {build_temp}')        
+            source_file = os.path.join(build_temp, ext._cfilename)
+            print (f'Looking for source file {source_file}' + '*.so')
+            source_files = glob(source_file + "*")
+            if not source_files:
+                raise SystemError("Can not find source file!")
+            source_file = source_files[0]
+            # destination is the directory in the install path (hopefully)
+            dest_path = os.path.split(Path(self.get_ext_fullpath(ext._cfilename)).resolve())[0] 
+            dest_path = Path(dest_path) / 'dactylos' 
+            if ext._cfilename.startswith('_tr'):
+                # put trapezoidal shaper library in analysis
+                dest_path = dest_path / 'analysis' / 'shaping'
+            print (f'.. will copy to {dest_path}')
+            print (f"Trying to copy {ext.name} from {source_file} to {dest_path}")
+            self.copy_file(source_file, dest_path)
+            
 
 # external modules, build by CMake. At the moment this is all 
 # double a little bit, this must be also defined in the CMakeList.txt file
@@ -252,7 +243,8 @@ ext_modules = [
     ),
     CMakeExtension(
         'DactylosAnalysis',
-        sources = ['dactylos/analysis/shaping/trapezoidal_shaper.cxx'],
+        sources = ['dactylos/analysis/shaping/trapezoidal_shaper.cxx',
+                   'dactylos/analysis/shaping/trapezoidal_shaper.h'],
         include_dirs=[
             # Path to pybind11 headers
             get_pybind_include(),
@@ -314,7 +306,8 @@ setup(name='dactylos',
     packages=['dactylos', 'dactylos.analysis', 'dactylos.analysis.shaping'],
     # FIXME: put the header for the trapezoidal shpaer somewhere else
     data_files = [('.', ['CMakeLists.txt']),
-                  ('dactylos/analysis/shaping/', ['trapezoidal_shaper.h'])],
+                 ],
+                 # ('dactylos/analysis/shaping/', ['trapezoidal_shaper.h'])],
     # use the package_data hook to get the pybindings (as compiled with cmake) to the right
     # final destination
     #package_data={'dactylos.analysis.shaping' : ['*.so']},

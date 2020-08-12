@@ -2,7 +2,7 @@ import hjson
 import numpy as np
 import pylab as p
 import time 
-import _pyCaenN6725 as _cn
+from . import _pyCaenN6725 as _cn
 
 import hepbasestack as hep
 import hepbasestack.layout as lo
