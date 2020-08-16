@@ -176,8 +176,10 @@ class WaveformAnalysis(object):
         return nevents
 
     def __del__(self):
-        self.tpexecutor.shutdown()
-        self.ppexecutor.shutdown()
+        # FIXME - for some reason this causes an exception
+        #self.tpexecutor.shutdown()
+        #self.ppexecutor.shutdown()
+        pass
 
     def set_shaping_parameters(self, peaktime,
                                order = 4,\
