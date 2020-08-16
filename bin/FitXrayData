@@ -366,6 +366,16 @@ if __name__ == '__main__':
             ch_savenames[ch].append(os.path.join(args.outdir, pngfilename))
             pktimes_savenames[xs[i]].append(os.path.join(args.outdir, pngfilename))
         
+    # let's write a textfile as well
+    summaryfile = open(os.path.join(args.outdir, f'summary-{detid}.dat'), 'w')
+    summaryfile.write(f'# detector {detid}\n')
+    summaryfile.write(f'# strip - peaking time  - fwhm - fwhm_err\n')
+    # FIXME - this fails in case we have more than one
+    # detector, in that case however the whole script will blow up
+    for ds in datasets:
+        summaryfile.write(f'{detid}\t{get_stripname(ds.channel)}\t{ds.ptime:4.2f}\t{ds.fwhm:4.2f}\t{ds.fwhm_err:4.2f}\n')
+    summaryfile.close()
+
     # combine all the figures for a specific ch in 
     # one panel with imagemagic
     for ch in ch_savenames.keys():
@@ -400,14 +410,5 @@ if __name__ == '__main__':
         command_shrink = f' convert {mplotname}.jpg -resize 50% -normalize  {mplotname}.jpg'
         proc = subprocess.Popen(shlex.split(command_shrink)).communicate()
 
-    # let's write a textfile as well
-    summaryfile = open(os.path.join(args.outdir, f'summary-{detid}.dat'), 'w')
-    summaryfile.write(f'# detector {detid}\n')
-    summaryfile.write(f'# strip - peaking time  - fwhm - fwhm_err\n')
-    # FIXME - this fails in case we have more than one
-    # detector, in that case however the whole script will blow up
-    for ds in datasets:
-        summaryfile.write(f'{detid}\t{get_stripname(ds.channel)}\t{ds.ptime:4.2f}\t{ds.fwhm:4.2f}\t{ds.fwhm_err:4.2f}\n')
-    summaryfile.close()
 
     print (f'Folder {args.indir} analyzed')
