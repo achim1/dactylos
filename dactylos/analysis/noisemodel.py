@@ -89,7 +89,6 @@ def extract_parameters_from_noisemodel(noisemodel):
 
     Rs_const = CONSTANTS.Fv*CONSTANTS.Ctot*CONSTANTS.Ctot*(4*CONSTANTS.k*CONSTANTS.T(-37))
     Rs_const_diff =  -CONSTANTS.Bita/CONSTANTS.gm
-    logger.warn(f'test {1.1450365642091253e-05 / CONSTANTS.Fv / CONSTANTS.Ctot / CONSTANTS.Ctot / (4 * CONSTANTS.k * CONSTANTS.T(-37)) - CONSTANTS.Bita / CONSTANTS.gm}')
     if Rs < 0:
         logger.warn(f'Rs: {Rs}')
         logger.warn(f'p1/Rs_const : {p1/Rs_const - Rs_const_diff}')
@@ -101,7 +100,6 @@ def extract_parameters_from_noisemodel(noisemodel):
         logger.warn(f'{CONSTANTS.Fv/CONSTANTS.Ctot/CONSTANTS.Ctot/(4*CONSTANTS.k*CONSTANTS.T(-37))-CONSTANTS.Bita/CONSTANTS.gm}')
         logger.warn(f'{p1 > 0}')
         logger.warn('Rs is < 0!')
-        logger.warn(f'test {1.1450365642091253e-05/CONSTANTS.Fv/CONSTANTS.Ctot/CONSTANTS.Ctot/(4*CONSTANTS.k*CONSTANTS.T(-37))-CONSTANTS.Bita/CONSTANTS.gm}')
     eRs = ep1/p1*Rs  # Ohm
 
     CTOT  = np.sqrt(p1/CONSTANTS.Fv/(4*CONSTANTS.k*CONSTANTS.T(-37))/(Rs+CONSTANTS.Bita/CONSTANTS.gm));
@@ -352,6 +350,9 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
         print(f'..I_L {params["Ileak"]}')
         print(f'..A_f {params["Af"]}')
         print(f'..R_s {params["Rs"]}')
+        I_L = params["Ileak"]
+        A_f = params["Af"]
+        R_S = params["Rs"]
 
         #print (params['Ileak'])
         # create a textbox with some output
@@ -405,6 +406,12 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
     pngfilename = os.path.join(plotdir, title + '.png')
     noisemodel_fig.savefig(pngfilename)
     logger.info(f'Saved file {pngfilename}')
+    # attach some metainformation
+    noisemodel.I_L = I_L
+    noisemodel.A_f = A_f
+    noisemodel.R_S = R_S
+    noisemodel.detid     = detid
+    noisemodel.stripname = get_stripname(ch)
     return noisemodel_fig, noisemodel
 
 ########################################################################
