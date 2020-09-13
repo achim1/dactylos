@@ -10,9 +10,8 @@ import uproot as up
 import tqdm
 import os
 import os.path
-import tqdm
 
-from copy import copy
+#from copy import copy
 
 import hepbasestack as hep 
 
@@ -28,16 +27,18 @@ logger = hep.logger.get_logger(dactylos.LOGLEVEL)
 
 ########################################################################
 
-def read_waveform(infile, ch, entrystop=None):
+def read_waveform(infile, ch, entrystop=None, save_memory=True):
     """
     Return waveform data from a rootfile with uproot
 
     Args:
-        infile (str)    : filename
-        ch (int)        : digitizer channel
+        infile (str)       : filename
+        ch (int)           : digitizer channel
 
     Keyword Args:
-        entrystop (int) : last entry - if None, read all
+        entrystop   (int)  : last entry - if None, read all
+        save_memory (bool) : make sure to use as less memory as possible
+                             by strictly sticking to int16
     Returns:
         ndarray : numpy array with waveform data. Waveform data is in
                   digitizer channels and of length of the record length
@@ -52,14 +53,15 @@ def read_waveform(infile, ch, entrystop=None):
     #    data = np.array(data, dtype=np.int16)
     # data is in counts here, so it is still technichally not more precise than
     # an int 16
-    if sh.WAVEFORMTYPE == 'ARRAY':
+    #if sh.WAVEFORMTYPE == 'ARRAY':
+    if save_memory:
         data = np.asarray(data, dtype=np.int16)
     logger.info(f'Read out {len(data)} events for channel {ch}')    
     return ch, data
 
 ########################################################################
 
-def baseline_correction(input_pulses, nsamples=2000):
+def baseline_correction(input_pulses, nsamples=2000, save_memory=True):
     """
     Do a very simple baseline subtraction. Assume the first nsamples are
     the baseline, and then average over them and subtract it
@@ -70,6 +72,8 @@ def baseline_correction(input_pulses, nsamples=2000):
     Keyword Args:
         nsamples (int)     : number of samples for baseline estimation 
                              at the beginning of the input data
+        save_memory (bool) : make sure to use as less memory as possible
+                             by strictly sticking to int16
 
     Returns:
         numpy.ndarray      : waveform with a subtracted baseline
@@ -82,9 +86,11 @@ def baseline_correction(input_pulses, nsamples=2000):
     #baseline = input[:nsamples].mean() - zero
     #print (f"Baseline calculation gives us {baseline}")
     #return input - np.ones(len(input))*baseline - absolute_zero*np.ones(len(input)), baseline
-    if sh.WAVEFORMTYPE == 'ARRAY':
+    #if sh.WAVEFORMTYPE == 'ARRAY':
+    if save_memory:
         data = input_pulses - np.ones(len(input_pulses), dtype=np.int16)*baseline, baseline
-    if sh.WAVEFORMTYPE == 'LIST':
+    else:
+    #if sh.WAVEFORMTYPE == 'LIST':
         data = list(np.asarray(input_pulses, dtype=np.int16) - np.ones(len(input_pulses), dtype=np.int16)*int(baseline)), baseline
     return data
     #return baseline,(input - baseline)
@@ -172,7 +178,7 @@ class WaveformAnalysis(object):
             if nevents[ch] > 0:
                 self.active_channels.append(ch)
             else:
-                logger.warning("Ch {ch} has no observed events! Deactivating...")
+                logger.warning(f'Ch {ch} has no observed events! Deactivating...')
         return nevents
 
     def __del__(self):
@@ -232,12 +238,14 @@ class WaveformAnalysis(object):
         """
         self.files = infiles
 
-    def read_waveforms(self, entrystop=None):
+    def read_waveforms(self, entrystop=None, save_memory=True):
         """
         Read the waveforms from the files
 
         Keyword Args:
-            entrystop (int)   : if not None, read only entrystop waveforms
+            entrystop (int)    : if not None, read only entrystop waveforms
+            save_memory (bool) : make sure to use as less memory as possible
+                                 by strictly sticking to int16
 
         Returns:
             None
@@ -248,13 +256,14 @@ class WaveformAnalysis(object):
             # read out every file once per channel
             for ch in self.active_channels:
                 #read_waveform(fname, ch)
-                future_to_fname[self.tpexecutor.submit(read_waveform, fname, ch, entrystop = entrystop)] = fname
+                future_to_fname[self.tpexecutor.submit(read_waveform, fname, ch, entrystop = entrystop, save_memory=save_memory)] = fname
 
         logger.info("Readout jobs submitted..")
         init_ch = [False]*8
         for future in fut.as_completed(future_to_fname):
             ch, data = future.result()    
-            if sh.WAVEFORMTYPE == 'ARRAY':
+            #if sh.WAVEFORMTYPE == 'ARRAY':
+            if save_memory:
                 data = np.array([np.array(k, dtype=np.int16) for k in data])
             if not init_ch[ch]:
                 self.channel_data[ch] = data
@@ -287,7 +296,7 @@ class WaveformAnalysis(object):
         nwaveforms = lines*3
 
         #times = np.array([k for k in range(len(self.channel_data[ch][0]))])
-        for i in tqdm.tqdm(range(nwaveforms), total=nwaveforms):
+        for i in tqdm.tqdm(range(nwaveforms), total=nwaveforms, desc="Plotting waveforms.."):
             ax = wfplot.add_subplot(lines, 3, i+1)
             volts = self.channel_data[ch][i]
             # FIXME - temporary workaround
@@ -323,10 +332,9 @@ class WaveformAnalysis(object):
         if not self.recordlengths:
             self.get_recordlengths()
 
-        data = copy(self.channel_data[channel])
-        for ptime in tqdm.tqdm(self.peakingtime_sequence):
-            #logger.info(f"Crunching numbers for peaking time {ptime}")
-
+        #data = copy(self.channel_data[channel])
+        data = self.channel_data[channel]
+        for ptime in tqdm.tqdm(self.peakingtime_sequence, desc=f"Applying shaper for channel {channel}.."):
             if self.adjust_shaper_order_dynamically:
                 if 500 < ptime <= 1000:
                     order = 3
@@ -342,7 +350,8 @@ class WaveformAnalysis(object):
             else:
                 shaper = sh.GaussShaper(ptime, order=order)
             #if self.njobs > 1:
-            energies = np.array([energy for energy in self.ppexecutor.map(shaper.shape_it, data, chunksize=50)])
+            energies = np.array([energy for energy in self.ppexecutor.map(shaper.shape_it, data, chunksize=10)], dtype=np.float16) # use 16 bit dtype, since the input is only 16 bit anyway.
+                     # and this will save memory
             #else:
             #energies = np.array([shaper.shaper_it(wf) for wf in data])
             ptime_energies[ptime] = energies 

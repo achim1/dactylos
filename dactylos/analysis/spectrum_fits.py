@@ -259,7 +259,8 @@ def fit_file(infilename = '143_4000.root',\
              energy = None,\
              #bins = np.linspace(150, 550, 200),\
              bins = np.linspace(1,2**14, 2**14) - 0.5,\
-             peakposition = 88.03):
+             peakposition = 88.03,\
+             debug=False):
     """
     One shot function to fit a datafile with 
     energy values obtained by the Caen N6725 digitizer
@@ -287,8 +288,14 @@ def fit_file(infilename = '143_4000.root',\
         detid (int)          : detector id (just uded for the plot title)
         peakposition (float) : the true value of the x-ray peak in keV
                                this is used to recalibrate the x-axis
-
+        debug        (bool)  : Use to reduce the loglevel, otherwise this 
+                               function is as silent as possible.
+                               Internally sets the loglevel of HErmes to debug
     """
+    if not debug:
+        he.set_loglevel(100) 
+        logger.setLevel(100)
+
     # set startparameters
     startparams = np.array([500,20,500, 300, 40, 50])
     metainfo = "" # this currently holds the type of measurement

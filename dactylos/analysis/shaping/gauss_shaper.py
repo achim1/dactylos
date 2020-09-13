@@ -23,9 +23,6 @@ class GaussShaper(object):
         self.sos = shaper("gaussian",order,1e-9*peaktime,dt=dt,pz=1./decay_time)
 
     def shape_it(self, tailpulses):
-        #sos = shaper("gaussian",self.order,self.peaktime,dt=self.dt,pz=1./self.decay_time)
-        #pulses = copy(tailpulses)
-        #tailpulses_cr, bl = baseline_correction(pulses, nsamples=1024)
         y = sosfilt(self.sos,tailpulses)
         return max(y)
 
