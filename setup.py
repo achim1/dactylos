@@ -305,8 +305,8 @@ setup(name='dactylos',
               "readout", "physics", "engineering", "lab", "USB"],
     packages=['dactylos', 'dactylos.analysis', 'dactylos.analysis.shaping'],
     # FIXME: put the header for the trapezoidal shpaer somewhere else
-    data_files = [('.', ['CMakeLists.txt']),
-                 ],
+    #data_files = [('.', ['CMakeLists.txt']),
+    #             ],
                  # ('dactylos/analysis/shaping/', ['trapezoidal_shaper.h'])],
     # use the package_data hook to get the pybindings (as compiled with cmake) to the right
     # final destination

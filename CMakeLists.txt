@@ -16,9 +16,8 @@ cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to be used, 11, 14, 17 or 20")
 message(STATUS "Building with C++ standard ${CMAKE_CXX_STANDARD}")
 
-
 # FIXME: this is primed for Ubuntu currently,
-# but it needs to become more system independ
+# but it needs to become more system independend
 
 # make sure we use python 3
 set(PYBIND11_PYTHON_VERSION 3.6)
@@ -48,49 +47,62 @@ set(CAEN_LIBRARIES "CAENDigitizer")
 find_package(ROOT 6.00 REQUIRED COMPONENTS Core)
 include(${ROOT_USE_FILE})
 
-set(SOURCES
-    CraneLabDigitizer
-    )
-
-
 # build shared libraries
 # for the digitizer readout
-set(DIGITIZER_LIBRARY_SHARED CaenN6725)
+#set(DIGITIZER_LIBRARY_SHARED CaenN6725)
 # the analysis lib
-set(DACTYLOS_ANALYSIS_LIBRARY_SHARED DactylosAnalysis)
+#set(DACTYLOS_ANALYSIS_LIBRARY_SHARED DactylosAnalysis)
+
+set(DACTYLOS_LIBRARY_SHARED Dactylos)
 
 # build pybindings
 option(BUILD_PYBINDINGS "pybindings for the digitizer" ON)
 set(PYBIND_VERSION 2.2.4 CACHE STRING "used pybindings version" FORCE)
 set(pybindings "_pyCaenN6725")
-set(pybindings_analysis "_trapezoidal_shaper")
+#set(pybindings_analysis "_trapezoidal_shaper")
+set(PYBINDINGS_DACTYLOS "_dactylos")
 
 # building - libraries
-add_library(${DIGITIZER_LIBRARY_SHARED} SHARED src/CaenN6725.cxx)
-target_include_directories(${DIGITIZER_LIBRARY_SHARED}
+#add_library(${DIGITIZER_LIBRARY_SHARED} SHARED src/CaenN6725.cxx)
+#target_include_directories(${DIGITIZER_LIBRARY_SHARED}
+#                           PRIVATE
+#                                ${ROOT_INCLUDE_DIRS}
+#                                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+#                                $<INSTALL_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+#                              )
+#
+#target_link_libraries(${DIGITIZER_LIBRARY_SHARED}
+#                          ${ROOT_LIBRARIES}
+#                          ${CAEN_LIBRARIES}
+#                          )
+#
+#add_library(${DACTYLOS_ANALYSIS_LIBRARY_SHARED} SHARED dactylos/analysis/shaping/trapezoidal_shaper.cxx)
+#target_include_directories(${DACTYLOS_ANALYSIS_LIBRARY_SHARED}
+#                           PRIVATE
+#                                ${ROOT_INCLUDE_DIRS}
+#                                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+#                                $<INSTALL_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+#                              )
+#
+#target_link_libraries(${DACTYLOS_ANALYSIS_LIBRARY_SHARED}
+#                          ${ROOT_LIBRARIES}
+#                          ${CAEN_LIBRARIES}
+#                          )
+
+# simplify - add everything together in one library
+add_library(${DACTYLOS_LIBRARY_SHARED} SHARED src/trapezoidal_shaper.cxx src/CaenN6725.cxx)
+target_include_directories(${DACTYLOS_LIBRARY_SHARED}
                            PRIVATE
                                 ${ROOT_INCLUDE_DIRS}
                                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
                                 $<INSTALL_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
                               )
 
-target_link_libraries(${DIGITIZER_LIBRARY_SHARED}
+target_link_libraries(${DACTYLOS_LIBRARY_SHARED}
                           ${ROOT_LIBRARIES}
                           ${CAEN_LIBRARIES}
                           )
 
-add_library(${DACTYLOS_ANALYSIS_LIBRARY_SHARED} SHARED dactylos/analysis/shaping/trapezoidal_shaper.cxx)
-target_include_directories(${DACTYLOS_ANALYSIS_LIBRARY_SHARED}
-                           PRIVATE
-                                ${ROOT_INCLUDE_DIRS}
-                                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-                                $<INSTALL_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-                              )
-
-target_link_libraries(${DACTYLOS_ANALYSIS_LIBRARY_SHARED}
-                          ${ROOT_LIBRARIES}
-                          ${CAEN_LIBRARIES}
-                          )
 
 if (BUILD_PYBINDINGS)
 message(STATUS "Checking for pyoind11....")
@@ -113,20 +125,23 @@ find_package(pybind11 )
                             ${ROOT_LIBRARIES}
                             ${CAEN_LIBRARIES}
                             ${DIGITIZER_LIBRARY_SHARED}
+                            ${DACTYLOS_LIBRARY_SHARED}
                           )
-    
-    pybind11_add_module(${pybindings_analysis} MODULE dactylos/analysis/shaping/module.cxx)
-    target_include_directories(${pybindings_analysis}
-                               PRIVATE
-                                   dactylos/analysis/shaping/
-                                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-                                   $<INSTALL_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-                              )
 
-    target_link_libraries(${pybindings_analysis}
-                          PRIVATE
-                            ${DACTYLOS_ANALYSIS_LIBRARY_SHARED}
-                          )
+# for now is included in the above, but in the future also the pybindings 
+# will get renamed    
+#    pybind11_add_module(${pybindings_analysis} MODULE dactylos/analysis/shaping/module.cxx)
+#    target_include_directories(${pybindings_analysis}
+#                               PRIVATE
+#                                   dactylos/analysis/shaping/
+#                                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+#                                   $<INSTALL_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+#                              )
+#
+#    target_link_libraries(${pybindings_analysis}
+#                          PRIVATE
+#                            ${DACTYLOS_ANALYSIS_LIBRARY_SHARED}
+#                          )
 
   endif()
 
