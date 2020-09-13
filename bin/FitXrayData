@@ -31,7 +31,6 @@ from dactylos.analysis.utils import get_stripname, plot_waveform
 import shlex
 import subprocess
 
-
 from dataclasses import dataclass
 from copy import deepcopy as copy
 
@@ -118,6 +117,9 @@ if __name__ == '__main__':
     parser.add_argument('--plot-waveforms', dest='plot_waveforms',
                         default=False, action='store_true',
                         help='plot the individual waveforms as png')
+    parser.add_argument('--combine-images', dest='combine_images',
+                        default=False, action='store_true',
+                        help='Use imagemagick to combine the images to a single pannel. This might be problemantic if there are too many shapingtimes used.')
     #parser.add_argument('--digitizer-energy-only', dest='digitizer_energy_only',
     #                    default=False, action='store_true',
     #                    help='Only produce the plot of the energy as calculated by the digitizer')
@@ -126,6 +128,9 @@ if __name__ == '__main__':
     #                    help='Only get the digitizer energy from the series of given files and produce the resolution plot. This is meant to be used for one file per shaping time')
 
     args = parser.parse_args()
+    method = 'UNKNOWN' # is either trapezoid or gauss4 
+                       # FIXME: What happens for gauss of different orders?
+                       # -> For now, we use the gauss4....
 
     # create the outdir
     try:
@@ -144,11 +149,11 @@ if __name__ == '__main__':
 
         regex = 'pt_(?P<stime>[0-9]*)_(mus|mu_s|ns)\/Sh(?P<detid>[0-9]*)_(?P<strip>[A-H]).txt' 
         pattern = re.compile(regex)
+        method = 'trapezoid' # mc2 uses a trapezoid
     else:
         infiles = glob(os.path.join(args.indir, '*.root'))
         regex = '(?P<detid>[0-9]*)_(s|p)time(?P<stime>[0-9]*).root' 
         pattern = re.compile(regex)
-
 
     if args.njobs > 1: future_to_ptime = dict()
     
@@ -166,8 +171,11 @@ if __name__ == '__main__':
         raise ValueError("Can not plot waveforms without the --waveform-analysis switch!") 
     if args.waveform_analysis:
         logger.info("Will do anlysis directly on the waveforms")
+        method = 'gauss'
         if args.trapezoid:
             logger.warning("Will use trapezoid for shaping instead of Gaussian - experimental feature!")
+            method = 'trapezoid'
+
         analysis = WaveformAnalysis(njobs=args.njobs,\
                                     active_channels=active_channels,\
                                     use_simple_trapezoid_shaper=args.trapezoid,\
@@ -192,13 +200,15 @@ if __name__ == '__main__':
         for k in analysis.active_channels:
             logger.info(f" Record length in ch {k} ; {len(analysis.channel_data[k][0])}")
         
-        #peaking_sequence = np.array([500,1000,2000,4000,8000,12000,16000,20000,30000])    
         if args.gaussian_shaping_times:
             peaking_sequence = np.array([int(k) for k in args.gaussian_shaping_times])
         else:
-            peaking_sequence = np.array([500,759,1000,2000,3000,4000,5000, 7000,8000,10000,12000,14000,16000,18000,20000,25000,30000])    
+            # default peaking sequence typically used by Mengjiao
+            peaking_sequence = np.array([500,1000,2000,4000,5000,8000,12000,16000,20000,30000])    
+            #peaking_sequence = np.array([500,759,1000,2000,3000,4000,5000, 7000,8000,10000,12000,14000,16000,18000,20000,25000,30000])    
          
         logger.info(f'Setting peaking sequence {peaking_sequence} nano seconds')
+        logger.info(f'Will use a {method} shaper')
         analysis.set_peakingtime_sequence(peaking_sequence)
 
         for ch in analysis.active_channels:
@@ -277,12 +287,12 @@ if __name__ == '__main__':
             # last option will be anlyzing data taken 
             # with dactylos (root files) one file 
             # per shaping time
-            logger.info(f"Loading {infile}")
+            logger.info(f"Loading {infile} .. ")
 
             metadata = pattern.search(infile).groupdict()
             ptime = int(metadata['stime']) # shaping/peaking time
             detid = int(metadata['detid']) # detector id
-       
+            logger.info(f'.. found peaking time of {ptime} for detector id {detid}')
             # anlayze per channel, each file has all
             # the 8 channels saved 
             for ch in active_channels:
@@ -312,7 +322,7 @@ if __name__ == '__main__':
 
     # get the results in the parallel case
     if args.njobs > 1:
-        for future in tqdm.tqdm(fut.as_completed(future_to_ptime)):
+        for future in tqdm.tqdm(fut.as_completed(future_to_ptime), desc='Calculating fit results..'):
             ptime = future_to_ptime[future]
             try:
                 detid, ch, params, params_err, figname = future.result()
@@ -350,8 +360,9 @@ if __name__ == '__main__':
         ys_err  = np.array(ys_err)[idx]
 
         try:
-            # do not use minuit right now until we have understood the errors
-            fit_noisemodel(xs, ys, ys_err, ch, detid, use_minuit=True, plotdir=args.outdir)
+            fit_noisemodel(xs, ys, ys_err, ch, detid,\
+                           use_minuit=True, plotdir=args.outdir,\
+                           method=method)
         except Exception as e:
             logger.warning(f"Can not fit noisemodel for {detid} ch {ch}, exception {e}")
             continue
@@ -393,22 +404,24 @@ if __name__ == '__main__':
         # shrink the jpg so it will go in google docs presentation
         command_shrink = f'convert {mplotname}.jpg -resize 50% -normalize  {mplotname}.jpg'
         proc = subprocess.Popen(shlex.split(command_shrink)).communicate()
+
     # also combine all the figures for a specific peaking time in 
     # one panel with imagemagic
-    for pktime in pktimes_savenames.keys():
+    if args.combine_images:
+        for pktime in pktimes_savenames.keys():
 
-        mplotname = os.path.join(args.outdir,f'det{detid}-pktime{pktime}')
-        command = f'montage -geometry +4+4 -tile 4x2 '
-        for gfx in pktimes_savenames[pktime]:
-            command += f' {gfx} '
-        command += f' {mplotname}'  
+            mplotname = os.path.join(args.outdir,f'det{detid}-pktime{pktime}')
+            command = f'montage -geometry +4+4 -tile 4x2 '
+            for gfx in pktimes_savenames[pktime]:
+                command += f' {gfx} '
+            command += f' {mplotname}'  
 
-        logger.info(f'Executing {command}')
-        proc = subprocess.Popen(shlex.split(command + '.pdf ')).communicate()
-        proc = subprocess.Popen(shlex.split(command + '.png ')).communicate()
-        proc = subprocess.Popen(shlex.split(command + '.jpg ')).communicate()
-        command_shrink = f' convert {mplotname}.jpg -resize 50% -normalize  {mplotname}.jpg'
-        proc = subprocess.Popen(shlex.split(command_shrink)).communicate()
+            logger.info(f'Executing {command}')
+            proc = subprocess.Popen(shlex.split(command + '.pdf ')).communicate()
+            proc = subprocess.Popen(shlex.split(command + '.png ')).communicate()
+            proc = subprocess.Popen(shlex.split(command + '.jpg ')).communicate()
+            command_shrink = f' convert {mplotname}.jpg -resize 50% -normalize  {mplotname}.jpg'
+            proc = subprocess.Popen(shlex.split(command_shrink)).communicate()
 
 
     print (f'Folder {args.indir} analyzed')

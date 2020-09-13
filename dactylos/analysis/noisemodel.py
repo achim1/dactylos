@@ -18,24 +18,31 @@ logger = hep.logger.get_logger(10)
 
 @dataclass
 class Constants:
-    q     : float = 1.6e-19   # electron charge
-    k     : float = 1.38e-23  # Boltzmann constant
-    eps   : float = 3.6       # ionization energy of silicon, eV
-    Rp    : float = 100e6     # parallel resistance of preamp, 100 MOhm
-    gm    : float = 18e-3     # transconductance in FET, 18 ms
-    Bita  : float = 1
-    Fi    : float = 0.367     # noise form factor
-    Fv    : float = 1.15      # noise form factor
-    Fvf   : float = 0.226     # noise form factor
-    pi    : float = 3.1415926
-    Ctot  : float = 70e-12    #pF
+    q      : float = 1.6e-19   # electron charge
+    k      : float = 1.38e-23  # Boltzmann constant
+    eps    : float = 3.6       # ionization energy of silicon, eV
+    Rp     : float = 100e6     # parallel resistance of preamp, 100 MOhm
+    gm     : float = 18e-3     # transconductance in FET, 18 ms
+    Bita   : float = 1
+    Fi     : float = 0.367     # noise form factor
+    Fv     : float = 1.15      # noise form factor
+    Fvf    : float = 0.226     # noise form factor
+    Ctot   : float = 70e-12    #pF
+
+    Fi_g4  : float = 0.45      # noise form factor for gauss order 4
+    Fv_g4  : float = 1.02      # noise form factor for gauss order 4
+    Fvf_g4 : float = 0.52      # noise form factor for gauss order 4
+    
+    Fi_tr  : float = 0.83      # noise form factor for trapezoid
+    Fv_tr  : float = 1         # noise form factor for trapezoid 
+    Fvf_tr : float = 0.69      # noise form factor for trapezoid
 
     def Rs_denom(self, temp_cels):
         return self.Fv/self.Ctot/self.Ctot/(4*self.k*self.T(temp_cels))-self.Bita/self.gm;
 
     @property
     def Af_denom(self):
-        return self.Ctot/self.Ctot/self.Fvf/2/self.pi 
+        return self.Ctot/self.Ctot/self.Fvf/2/np.pi 
 
     # FIXME: While not tecnnically a constant, 
     # we try to keep it as constant as possible
@@ -47,7 +54,8 @@ CONSTANTS = Constants()
 
 ########################################################################
 
-def extract_parameters_from_noisemodel(noisemodel):
+def extract_parameters_from_noisemodel(noisemodel,\
+                                       method='trapezoid'):
     """
     After fitting the noisemodel, get the detector
     relevant parameters out of the fit parameters
@@ -56,10 +64,27 @@ def extract_parameters_from_noisemodel(noisemodel):
     Args:
         noisemodel (HErmes.fiting.Model) : noisemodel after fitting
 
+    Keyword Args:
+        method     (str)                 : this describes the functional form of the 
+                                           used shaping function. Which can be 
+                                           either 'trapezoid' or 'gauss'
+                                           This affects the weighting factors for Il, Af and R.
     Returns (dict)                       : the relevant paramters
     """
 
     factor = (2.355*CONSTANTS.eps*1e-3/CONSTANTS.q)*(2.355*CONSTANTS.eps*1e-3/CONSTANTS.q)
+
+    # use the weighting factors for either trapezoid or Gauss 4th order
+    if method == 'trapezoid':
+        Fi   = CONSTANTS.Fi  
+        Fv   = CONSTANTS.Fv
+        Fvf  = CONSTANTS.Fvf
+    elif method == 'gauss':
+        Fi   = CONSTANTS.Fi_g4
+        Fv   = CONSTANTS.Fv_g4
+        Fvf  = CONSTANTS.Fvf_g4
+    else:
+        raise ValueError(f"Can't understand {method}. Has to be either 'gauss' or 'trapezoid'")
 
     # this is necessary in case we did not use
     # minuit for the fitting, then we do have 
@@ -79,15 +104,12 @@ def extract_parameters_from_noisemodel(noisemodel):
     p2  = noisemodel.best_fit_params[2]/factor
     ep2 = noisemodel.errors['par20']/factor
     
-    Ileak = (p0/CONSTANTS.Fi-4*CONSTANTS.k*CONSTANTS.T(-37)/CONSTANTS.Rp)/2/CONSTANTS.q  # A
+    Ileak = (p0/Fi-4*CONSTANTS.k*CONSTANTS.T(-37)/CONSTANTS.Rp)/2/CONSTANTS.q  # A
     eIleak = ep0/p0*Ileak  # A
-    #Rs = p1/CONSTANTS.Rs_denom(-37) # temperature -37
-    #p1 = p1*factor
-    #Rs = 1/factor*(p1/CONSTANTS.Fv/CONSTANTS.Ctot/CONSTANTS.Ctot/(4*CONSTANTS.k*CONSTANTS.T(-37))-CONSTANTS.Bita/CONSTANTS.gm)
-    Rs = (p1 / CONSTANTS.Fv / CONSTANTS.Ctot / CONSTANTS.Ctot / (
+    Rs = (p1 /Fv / CONSTANTS.Ctot / CONSTANTS.Ctot / (
                 4 * CONSTANTS.k * CONSTANTS.T(-37))) - (CONSTANTS.Bita / CONSTANTS.gm)
 
-    Rs_const = CONSTANTS.Fv*CONSTANTS.Ctot*CONSTANTS.Ctot*(4*CONSTANTS.k*CONSTANTS.T(-37))
+    Rs_const = Fv*CONSTANTS.Ctot*CONSTANTS.Ctot*(4*CONSTANTS.k*CONSTANTS.T(-37))
     Rs_const_diff =  -CONSTANTS.Bita/CONSTANTS.gm
     if Rs < 0:
         logger.warn(f'Rs: {Rs}')
@@ -102,21 +124,21 @@ def extract_parameters_from_noisemodel(noisemodel):
         logger.warn('Rs is < 0!')
     eRs = ep1/p1*Rs  # Ohm
 
-    CTOT  = np.sqrt(p1/CONSTANTS.Fv/(4*CONSTANTS.k*CONSTANTS.T(-37))/(Rs+CONSTANTS.Bita/CONSTANTS.gm));
+    CTOT  = np.sqrt(p1/Fv/(4*CONSTANTS.k*CONSTANTS.T(-37))/(Rs+CONSTANTS.Bita/CONSTANTS.gm));
     logger.warn(f'Calculated {CTOT}')
 
-    Af = p2/CONSTANTS.Ctot/CONSTANTS.Ctot/CONSTANTS.Fvf/2/CONSTANTS.pi
+    Af = p2/CONSTANTS.Ctot/CONSTANTS.Ctot/Fvf/2/np.pi
 
 
     #Af = p2/CTOT/CTOT/CONSTANTS.Fvf#/2/CONSTANTS.pi
     eAf = ep2/p2*Af
 
-    result = {'p0'     : p0*factor,\
-              'ep0'    : ep0*factor,\
-              'p1'     : p1*factor,\
-              'ep1'    : ep1*factor,\
-              'p2'     : p2*factor,\
-              'ep2'    : ep2*factor,\
+    result = {'p0'     : p0   *factor,\
+              'ep0'    : ep0  *factor,\
+              'p1'     : p1   *factor,\
+              'ep1'    : ep1  *factor,\
+              'p2'     : p2   *factor,\
+              'ep2'    : ep2  *factor,\
               'Ileak'  : Ileak*1e9,\
               'eIleak' : eIleak*1e9,\
               'Rs'     : Rs,\
@@ -250,7 +272,8 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
                    plotdir='.', fig=None,\
                    use_minuit=True,\
                    use_refined_model=False,\
-                   debug_minuit=False):
+                   debug_minuit=False,
+                   method='trapezoid'):
     """
     Perform the fit of the xray resolutions over peaking time
     with the noisemodel
@@ -278,11 +301,9 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
     logger.info(f'Performing noise model fit for channel {ch}')
     if use_refined_model:
         logger.info(f'Use refined noise model...')
-        print('DEBUG: refined model...')
         noisemodel = he.fitting.Model(preamp_noise_model)
         noisemodel.startparams = (2e-9,1, 8e-13)
     else:
-        print ('DEBUG: m.x. implementation')
         noisemodel = he.fitting.Model(noise_model)
         noisemodel.startparams = (5e5, 1e-5,1)
 
@@ -345,7 +366,7 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
         infotext += r"$\chi^2/ndf$ &{:4.2f} & \\ ".format(noisemodel.chi2_ndf)
         infotext += r"\end{tabular}"
     else:
-        params = extract_parameters_from_noisemodel(noisemodel)
+        params = extract_parameters_from_noisemodel(noisemodel, method=method)
         logger.info(f'Extracted {params} from noisemodel')
         print(f'..I_L {params["Ileak"]}')
         print(f'..A_f {params["Af"]}')
