@@ -41,6 +41,10 @@ def enc2_asic(tau, I_L,  A_f, C=70*1e-12):
                          70 pF
         
     """
+    # FIXME logging
+    if A_f < 0.74*1e-13: # this value comes from Mengjiao
+        print (f"WARN: A_f too small {A_f}, will use 0.74!")
+        A_f = 0.74*1e-13
     tau = 1e-6*tau
     C_2 = C**2
     A =  2*CONSTANTS.q*(I_L + ACONSTANTS.I_eff)*tau*ACONSTANTS.F_i
