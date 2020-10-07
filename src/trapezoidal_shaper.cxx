@@ -14,7 +14,6 @@ uint32_t TrapezoidalFilter::shape_it(const std::vector<int16_t> &waveform) const
   int32_t  sum_rise(0), sum_down(0);
   float amp_filter(0), energy(0);
 
-
   int16_t nramp = ptime/4; //4ns per sample
   int16_t nflat = flat/4;
   int16_t ntot = 2*nramp+nflat;
