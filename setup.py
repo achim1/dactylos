@@ -194,6 +194,8 @@ class CMakeBuild(build_ext):
 
         # Move from build temp to final position
         #print (self.extensions)
+        
+
         for ext in self.extensions:
             build_temp = Path(self.build_temp).resolve(ext.name)
             print (f'Found build dir {build_temp}')        
@@ -201,7 +203,9 @@ class CMakeBuild(build_ext):
             print (f'Looking for source file {source_file}' + '*.so')
             source_files = glob(source_file + "*")
             if not source_files:
-                raise SystemError("Can not find source file!")
+                print (f'WARN: {source_file}*.so not found...!') 
+                continue
+                #raise SystemError("Can not find source file!")
             source_file = source_files[0]
             # destination is the directory in the install path (hopefully)
             dest_path = os.path.split(Path(self.get_ext_fullpath(ext._cfilename)).resolve())[0] 
@@ -212,6 +216,7 @@ class CMakeBuild(build_ext):
             print (f'.. will copy to {dest_path}')
             print (f"Trying to copy {ext.name} from {source_file} to {dest_path}")
             self.copy_file(source_file, dest_path)
+        # copy the dactylos library
             
 
 # external modules, build by CMake. At the moment this is all 
@@ -219,13 +224,17 @@ class CMakeBuild(build_ext):
 # this just helps for the actual install process
 ext_modules = [
     CMakeExtension(
-        'CaenN6725',
-        sources = ['src/CaenN6725.cxx'],
+        'Dactylos',
+        sources = ['src/trapezoidal_shaper.cxx',
+                   'src/CaenN6725.cxx'],
         include_dirs=[
+            # Path to pybind11 headers
+            #get_pybind_include(),
+            #get_pybind_include(user=True),
             "include",
             get_root_include_dir()
         ],
-        libraries=['CAENDigitizer'],
+        libraries=['Dactylos'],
         language='c++'
     ),
     CMakeExtension(
@@ -239,33 +248,6 @@ ext_modules = [
             get_root_include_dir()
         ],
         libraries=['CAENDigitizer','CaenN6725'],
-        language='c++'
-    ),
-    CMakeExtension(
-        'DactylosAnalysis',
-        sources = ['dactylos/analysis/shaping/trapezoidal_shaper.cxx',
-                   'dactylos/analysis/shaping/trapezoidal_shaper.h'],
-        include_dirs=[
-            # Path to pybind11 headers
-            get_pybind_include(),
-            get_pybind_include(user=True),
-            "include",
-            "dactylos/analysis/shaping"
-        ],
-        libraries=['DactylosAnalysis'],
-        language='c++'
-    ),
-    CMakeExtension(
-        '_trapezoidal_shaper',
-        sources = ['dactylos/analysis/shaping/module.cxx'],
-        include_dirs=[
-            # Path to pybind11 headers
-            get_pybind_include(),
-            get_pybind_include(user=True),
-            "include",
-            "dactylos/analysis/shaping"
-        ],
-        libraries=['DactylosAnalysis'],
         language='c++'
     )
 ]
