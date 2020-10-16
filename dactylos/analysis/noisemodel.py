@@ -271,7 +271,7 @@ def construct_error_belt(nm, xs=None):
 def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
                    plotdir='.', fig=None,\
                    use_minuit=True,\
-                   use_refined_model=False,\
+                   use_direct_model=False,\
                    debug_minuit=False,
                    method='trapezoid'):
     """
@@ -279,19 +279,20 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
     with the noisemodel
 
     Args:
-        xs (ndarray)         : peaking times (microseconds)
-        ys (ndarray)         : x-ray resolutions (fwhm)
-        ys_err (ndarray)     : fwhm associated fit errors
-        ch (int)             : digitizer channel/detector strip
-        detid (int)          : detector id (needed for the filename to save the plot)
+        xs           (ndarray)   : peaking times (microseconds)
+        ys           (ndarray)   : x-ray resolutions (fwhm)
+        ys_err       (ndarray)   : fwhm associated fit errors
+        ch               (int)   : digitizer channel/detector strip
+        detid            (int)   : detector id (needed for the filename to save the plot)
 
     Keyword Args:
         fig (Figure)             : use a pre-exisiting figure instance. If None, create new
         plotdir (str)            : directory to save the plot in
-        use_minuit (bool)        : Use minuit for the minimization (recommended)
-        use_refined_model (bool) : use a slightly different implempentation of the noise
-                                   model, which should yield the exact same numerical values
-        debug_minuit (bool)      : pass this parameter to the model. It attaches the
+        use_minuit       (bool)  : Use minuit for the minimization (recommended)
+        use_direct_model (bool)  : use a slightly different implempentation of the noise
+                                   model. The difference is that the 3 physics parameters
+                                   I_L, R_S and A_f are fitted directly.
+        debug_minuit     (bool)  : pass this parameter to the model. It attaches the
                                    iminuit instance to the model, so it is accessible for
                                    later debugging
     Returns:
@@ -299,8 +300,8 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
     """
     # channel noise model fit
     logger.info(f'Performing noise model fit for channel {ch}')
-    if use_refined_model:
-        logger.info(f'Use refined noise model...')
+    if use_direct_model:
+        logger.info(f'Using direct model, fitting I_L, R_S, A_f...')
         noisemodel = he.fitting.Model(preamp_noise_model)
         noisemodel.startparams = (2e-9,1, 8e-13)
     else:
@@ -310,7 +311,7 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
     noisemodel.add_data(ys, xs=xs/1000,\
                         data_errs=ys_err,
                         create_distribution=False)
-    if use_refined_model:
+    if use_direct_model:
         noisemodel.fit_to_data(use_minuit=use_minuit, \
                                debug_minuit=debug_minuit, \
                                errors=(1, 1, 1), \
@@ -332,7 +333,7 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
                                    (0,100)))
 
     logger.info(f'Noisemodel fitted, best fit pars: {noisemodel.best_fit_params}')
-    if use_refined_model:
+    if use_direct_model:
         if isinstance(noisemodel.errors, list):
             tmpdict = dict()
             tmpdict['par00'] = noisemodel.errors[0]

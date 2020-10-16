@@ -32,12 +32,12 @@ def generate_report(context,\
     module_id   = context['module_id']
     module_name = context['module_name']
     title = f'Calibration results for module #{module_id} "{module_name}"'
-    css = preload_stylesheet('calibration-style.scss')
+    css = preload_stylesheet(args.template_style)
     
     #for i in range(context['ndetectors']):
     #testplot    = os.path.abspath(context['det1_nm'][0])
     testplot = ''
-    html = pug_to_html("calibration-template.pug",\
+    html = pug_to_html(args.template,\
                        title=title,\
                        context=context,\
                        my_name=context['name'],\
@@ -56,12 +56,29 @@ if __name__ == '__main__':
                         type=str,
                         default=[],
                         help='The run ids to get the data')
+    parser.add_argument('--template',
+                        dest='template',
+                        type=str,
+                        default='calibration-template.pug',
+                        help='Give the filename of the template to use')
+    parser.add_argument('--template-style',
+                        dest='template_style',
+                        type=str,
+                        default='calibration-style.scss',
+                        help='The full path to the template style.')
+    parser.add_argument('--module-name',
+                        dest='module_name',
+                        type=str,
+                        default='Jaskier',
+                        help='Unique name of the module')
+
+
     args = parser.parse_args()
     run_ids = [int(k) for k in args.run_ids]
 
     
     context = {\
-              'module_name' : 'Jaskier',\
+              'module_name' : args.module_name,\
               'module_id'   : -1,
               'ndetectors'  : 0,\
               'date' : dt.datetime.now(),\
