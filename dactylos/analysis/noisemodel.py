@@ -11,6 +11,8 @@ import os.path
 import HErmes as he
 import hepbasestack as hep
 
+import hjson
+
 from .utils import get_stripname
 logger = hep.logger.get_logger(10)
 
@@ -51,6 +53,29 @@ class Constants:
         return temp_cels+273
 
 CONSTANTS = Constants()
+
+########################################################################
+
+def serialize_noisemodel(noisemodel,\
+                         filename):
+    """
+    Save the noisemodel to a file, serialize via json
+
+    Args:
+        noisemodel (HErmes.fitting.model.Model) : the fitted noisemodel
+        filename   (str)                        : full path to file
+    """
+    nm_data = dict()
+    nm_data['I_L']      = noisemodel.I_L
+    nm_data['A_f']      = noisemodel.A_f
+    nm_data['R_S']      = noisemodel.R_S
+    nm_data['chi2/ndf'] = noisemodel.chi2_ndf
+    nm_data['npoint']   = len(noisemodel.data)
+    nm_data['detid']    = noisemodel.detid     
+    nm_data['strip']    = noisemodel.stripname 
+    logger.info(f'Serializing noisemodel to {filename}')
+    hjson.dump(nm_data, open(filename,'w'))
+    return None
 
 ########################################################################
 
@@ -295,8 +320,12 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
         debug_minuit     (bool)  : pass this parameter to the model. It attaches the
                                    iminuit instance to the model, so it is accessible for
                                    later debugging
+        fig (matplotlib.Figure)  : A predefined figure install to use
+        method            (str)  : Tell the noisemodel what method was used to obtain the 
+                                   data, either a trapezoidal shaper or a gaussian. 
+                                   This affects the weights for the physics parameters. 
     Returns:
-        None
+        tuple (matplotlib.figure, model)               
     """
     # channel noise model fit
     logger.info(f'Performing noise model fit for channel {ch}')
@@ -369,9 +398,9 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
     else:
         params = extract_parameters_from_noisemodel(noisemodel, method=method)
         logger.info(f'Extracted {params} from noisemodel')
-        print(f'..I_L {params["Ileak"]}')
-        print(f'..A_f {params["Af"]}')
-        print(f'..R_s {params["Rs"]}')
+        logger.debug(f'..I_L {params["Ileak"]}')
+        logger.debug(f'..A_f {params["Af"]}')
+        logger.debug(f'..R_s {params["Rs"]}')
         I_L = params["Ileak"]
         A_f = params["Af"]
         R_S = params["Rs"]
@@ -414,7 +443,7 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
     ax.set_yscale('log')
     ax.set_ylim(bottom=1)
     ax.grid(which='minor', color='gray', alpha=0.7)
-    title = f'det{detid}-{get_stripname(ch)}-nmfit'
+    title = f'det{detid}-{get_stripname(ch)}'
     ax.set_title(title, loc='right')
     ax.set_xlabel('peaking time [$\mu$s]')
     ax.set_ylabel('xray res. (FWHM) [keV]')
@@ -425,15 +454,18 @@ def fit_noisemodel(xs, ys, ys_err,  ch, detid,\
             size='xx-small', \
             bbox=dict(facecolor='white', alpha=0.7, edgecolor=None), \
             )
-    pngfilename = os.path.join(plotdir, title + '.png')
+    pngfilename = os.path.join(plotdir, title + '-nmfit.png')
+    noisemodel_file = os.path.join(plotdir, title + '-nmfit.dat') 
     noisemodel_fig.savefig(pngfilename)
-    logger.info(f'Saved file {pngfilename}')
+    logger.warn(f'Saved file {pngfilename}')
     # attach some metainformation
     noisemodel.I_L = I_L
     noisemodel.A_f = A_f
     noisemodel.R_S = R_S
     noisemodel.detid     = detid
     noisemodel.stripname = get_stripname(ch)
+    serialize_noisemodel(noisemodel,\
+                         noisemodel_file)
     return noisemodel_fig, noisemodel
 
 ########################################################################
