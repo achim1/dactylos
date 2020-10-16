@@ -416,16 +416,18 @@ if __name__ == '__main__':
             ch_savenames[ch].append(os.path.join(args.outdir, pngfilename))
             pktimes_savenames[xs[i]].append(os.path.join(args.outdir, pngfilename))
 
+    
     # save the asic projection plot
-    ax = asic_pr_plot.gca()
-    # a thin line for xray/tracking 
-    ax.hlines(4,0,2, color="gray", alpha=0.7, lw=0.5)
-    print (f'Found max asic {asic_max}')
-    ax.set_ylim(top=asic_max + (0.1*asic_max))
-    ax.legend(ncol=4,fontsize='small')
-    asicplotname = f'asic-pr-det{detid}.png'
-    asicplotname = os.path.join(args.outdir, asicplotname)
-    asic_pr_plot.savefig(asicplotname)
+    if args.asic_projection:
+        ax = asic_pr_plot.gca()
+        # a thin line for xray/tracking 
+        ax.hlines(4,0,2, color="gray", alpha=0.7, lw=0.5)
+        print (f'Found max asic {asic_max}')
+        ax.set_ylim(top=asic_max + (0.1*asic_max))
+        ax.legend(ncol=4,fontsize='small')
+        asicplotname = f'asic-pr-det{detid}.png'
+        asicplotname = os.path.join(args.outdir, asicplotname)
+        asic_pr_plot.savefig(asicplotname)
 
         
     # let's write a textfile as well
