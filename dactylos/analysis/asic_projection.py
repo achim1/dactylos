@@ -5,10 +5,9 @@ from the calibration with discrete preamps.
 """
 
 import numpy as np
+import hepbasestack as hep
 from dataclasses import dataclass
 from .noisemodel import Constants
-
-
 
 @dataclass
 class ASICConstants : 
@@ -51,6 +50,55 @@ def enc2_asic(tau, I_L,  A_f, C=70*1e-12):
     B =  ACONSTANTS.S_w*(C_2)*ACONSTANTS.F_nu*(1/tau)
     C = 2*np.pi*A_f*ACONSTANTS.F_nuf*(C_2)*np.ones(len(tau))
     enc2 = A+B+C
-    print ((A[0],B[0], C[0], 'A,B,C'))
+    #print ((A[0],B[0], C[0], 'A,B,C'))
     return np.sqrt(enc2)*2.355*CONSTANTS.eps*(1/CONSTANTS.q)*1e-3
     #return enc2
+
+####################################################################################
+
+def asic_projection_plot(tau, asic,\
+                         stripname,\
+                         detid,\
+                         fig=None,\
+                         loglog=False):
+    """
+    Produce a plot with asic prediction vs shaping time
+
+    Args:
+        tau      (numpy.ndarray) : shaping times, x-values
+        asic     (numpy.ndarray) : asic prediction, y-values
+        stripname          (str) : strip identifier A-H on GAPS Si(Li) detector
+        detid              (int) : detector id.
+    Keyword Args:
+        fig      (matplotlib.figure.Figure) : a pre-initialized figure instance
+                                              to plot the data in. If None, new
+                                              one gets created.
+        loglog                        (bool): create a log-log plot(default False)
+
+    """
+
+    title = f'det {detid}'
+    label = f'{stripname}'
+    if fig is None:
+        fig = p.figure(dpi=120,\
+                       figsize=hep.layout.FIGSIZE_A4_LANDSCAPE_HALF_HEIGHT)
+
+    ax = fig.gca()
+    #ax.plot(nm.xs, asic, label=label, lw=1.2)
+    ax.plot(tau, asic, label=label, lw=1.2)
+    ax.set_xlim(left=0.49, right=2)
+    ax.set_ylim(top=6)
+    ax.set_title(title, loc='right')
+    # ax.legend()
+    # hep.visual.adjust_minor_ticks(ax, which='both')
+    ax.grid(which='minor', color='gray', alpha=0.7)
+    if loglog:
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+    ax.set_ylabel('proj. ASIC FWHM [keV]')
+    ax.set_xlabel(r'$\tau$ [$\mu$s]')
+    return fig
+
+####################################################################################
+
+

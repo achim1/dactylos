@@ -1,8 +1,14 @@
 #! /usr/bin/env python3
 """
-Create a plot for an energy spectrum for a certain peaking
-time obtained with the CaenN6725 digitizer
+Example application to fit data obtained with a CAEN N6725 read out by this software.
+In this concrete example, we fit x-ray data for Si(Li) detectors for the GAPS experiment, 
+but this program can be easily adapted to another scenario. 
+Specific to GAPS is the grouping in detectors with 8 channels each, as well as for this very
+specific calibration campaign, calibration data is taken with dedicated electronics, so
+the values for the flight electronic will get projected. See the asic_projection part for tath.
 """
+
+
 import matplotlib
 matplotlib.use('Agg')
 
@@ -25,6 +31,7 @@ from dactylos.analysis.waveform_analysis import WaveformAnalysis
 from dactylos.analysis.noisemodel import noise_model, fit_noisemodel, extract_parameters_from_noisemodel   
 from dactylos.analysis.spectrum_fits import fit_file
 from dactylos.analysis.utils import get_stripname, plot_waveform 
+from dactylos.analysis.asic_projection import enc2_asic, asic_projection_plot
 # call imagemapgick with subprocess
 # FIXME: there are python bindings
 
@@ -106,6 +113,11 @@ if __name__ == '__main__':
     parser.add_argument('--shaper-order', dest='shaper_order',
                         default=4,type=int,
                         help='order parameter of the Gaussian shaper. This parameter only has an effect together with --waveform-analysis.')
+    parser.add_argument('--detector-capacitance', dest='detector_capacitance',
+                        default=70,type=float,
+                        help='Capacitance of the detector. Defaults to pF.\
+                              Default should not be changed without good reason.\
+                              This is only used for the asic prediction! [GAPS]')
     parser.add_argument('--shaper-different-orders',
                         dest='shaper_different_orders',
                         default=False, action='store_true',\
@@ -120,9 +132,9 @@ if __name__ == '__main__':
     parser.add_argument('--combine-images', dest='combine_images',
                         default=False, action='store_true',
                         help='Use imagemagick to combine the images to a single pannel. This might be problemantic if there are too many shapingtimes used.')
-    #parser.add_argument('--digitizer-energy-only', dest='digitizer_energy_only',
-    #                    default=False, action='store_true',
-    #                    help='Only produce the plot of the energy as calculated by the digitizer')
+    parser.add_argument('--asic-projection', dest='asic_projection',
+                        default=False, action='store_true',
+                        help='Also create the asic projection plot for the GAPS experiment. One plot per detector')
     #parser.add_argument('--run-sequence', dest='run_sequence',
     #                    default=False, action='store_true',
     #                    help='Only get the digitizer energy from the series of given files and produce the resolution plot. This is meant to be used for one file per shaping time')
@@ -343,6 +355,13 @@ if __name__ == '__main__':
     pktimes_savenames = dict([(dsptime.ptime,[]) for dsptime in datasets])
     # create the model fit plots
     ch_savenames = dict(zip([ch for ch in range(8)],[[] for ch in range(8)])) 
+
+    # prepare a plot for the asic projections 
+    # for this detector
+    if args.asic_projection:
+        asic_pr_plot = p.figure(dpi=120, figsize=lo.FIGSIZE_A4_LANDSCAPE_HALF_HEIGHT)
+        asic_max = 0
+
     for ch in active_channels:
         stripname = get_stripname(ch)
         ch_datasets = [data for data in datasets if data.channel == ch]
@@ -360,12 +379,32 @@ if __name__ == '__main__':
         ys_err  = np.array(ys_err)[idx]
 
         try:
-            fit_noisemodel(xs, ys, ys_err, ch, detid,\
-                           use_minuit=True, plotdir=args.outdir,\
-                           method=method)
+            __,  thisnoisemodel = fit_noisemodel(xs, ys, ys_err, ch, detid,\
+                                                 use_minuit=True, plotdir=args.outdir,\
+                                                 method=method)
         except Exception as e:
             logger.warning(f"Can not fit noisemodel for {detid} ch {ch}, exception {e}")
             continue
+
+        if args.asic_projection:
+            try:
+                # FIXME: units!
+                thisasic = enc2_asic(thisnoisemodel.xs,\
+                                     thisnoisemodel.I_L*(1e-9),\
+                                     thisnoisemodel.A_f*(1e-13),
+                                     C=args.detector_capacitance*(1e-12))
+                # limit the asic projection plot to (0.49, 2)
+                xrange_mask = np.logical_and(thisnoisemodel.xs > 0.49,thisnoisemodel.xs < 2) 
+                if max(thisasic[xrange_mask]) > asic_max:
+                    asic_max = max(thisasic[xrange_mask])
+
+                asic_pr_plot  = asic_projection_plot(thisnoisemodel.xs, thisasic,
+                                                     thisnoisemodel.stripname,
+                                                     thisnoisemodel.detid,
+                                                     fig=asic_pr_plot)
+            
+            except Exception as e:
+                    print (f"Can not plot asic projection for {detid} ch {ch}, exception {e}")
 
         # save the individual figure
         for i,fig in tqdm.tqdm(enumerate(figures), desc=f'Saving data for {get_stripname(ch)}', total=len(figures)):
@@ -376,6 +415,18 @@ if __name__ == '__main__':
             pngfilename = fig
             ch_savenames[ch].append(os.path.join(args.outdir, pngfilename))
             pktimes_savenames[xs[i]].append(os.path.join(args.outdir, pngfilename))
+
+    # save the asic projection plot
+    ax = asic_pr_plot.gca()
+    # a thin line for xray/tracking 
+    ax.hlines(4,0,2, color="gray", alpha=0.7, lw=0.5)
+    print (f'Found max asic {asic_max}')
+    ax.set_ylim(top=asic_max + (0.1*asic_max))
+    ax.legend(ncol=4,fontsize='small')
+    asicplotname = f'asic-pr-det{detid}.png'
+    asicplotname = os.path.join(args.outdir, asicplotname)
+    asic_pr_plot.savefig(asicplotname)
+
         
     # let's write a textfile as well
     summaryfile = open(os.path.join(args.outdir, f'summary-{detid}.dat'), 'w')
@@ -387,27 +438,32 @@ if __name__ == '__main__':
         summaryfile.write(f'{detid}\t{get_stripname(ds.channel)}\t{ds.ptime:4.2f}\t{ds.fwhm:4.2f}\t{ds.fwhm_err:4.2f}\n')
     summaryfile.close()
 
-    # combine all the figures for a specific ch in 
-    # one panel with imagemagic
-    for ch in ch_savenames.keys():
-        mplotname = os.path.join(args.outdir,f'det{detid}-{get_stripname(ch)}')
-        command = f'montage -geometry +4+4 -tile 5x2 '
-        for gfx in ch_savenames[ch]:
-            command += f' {gfx} '
-        command += f' {mplotname}'  
 
-        logger.info(f'Executing {command}')
-        proc = subprocess.Popen(shlex.split(command + '.pdf')).communicate()
-        proc = subprocess.Popen(shlex.split(command + '.png')).communicate()
-        proc = subprocess.Popen(shlex.split(command + '.jpg')).communicate()
-       
-        # shrink the jpg so it will go in google docs presentation
-        command_shrink = f'convert {mplotname}.jpg -resize 50% -normalize  {mplotname}.jpg'
-        proc = subprocess.Popen(shlex.split(command_shrink)).communicate()
+
 
     # also combine all the figures for a specific peaking time in 
-    # one panel with imagemagic
+    # one panel with imagemagick
+    # this is a nice feature, however sometimes it can consume
+    # a lot of memory
     if args.combine_images:
+        # combine all the figures for a specific ch in 
+        # one panel with imagemagic
+        for ch in ch_savenames.keys():
+            mplotname = os.path.join(args.outdir,f'det{detid}-{get_stripname(ch)}')
+            command = f'montage -geometry +4+4 -tile 5x2 '
+            for gfx in ch_savenames[ch]:
+                command += f' {gfx} '
+            command += f' {mplotname}'  
+
+            logger.info(f'Executing {command}')
+            proc = subprocess.Popen(shlex.split(command + '.pdf')).communicate()
+            proc = subprocess.Popen(shlex.split(command + '.png')).communicate()
+            proc = subprocess.Popen(shlex.split(command + '.jpg')).communicate()
+           
+            # shrink the jpg so it will go in google docs presentation
+            command_shrink = f'convert {mplotname}.jpg -resize 50% -normalize  {mplotname}.jpg'
+            proc = subprocess.Popen(shlex.split(command_shrink)).communicate()
+
         for pktime in pktimes_savenames.keys():
 
             mplotname = os.path.join(args.outdir,f'det{detid}-pktime{pktime}')

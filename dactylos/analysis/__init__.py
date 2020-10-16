@@ -46,7 +46,7 @@ def fit_all_strips(data, detector_id,\
             fit_method = 'gauss'
         try:
             fig, model =    fit_noisemodel(ptime, fwhm, fwhm_err,\
-                                           i, detector_id, plotdir='/tmp/',\
+                                           i, detector_id, plotdir=plotdir,\
                                            use_minuit=use_minuit,
                                            use_direct_model=use_direct_model,\
                                            debug_minuit=debug_minuit,
