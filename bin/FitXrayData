@@ -30,7 +30,9 @@ import tqdm
 from dactylos.analysis.waveform_analysis import WaveformAnalysis
 from dactylos.analysis.noisemodel import noise_model, fit_noisemodel, extract_parameters_from_noisemodel   
 from dactylos.analysis.spectrum_fits import fit_file
-from dactylos.analysis.utils import get_stripname, plot_waveform 
+from dactylos.analysis.utils import get_stripname,\
+                                    plot_waveform,\
+                                    get_data_from_mit_file
 from dactylos.analysis.asic_projection import enc2_asic, asic_projection_plot
 # call imagemapgick with subprocess
 # FIXME: there are python bindings
@@ -95,6 +97,9 @@ if __name__ == '__main__':
     parser.add_argument('-i','--indir', dest='indir',
                         default=".",type=str,
                         help='glob all rootfiles in this directory for input"')
+    parser.add_argument('--mit-infile', dest='mit_infile',
+                        default=".",type=str,
+                        help='Use a single file for input. Typically used for MC2 measurement performed at MIT"')
     parser.add_argument('-o','--outdir', dest='outdir',
                         default="firxraydata-outdir",type=str,
                         help='save plots in a directory named "outdir"')
@@ -154,13 +159,18 @@ if __name__ == '__main__':
         executor = fut.ProcessPoolExecutor(max_workers=14)
 
     if args.mc2:
-        infiles = []
-        subfolders = glob(os.path.join(args.indir, '*'))
-        for subfolder in subfolders:
-            infiles += glob(os.path.join(subfolder, '*.txt'))
+        if args.mit_infile:
+            regex = 'Sh0(?P<detid>[0-9]*)_-37C.txt'
+            dataset = get_data_from_mit_file(args.mit_infile)
+            pattern = re.compile(regex)
+        else:
+            Binfiles = []
+            subfolders = glob(os.path.join(args.indir, '*'))
+            for subfolder in subfolders:
+                infiles += glob(os.path.join(subfolder, '*.txt'))
 
-        regex = 'pt_(?P<stime>[0-9]*)_(mus|mu_s|ns)\/Sh(?P<detid>[0-9]*)_(?P<strip>[A-H]).txt' 
-        pattern = re.compile(regex)
+            regex = 'pt_(?P<stime>[0-9]*)_(mus|mu_s|ns)\/Sh(?P<detid>[0-9]*)_(?P<strip>[A-H]).txt' 
+            pattern = re.compile(regex)
         method = 'trapezoid' # mc2 uses a trapezoid
     else:
         infiles = glob(os.path.join(args.indir, '*.root'))
@@ -266,35 +276,39 @@ if __name__ == '__main__':
             break
 
         elif args.mc2:
-            logger.info(f"Loading {infile}")
-            metadata = pattern.search(infile).groupdict()
-            ptime = int(metadata['stime'])
-            if ptime < 500:
-                ptime *= 1000 # converti to ns
-            detid = int(metadata['detid'])
-            strip = metadata['strip'] 
-            
-            #for ch in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']:
-            ch = ch_name_to_int[strip]
-            kwargs = {'infilename' : copy(infile),\
-                      'channel'    : copy(ch),\
-                      'plot_dir'   : copy(args.outdir),\
-                      'ptime'      : copy(ptime),\
-                      'detid'      : copy(detid),\
-                      'file_type'  : '.txt'
-            }
-            
-            if args.njobs > 1:
-                future_to_ptime[executor.submit(fit_file, **kwargs)] = ptime 
+            if args.mit_infile:
+                detid = pattern.search(args.mit_infile).gropudict()['detid']
+                datasets = get_data_from_mit_file(args.mit_infile)
             else:
-                detid, ch, params, params_err, figname = fit_file(**kwargs)
-                data = PeakingTimeRun(detid = detid,\
-                                      channel = ch,\
-                                      fwhm = params[1],\
-                                      fwhm_err = params_err['fwhm0'],\
-                                      ptime = ptime,\
-                                      figname = figname)
-                datasets.append(data)
+                logger.info(f"Loading {infile}")
+                metadata = pattern.search(infile).groupdict()
+                ptime = int(metadata['stime'])
+                if ptime < 500:
+                    ptime *= 1000 # converti to ns
+                detid = int(metadata['detid'])
+                strip = metadata['strip'] 
+                
+                #for ch in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']:
+                ch = ch_name_to_int[strip]
+                kwargs = {'infilename' : copy(infile),\
+                          'channel'    : copy(ch),\
+                          'plot_dir'   : copy(args.outdir),\
+                          'ptime'      : copy(ptime),\
+                          'detid'      : copy(detid),\
+                          'file_type'  : '.txt'
+                }
+                
+                if args.njobs > 1:
+                    future_to_ptime[executor.submit(fit_file, **kwargs)] = ptime 
+                else:
+                    detid, ch, params, params_err, figname = fit_file(**kwargs)
+                    data = PeakingTimeRun(detid = detid,\
+                                          channel = ch,\
+                                          fwhm = params[1],\
+                                          fwhm_err = params_err['fwhm0'],\
+                                          ptime = ptime,\
+                                          figname = figname)
+                    datasets.append(data)
         else:  
             # last option will be anlyzing data taken 
             # with dactylos (root files) one file 
