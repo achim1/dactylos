@@ -10,8 +10,7 @@ import uproot as up
 import tqdm
 import os
 import os.path
-
-#from copy import copy
+import random
 
 import hepbasestack as hep 
 
@@ -275,6 +274,7 @@ class WaveformAnalysis(object):
         #return channel_data
 
     def plot_waveforms(self, ch, nwaveforms,\
+                       randomized=False,\
                        prefix='',\
                        savedir='.'):
         """
@@ -285,8 +285,11 @@ class WaveformAnalysis(object):
             nwaveforms (int)      : Plot the first nwaveforms
     
         Keyword Args: 
-            prefix (str)          : A prefix to the filename
-            savedir (str)         : Save the resulting plot in this directory
+            randomized (bool)     : Instead of plotting the first <nwaveforms>
+                                    plot <nwaverforms> random waveforms picked from anywhere 
+                                    in the file.
+            prefix     (str)      : A prefix to the filename
+            savedir    (str)      : Save the resulting plot in this directory
 
         """
         wfplot = p.figure()
@@ -295,10 +298,16 @@ class WaveformAnalysis(object):
         if lines == 0 : lines = 1
         nwaveforms = lines*3
 
+        if randomized: 
+            indexes = [random.choice(np.arange(0,len(self.channel_data[ch]),1)) for k in range(nwaveforms)]
+            logger.info(f'Will plot random waveforms with indexes {indexes}')
         #times = np.array([k for k in range(len(self.channel_data[ch][0]))])
         for i in tqdm.tqdm(range(nwaveforms), total=nwaveforms, desc="Plotting waveforms.."):
             ax = wfplot.add_subplot(lines, 3, i+1)
-            volts = self.channel_data[ch][i]
+            if randomized:
+                volts = self.channel_data[ch][indexes[i]]
+            else:
+                volts = self.channel_data[ch][i]
             # FIXME - temporary workaround
             times = np.array([k for k in range(len(volts))])
             ax = plot_waveform(ax, times, volts)     
