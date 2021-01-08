@@ -80,7 +80,7 @@ def baseline_correction(input_pulses, nsamples=2000, save_memory=True):
     """
 
     absolute_zero = (2**14)/2
-    baseline = input_pulses[:nsamples].mean()
+    baseline = np.asarray(input_pulses[:nsamples]).mean()
     #print (baseline) 
     #baseline = input[:nsamples].mean() - zero
     #print (f"Baseline calculation gives us {baseline}")
