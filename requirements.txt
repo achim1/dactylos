@@ -1,6 +1,6 @@
 numpy>=1.17.4
 tqdm>=4.46.0
-uproot>=3.11.6
+uproot>=4.0.0
 matplotlib>=3.3.0
 dataclasses>=0.6
 scipy>=1.4.1

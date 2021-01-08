@@ -35,15 +35,15 @@ def inspect_file(filename):
         ch_inspect.n_waveforms = 0 
         ch_inspect.n_trigger   = 0
         try:
-            ch_inspect.n_energies  = chdata.get(ENERGY).numentries
+            ch_inspect.n_energies  = chdata.get(ENERGY).num_entries
         except Exception as e:
             print (f'Can not get energies, exception {e}')
         try:
-            ch_inspect.n_waveforms = chdata.get(WAVEFORM).numentries
+            ch_inspect.n_waveforms = chdata.get(WAVEFORM).num_entries
         except Exception as e:
             print (f'Can not get waveforms, exception {e}')
         try:
-            ch_inspect.n_trigger   = chdata.get(TRIGGER).numentries
+            ch_inspect.n_trigger   = chdata.get(TRIGGER).num_entries
         except Exception as e:
             print (f'Can not get triggers, exception {e}')
         inspector[k] = ch_inspect

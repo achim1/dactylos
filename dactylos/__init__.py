@@ -5,7 +5,7 @@ Supports:
  - DPP-PHA firmware
 """
 
-__version__ = '0.0.26'
+__version__ = '0.0.27'
 
 
 from .CaenN6725 import CaenN6725
