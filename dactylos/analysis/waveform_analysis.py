@@ -44,7 +44,7 @@ def read_waveform(infile, ch, entrystop=None, save_memory=True):
                   as set when configuring the digitizer
     """
     f = up.open(infile)
-    data = f.get('ch' + str(ch)).get('waveform').array(entrystop=entrystop)
+    data = f.get('ch' + str(ch)).get('waveform').array(entry_stop=entrystop)
     # we omit empty events here. This should not happen
     # but might happen during digitizer software debugging
     data = [baseline_correction(k, nsamples=1000)[0] for k in data if len(k) > 0]
