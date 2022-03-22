@@ -26,3 +26,7 @@ class GaussShaper(object):
         y = sosfilt(self.sos,tailpulses)
         return max(y)
 
+    def get_shaped_wf(self, tailpulses):
+        y = sosfilt(self.sos,tailpulses)
+        return y 
+
