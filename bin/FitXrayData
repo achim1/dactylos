@@ -156,7 +156,7 @@ if __name__ == '__main__':
         logger.warning(f'Can not create directory {args.outdir}! {e}')
 
     if args.njobs > 1:
-        executor = fut.ProcessPoolExecutor(max_workers=14)
+        executor = fut.ProcessPoolExecutor(max_workers=args.njobs)
 
     if args.mc2:
         if args.mit_infile:
