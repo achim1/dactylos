@@ -13,13 +13,35 @@ class Measurment:
     A simple container holding spectral fit results
     """
     ptime         : int
+    channel       : int   #FIXME compatibility
     strip         : str
     mtype         : str
     fwhm          : float
     fwhme         : float
+    fwhm_err      : float #FIXME compatibility
     ptimefromfile : int = -1
     filename      : str = ''
     statistics    : int = -1
+    figname       : str = ''
+
+def strip_to_channel(strip):
+    mapping = {'A' : 0,\
+               'B' : 1,\
+               'C' : 2,\
+               'D' : 3,\
+               'E' : 4,\
+               'F' : 5,\
+               'G' : 6,\
+               'H' : 7}
+    # compatibility
+    thiskeys = [k for k in mapping.keys()]
+    for k in thiskeys:
+        mapping[f'strip{k}'] = mapping[k]
+    return mapping[strip]
+                   
+
+
+
 
 #################################################################
 
@@ -42,9 +64,11 @@ def get_data_from_summaryfile(sfile, mtype):
             continue
         line = line.split()
         m = Measurment(ptime = float(line[2]),\
+                       channel = strip_to_channel(line[1]),\
                        mtype = mtype,\
                        strip = line[1],\
                        fwhm  = float(line[3]),\
+                       fwhm_err = float(line[4]),\
                        fwhme = float(line[4]))
         data.append(m)
     return data
@@ -65,10 +89,13 @@ def get_data_from_mit_file(sfile):
             continue
         line = line.split()
         m = Measurment(ptime = float(1000*float(line[2])),\
+                       channel = strip_to_channel(line[1]),\
                        mtype = 'MC2',\
                        strip = f'strip{line[1]}',\
                        fwhm  = float(line[5]),\
-                       fwhme = float(line[6]))
+                       fwhme = float(line[6]),
+                       fwhm_err =float(line[6]))
+
         data.append(m)
     return data
 
