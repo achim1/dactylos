@@ -161,10 +161,9 @@ if __name__ == '__main__':
     if args.mc2:
         if args.mit_infile:
             regex = 'Sh0(?P<detid>[0-9]*)_-37C.txt'
-            dataset = get_data_from_mit_file(args.mit_infile)
             pattern = re.compile(regex)
         else:
-            Binfiles = []
+            infiles = []
             subfolders = glob(os.path.join(args.indir, '*'))
             for subfolder in subfolders:
                 infiles += glob(os.path.join(subfolder, '*.txt'))
@@ -269,6 +268,8 @@ if __name__ == '__main__':
     # this type of analysis is performed here
     # there is one if-branch for linux and 
     # another one for mc2/windows
+    if args.mit_infile:
+        infiles = [args.mit_infile]
     for infile in infiles:
         if args.waveform_analysis:
             # we do not need this step here and can 
@@ -277,8 +278,8 @@ if __name__ == '__main__':
 
         elif args.mc2:
             if args.mit_infile:
-                detid = pattern.search(args.mit_infile).gropudict()['detid']
-                datasets = get_data_from_mit_file(args.mit_infile)
+                detid = pattern.search(args.mit_infile).groupdict()['detid']
+                datasets = get_data_from_mit_file(open(args.mit_infile))
             else:
                 logger.info(f"Loading {infile}")
                 metadata = pattern.search(infile).groupdict()
